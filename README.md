@@ -18,7 +18,28 @@
 
 ## 🚀 Quick Start (Super Easy!)
 
-### Step 1: Set Up Your API Keys
+### Option 1: Using Docker (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/AsyncFuncAI/deepwiki-open.git
+cd deepwiki-open
+
+# Create a .env file with your API keys
+echo "GOOGLE_API_KEY=your_google_api_key" > .env
+echo "OPENAI_API_KEY=your_openai_api_key" >> .env
+
+# Run with Docker Compose
+docker-compose up
+```
+
+> 💡 **Where to get these keys:**
+> - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+> - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+
+### Option 2: Manual Setup
+
+#### Step 1: Set Up Your API Keys
 
 Create a `.env` file in the project root with these keys:
 
@@ -27,11 +48,7 @@ GOOGLE_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-> 💡 **Where to get these keys:**
-> - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-> - Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-
-### Step 2: Start the Backend
+#### Step 2: Start the Backend
 
 ```bash
 # Install Python dependencies
@@ -41,7 +58,7 @@ pip install -r api/requirements.txt
 python -m api.main
 ```
 
-### Step 3: Start the Frontend
+#### Step 3: Start the Frontend
 
 ```bash
 # Install JavaScript dependencies
@@ -122,6 +139,29 @@ deepwiki/
 | `GOOGLE_API_KEY` | Google Gemini API key for AI generation | Yes |
 | `OPENAI_API_KEY` | OpenAI API key for embeddings | Yes |
 | `PORT` | Port for the API server (default: 8001) | No |
+
+### Docker Setup
+
+You can use Docker to run DeepWiki:
+
+```bash
+# Pull the image from GitHub Container Registry
+docker pull ghcr.io/asyncfuncai/deepwiki-open:latest
+
+# Run the container
+docker run -p 8001:8001 -p 3000:3000 \
+  -e GOOGLE_API_KEY=your_google_api_key \
+  -e OPENAI_API_KEY=your_openai_api_key \
+  -v ~/.adalflow:/root/.adalflow \
+  ghcr.io/asyncfuncai/deepwiki-open:latest
+```
+
+Or use the provided `docker-compose.yml` file:
+
+```bash
+# Edit the .env file with your API keys first
+docker-compose up
+```
 
 ### API Server Details
 
