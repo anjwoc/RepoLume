@@ -170,17 +170,18 @@ IMPORTANT FORMATTING RULES:
         self.db_manager = DatabaseManager()
         self.transformed_docs = []
 
-    def prepare_retriever(self, repo_url_or_path: str):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None):
         """
         Prepare the retriever for a repository.
         Will load database from local storage if available.
 
         Args:
             repo_url_or_path: URL or local path to the repository
+            access_token: Optional access token for private repositories
         """
         self.initialize_db_manager()
         self.repo_url_or_path = repo_url_or_path
-        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path)
+        self.transformed_docs = self.db_manager.prepare_database(repo_url_or_path, access_token)
         logger.info(f"Loaded {len(self.transformed_docs)} documents for retrieval")
         self.retriever = FAISSRetriever(
             **configs["retriever"],

@@ -53,6 +53,8 @@ class ChatCompletionRequest(BaseModel):
     repo_url: str = Field(..., description="URL of the repository to query")
     messages: List[ChatMessage] = Field(..., description="List of chat messages")
     filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
+    github_token: Optional[str] = Field(None, description="GitHub personal access token for private repositories")
+    gitlab_token: Optional[str] = Field(None, description="GitLab personal access token for private repositories")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
@@ -72,7 +74,17 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         # Create a new RAG instance for this request
         try:
             request_rag = RAG()
-            request_rag.prepare_retriever(request.repo_url)
+
+            # Determine which access token to use based on the repository URL
+            access_token = None
+            if "github.com" in request.repo_url and request.github_token:
+                access_token = request.github_token
+                logger.info("Using GitHub token for authentication")
+            elif "gitlab.com" in request.repo_url and request.gitlab_token:
+                access_token = request.gitlab_token
+                logger.info("Using GitLab token for authentication")
+
+            request_rag.prepare_retriever(request.repo_url, access_token)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except Exception as e:
             logger.error(f"Error preparing retriever: {str(e)}")
@@ -196,7 +208,14 @@ This file contains...
         file_content = ""
         if request.filePath:
             try:
-                file_content = get_file_content(request.repo_url, request.filePath)
+                # Determine which access token to use based on the repository URL
+                access_token = None
+                if "github.com" in request.repo_url and request.github_token:
+                    access_token = request.github_token
+                elif "gitlab.com" in request.repo_url and request.gitlab_token:
+                    access_token = request.gitlab_token
+
+                file_content = get_file_content(request.repo_url, request.filePath, access_token)
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
                 # Add file content to the prompt after conversation history
                 prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"

@@ -43,13 +43,14 @@ def count_tokens(text: str, model: str = "text-embedding-3-small") -> int:
         # Rough approximation: 4 characters per token
         return len(text) // 4
 
-def download_repo(repo_url: str, local_path: str):
+def download_repo(repo_url: str, local_path: str, access_token: str = None):
     """
     Downloads a Git repository (GitHub or GitLab) to a specified local path.
 
     Args:
         repo_url (str): The URL of the Git repository to clone.
         local_path (str): The local directory where the repository will be cloned.
+        access_token (str, optional): Access token for private repositories.
 
     Returns:
         str: The output message from the `git` command.
@@ -73,10 +74,24 @@ def download_repo(repo_url: str, local_path: str):
         # Ensure the local path exists
         os.makedirs(local_path, exist_ok=True)
 
+        # Prepare the clone URL with access token if provided
+        clone_url = repo_url
+        if access_token:
+            # Determine the repository type and format the URL accordingly
+            if "github.com" in repo_url:
+                # Format: https://{token}@github.com/owner/repo.git
+                clone_url = repo_url.replace("https://", f"https://{access_token}@")
+            elif "gitlab.com" in repo_url:
+                # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
+                clone_url = repo_url.replace("https://", f"https://oauth2:{access_token}@")
+
+            logger.info("Using access token for authentication")
+
         # Clone the repository
         logger.info(f"Cloning repository from {repo_url} to {local_path}")
+        # We use repo_url in the log to avoid exposing the token in logs
         result = subprocess.run(
-            ["git", "clone", repo_url, local_path],
+            ["git", "clone", clone_url, local_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -86,7 +101,11 @@ def download_repo(repo_url: str, local_path: str):
         return result.stdout.decode("utf-8")
 
     except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error during cloning: {e.stderr.decode('utf-8')}")
+        error_msg = e.stderr.decode('utf-8')
+        # Sanitize error message to remove any tokens
+        if access_token and access_token in error_msg:
+            error_msg = error_msg.replace(access_token, "***TOKEN***")
+        raise ValueError(f"Error during cloning: {error_msg}")
     except Exception as e:
         raise ValueError(f"An unexpected error occurred: {str(e)}")
 
@@ -240,13 +259,14 @@ def transform_documents_and_save_to_db(
     db.save_state(filepath=db_path)
     return db
 
-def get_github_file_content(repo_url: str, file_path: str) -> str:
+def get_github_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a GitHub repository using the GitHub API.
 
     Args:
         repo_url (str): The URL of the GitHub repository (e.g., "https://github.com/username/repo")
         file_path (str): The path to the file within the repository (e.g., "src/main.py")
+        access_token (str, optional): GitHub personal access token for private repositories
 
     Returns:
         str: The content of the file as a string
@@ -270,9 +290,15 @@ def get_github_file_content(repo_url: str, file_path: str) -> str:
         # The API endpoint for getting file content is: /repos/{owner}/{repo}/contents/{path}
         api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
 
+        # Prepare curl command with authentication if token is provided
+        curl_cmd = ["curl", "-s"]
+        if access_token:
+            curl_cmd.extend(["-H", f"Authorization: token {access_token}"])
+        curl_cmd.append(api_url)
+
         logger.info(f"Fetching file content from GitHub API: {api_url}")
         result = subprocess.run(
-            ["curl", "-s", api_url],
+            curl_cmd,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -297,19 +323,24 @@ def get_github_file_content(repo_url: str, file_path: str) -> str:
             raise ValueError("File content not found in GitHub API response")
 
     except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error fetching file content: {e.stderr.decode('utf-8')}")
+        error_msg = e.stderr.decode('utf-8')
+        # Sanitize error message to remove any tokens
+        if access_token and access_token in error_msg:
+            error_msg = error_msg.replace(access_token, "***TOKEN***")
+        raise ValueError(f"Error fetching file content: {error_msg}")
     except json.JSONDecodeError:
         raise ValueError("Invalid response from GitHub API")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
-def get_gitlab_file_content(repo_url: str, file_path: str) -> str:
+def get_gitlab_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a GitLab repository using the GitLab API.
 
     Args:
         repo_url (str): The URL of the GitLab repository (e.g., "https://gitlab.com/username/repo")
         file_path (str): The path to the file within the repository (e.g., "src/main.py")
+        access_token (str, optional): GitLab personal access token for private repositories
 
     Returns:
         str: The content of the file as a string
@@ -343,9 +374,15 @@ def get_gitlab_file_content(repo_url: str, file_path: str) -> str:
         encoded_file_path = file_path.replace('/', '%2F')
         api_url = f"https://gitlab.com/api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw?ref=main"
 
+        # Prepare curl command with authentication if token is provided
+        curl_cmd = ["curl", "-s"]
+        if access_token:
+            curl_cmd.extend(["-H", f"PRIVATE-TOKEN: {access_token}"])
+        curl_cmd.append(api_url)
+
         logger.info(f"Fetching file content from GitLab API: {api_url}")
         result = subprocess.run(
-            ["curl", "-s", api_url],
+            curl_cmd,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -362,8 +399,15 @@ def get_gitlab_file_content(repo_url: str, file_path: str) -> str:
                     # Try with 'master' branch if 'main' failed
                     api_url = f"https://gitlab.com/api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw?ref=master"
                     logger.info(f"Retrying with master branch: {api_url}")
+
+                    # Prepare curl command for retry
+                    curl_cmd = ["curl", "-s"]
+                    if access_token:
+                        curl_cmd.extend(["-H", f"PRIVATE-TOKEN: {access_token}"])
+                    curl_cmd.append(api_url)
+
                     result = subprocess.run(
-                        ["curl", "-s", api_url],
+                        curl_cmd,
                         check=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -382,17 +426,22 @@ def get_gitlab_file_content(repo_url: str, file_path: str) -> str:
         return content
 
     except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error fetching file content: {e.stderr.decode('utf-8')}")
+        error_msg = e.stderr.decode('utf-8')
+        # Sanitize error message to remove any tokens
+        if access_token and access_token in error_msg:
+            error_msg = error_msg.replace(access_token, "***TOKEN***")
+        raise ValueError(f"Error fetching file content: {error_msg}")
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
-def get_file_content(repo_url: str, file_path: str) -> str:
+def get_file_content(repo_url: str, file_path: str, access_token: str = None) -> str:
     """
     Retrieves the content of a file from a Git repository (GitHub or GitLab).
 
     Args:
         repo_url (str): The URL of the repository
         file_path (str): The path to the file within the repository
+        access_token (str, optional): Access token for private repositories
 
     Returns:
         str: The content of the file as a string
@@ -401,9 +450,9 @@ def get_file_content(repo_url: str, file_path: str) -> str:
         ValueError: If the file cannot be fetched or if the URL is not valid
     """
     if "github.com" in repo_url:
-        return get_github_file_content(repo_url, file_path)
+        return get_github_file_content(repo_url, file_path, access_token)
     elif "gitlab.com" in repo_url:
-        return get_gitlab_file_content(repo_url, file_path)
+        return get_gitlab_file_content(repo_url, file_path, access_token)
     else:
         raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
 
@@ -417,13 +466,19 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def prepare_database(self, repo_url_or_path: str) -> List[Document]:
+    def prepare_database(self, repo_url_or_path: str, access_token: str = None) -> List[Document]:
         """
         Create a new database from the repository.
-        :return: List of Document objects
+
+        Args:
+            repo_url_or_path (str): The URL or local path of the repository
+            access_token (str, optional): Access token for private repositories
+
+        Returns:
+            List[Document]: List of Document objects
         """
         self.reset_database()
-        self._create_repo(repo_url_or_path)
+        self._create_repo(repo_url_or_path, access_token)
         return self.prepare_db_index()
 
     def reset_database(self):
@@ -434,12 +489,16 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def _create_repo(self, repo_url_or_path: str) -> None:
+    def _create_repo(self, repo_url_or_path: str, access_token: str = None) -> None:
         """
         Download and prepare all paths.
         Paths:
         ~/.adalflow/repos/{repo_name} (for url, local path will be the same)
         ~/.adalflow/databases/{repo_name}.pkl
+
+        Args:
+            repo_url_or_path (str): The URL or local path of the repository
+            access_token (str, optional): Access token for private repositories
         """
         logger.info(f"Preparing repo storage for {repo_url_or_path}...")
 
@@ -466,7 +525,7 @@ class DatabaseManager:
                 # Check if the repository directory already exists and is not empty
                 if not (os.path.exists(save_repo_dir) and os.listdir(save_repo_dir)):
                     # Only download if the repository doesn't exist or is empty
-                    download_repo(repo_url_or_path, save_repo_dir)
+                    download_repo(repo_url_or_path, save_repo_dir, access_token)
                 else:
                     logger.info(f"Repository already exists at {save_repo_dir}. Using existing repository.")
             else:  # local path
@@ -517,9 +576,16 @@ class DatabaseManager:
         logger.info(f"Total transformed documents: {len(transformed_docs)}")
         return transformed_docs
 
-    def prepare_retriever(self, repo_url_or_path: str):
+    def prepare_retriever(self, repo_url_or_path: str, access_token: str = None):
         """
         Prepare the retriever for a repository.
         This is a compatibility method for the isolated API.
+
+        Args:
+            repo_url_or_path (str): The URL or local path of the repository
+            access_token (str, optional): Access token for private repositories
+
+        Returns:
+            List[Document]: List of Document objects
         """
-        return self.prepare_database(repo_url_or_path)
+        return self.prepare_database(repo_url_or_path, access_token)

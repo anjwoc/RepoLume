@@ -12,6 +12,7 @@
 ## ✨ Features
 
 - **Instant Documentation**: Turn any GitHub or GitLab repo into a wiki in seconds
+- **Private Repository Support**: Securely access private repositories with personal access tokens
 - **Smart Analysis**: AI-powered understanding of code structure and relationships
 - **Beautiful Diagrams**: Automatic Mermaid diagrams to visualize architecture and data flow
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
@@ -76,13 +77,14 @@ yarn dev
 
 1. Open [http://localhost:3000](http://localhost:3000) in your browser
 2. Enter a GitHub or GitLab repository (like `facebook/react`, `vercel/next.js`, or `https://gitlab.com/gitlab-org/gitlab`)
-3. Click "Generate Wiki" and watch the magic happen!
+3. For private repositories, click "+ Add access tokens" and enter your GitHub or GitLab personal access token
+4. Click "Generate Wiki" and watch the magic happen!
 
 ## 🔍 How It Works
 
 DeepWiki uses AI to:
 
-1. Clone and analyze the GitHub or GitLab repository
+1. Clone and analyze the GitHub or GitLab repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
 3. Generate documentation with context-aware AI
 4. Create visual diagrams to explain code relationships
@@ -90,7 +92,10 @@ DeepWiki uses AI to:
 
 ```mermaid
 graph TD
-    A[User inputs GitHub/GitLab repo] --> B[Clone Repository]
+    A[User inputs GitHub/GitLab repo] --> AA{Private repo?}
+    AA -->|Yes| AB[Add access token]
+    AA -->|No| B[Clone Repository]
+    AB --> B
     B --> C[Analyze Code Structure]
     C --> D[Create Code Embeddings]
     D --> E[Generate Documentation]
@@ -102,9 +107,11 @@ graph TD
     classDef process fill:#f9f,stroke:#333,stroke-width:2px;
     classDef data fill:#bbf,stroke:#333,stroke-width:2px;
     classDef result fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef decision fill:#ffd,stroke:#333,stroke-width:2px;
 
     class A,D data;
-    class B,C,E,F,G process;
+    class AA decision;
+    class B,C,E,F,G,AB process;
     class H result;
 ```
 
@@ -177,6 +184,9 @@ For more details, see the [API README](./api/README.md).
 ![DeepWiki Main Interface](screenshots/Interface.png)
 *The main interface of DeepWiki*
 
+![Private Repository Support](screenshots/privaterepo.png)
+*Access private repositories with personal access tokens*
+
 ### Demo Video
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
@@ -196,6 +206,7 @@ For more details, see the [API README](./api/README.md).
 ### Generation Issues
 - **"Error generating wiki"**: For very large repositories, try a smaller one first
 - **"Invalid repository format"**: Make sure you're using a valid GitHub or GitLab URL format
+- **"Could not fetch repository structure"**: For private repositories, ensure you've entered a valid personal access token with appropriate permissions
 - **"Diagram rendering error"**: The app will automatically try to fix broken diagrams
 
 ### Common Solutions

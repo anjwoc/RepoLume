@@ -60,6 +60,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
+
+  // State for access tokens
+  const [githubToken, setGithubToken] = useState('');
+  const [gitlabToken, setGitlabToken] = useState('');
+  const [showTokenInputs, setShowTokenInputs] = useState(false);
   const [wikiStructure, setWikiStructure] = useState<WikiStructure | undefined>();
   const [currentPageId, setCurrentPageId] = useState<string | undefined>();
   const [generatedPages, setGeneratedPages] = useState<Record<string, WikiPage>>({});
@@ -248,16 +253,13 @@ Please regenerate the diagram from scratch and return ONLY the corrected Mermaid
         // Make API call to generate page content
         console.log(`Starting content generation for page: ${page.title}`);
 
-        const response = await fetch('http://localhost:8001/chat/completions/stream', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            repo_url: `https://github.com/${owner}/${repo}`,
-            messages: [{
-              role: 'user',
-              content: `Generate comprehensive wiki page content for "${page.title}" in the repository ${owner}/${repo}.
+        // Determine which token to use based on the repository type
+        const repoUrl = repoInfo.type === 'github'
+          ? `https://github.com/${owner}/${repo}`
+          : `https://gitlab.com/${owner}/${repo}`;
+
+        // Create the prompt content
+        const promptContent = `Generate comprehensive wiki page content for "${page.title}" in the repository ${owner}/${repo}.
 
 This page should focus on the following files:
 ${filePaths.map(path => `- ${path}`).join('\n')}
@@ -283,38 +285,33 @@ MERMAID DIAGRAM INSTRUCTIONS:
 - Use proper formatting to avoid syntax errors:
   - Always have a space after "graph TD"
   - Use double dashes for arrows: A --> B (not A-B)
-  - For node labels with spaces, use brackets: A[Node Label]
-  - Keep diagrams simple and focused - don't try to show everything in one diagram
+  - Use proper node IDs (alphanumeric with no spaces)
+  - Add labels in square brackets: A[Label]`;
 
-- Use the following format for mermaid diagrams:
-\`\`\`mermaid
-graph TD
-  A[Start] --> B[Process]
-  B --> C[End Result]
+        // Prepare request body
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const requestBody: Record<string, any> = {
+          repo_url: repoUrl,
+          messages: [{
+            role: 'user',
+            content: promptContent
+          }]
+        };
 
-  %% You can use subgraphs to group related nodes
-  subgraph Component
-    B --> D[Helper Function]
-    D --> B
-  end
-\`\`\`
+        // Add tokens if available
+        if (githubToken && repoInfo.type === 'github') {
+          requestBody.github_token = githubToken;
+        }
+        if (gitlabToken && repoInfo.type === 'gitlab') {
+          requestBody.gitlab_token = gitlabToken;
+        }
 
-- Common diagram types to consider:
-  - graph TD (top-down graph) - PREFERRED for most cases
-  - sequenceDiagram (sequence diagram)
-  - classDiagram (class diagram)
-  - stateDiagram (state diagram)
-
-IMPORTANT FORMATTING INSTRUCTIONS:
-- Return ONLY the markdown content itself
-- DO NOT include \`\`\`markdown at the beginning or \`\`\` at the end
-- DO NOT wrap content in any code blocks or other delimiters
-- Start directly with the content (typically a heading)
-- Just provide the raw markdown content with no preamble or conclusion
-
-Return ONLY the raw markdown content for the wiki page.`
-            }]
-          }),
+        const response = await fetch('http://localhost:8001/chat/completions/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
@@ -377,7 +374,7 @@ Return ONLY the raw markdown content for the wiki page.`
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, pagesInProgress, originalMarkdown, currentRepoInfo]);
+  }, [generatedPages, pagesInProgress, originalMarkdown, currentRepoInfo, githubToken, gitlabToken, repoInfo.type]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -390,14 +387,16 @@ Return ONLY the raw markdown content for the wiki page.`
     try {
       setLoadingMessage('Determining wiki structure...');
 
-      const response = await fetch('http://localhost:8001/chat/completions/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          repo_url: `https://github.com/${owner}/${repo}`,
-          messages: [{
+      // Determine which token to use based on the repository type
+      const repoUrl = repoInfo.type === 'github'
+        ? `https://github.com/${owner}/${repo}`
+        : `https://gitlab.com/${owner}/${repo}`;
+
+      // Prepare request body
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requestBody: Record<string, any> = {
+        repo_url: repoUrl,
+        messages: [{
             role: 'user',
             content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
 
@@ -457,8 +456,23 @@ IMPORTANT:
 3. The relevant_files should be actual files from the repository that would be used to generate that page
 4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
           }]
-        }),
-      });
+        };
+
+        // Add tokens if available
+        if (githubToken && repoInfo.type === 'github') {
+          requestBody.github_token = githubToken;
+        }
+        if (gitlabToken && repoInfo.type === 'gitlab') {
+          requestBody.gitlab_token = gitlabToken;
+        }
+
+        const response = await fetch('http://localhost:8001/chat/completions/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
 
       if (!response.ok) {
         throw new Error(`Error determining wiki structure: ${response.status}`);
@@ -623,7 +637,7 @@ IMPORTANT:
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
       setLoadingMessage(undefined);
     }
-  }, [generatePageContent]);
+  }, [generatePageContent, githubToken, gitlabToken, repoInfo.type, pagesInProgress.size]);
 
   // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
@@ -657,18 +671,45 @@ IMPORTANT:
         // GitHub API approach
         // Try to get the tree data for common branch names
         let treeData = null;
+        let apiErrorDetails = '';
+
         for (const branch of ['main', 'master']) {
           const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
-          const response = await fetch(apiUrl);
+          const headers: HeadersInit = {
+            'Accept': 'application/vnd.github.v3+json'
+          };
 
-          if (response.ok) {
-            treeData = await response.json();
-            break;
+          // Add GitHub token if available
+          if (githubToken) {
+            headers['Authorization'] = `Bearer ${githubToken}`;
+          }
+
+          console.log(`Fetching repository structure from branch: ${branch}`);
+          try {
+            const response = await fetch(apiUrl, {
+              headers
+            });
+
+            if (response.ok) {
+              treeData = await response.json();
+              console.log('Successfully fetched repository structure');
+              break;
+            } else {
+              const errorData = await response.text();
+              apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+              console.error(`Error fetching repository structure: ${apiErrorDetails}`);
+            }
+          } catch (err) {
+            console.error(`Network error fetching branch ${branch}:`, err);
           }
         }
 
         if (!treeData || !treeData.tree) {
-          throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+          if (apiErrorDetails) {
+            throw new Error(`Could not fetch repository structure. API Error: ${apiErrorDetails}`);
+          } else {
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+          }
         }
 
         // Convert tree data to a string representation
@@ -679,13 +720,27 @@ IMPORTANT:
 
         // Try to fetch README.md content
         try {
-          const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`);
+          const headers: HeadersInit = {
+            'Accept': 'application/vnd.github.v3+json'
+          };
+
+          // Add GitHub token if available
+          if (githubToken) {
+            headers['Authorization'] = `Bearer ${githubToken}`;
+          }
+
+          const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+            headers
+          });
+
           if (readmeResponse.ok) {
             const readmeData = await readmeResponse.json();
             readmeContent = atob(readmeData.content);
+          } else {
+            console.warn(`Could not fetch README.md, status: ${readmeResponse.status}`);
           }
-        } catch {
-          console.warn('Could not fetch README.md, continuing with empty README');
+        } catch (err) {
+          console.warn('Could not fetch README.md, continuing with empty README', err);
         }
       }
       else if (type === 'gitlab') {
@@ -695,25 +750,48 @@ IMPORTANT:
 
         // Try to get the file tree for common branch names
         let filesData = null;
+        let apiErrorDetails = '';
+
         for (const branch of ['main', 'master']) {
+          const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${branch}&per_page=100`;
+          const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+          };
+
+          // Add GitLab token if available
+          if (gitlabToken) {
+            headers['PRIVATE-TOKEN'] = gitlabToken;
+          }
+
+          console.log(`Fetching GitLab repository structure from branch: ${branch}`);
           try {
-            const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${branch}&per_page=100`;
-            const response = await fetch(apiUrl);
+            const response = await fetch(apiUrl, {
+              headers
+            });
 
             if (response.ok) {
               filesData = await response.json();
+              console.log('Successfully fetched GitLab repository structure');
               break;
+            } else {
+              const errorData = await response.text();
+              apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
+              console.error(`Error fetching GitLab repository structure: ${apiErrorDetails}`);
             }
-          } catch (error) {
-            console.error(`Error fetching GitLab tree for branch ${branch}:`, error);
+          } catch (err) {
+            console.error(`Network error fetching GitLab branch ${branch}:`, err);
           }
         }
 
         if (!filesData || !Array.isArray(filesData) || filesData.length === 0) {
-          throw new Error('Could not fetch repository structure. Repository might not exist, be empty, private, or the API rate limit might be exceeded.');
+          if (apiErrorDetails) {
+            throw new Error(`Could not fetch repository structure. GitLab API Error: ${apiErrorDetails}`);
+          } else {
+            throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+          }
         }
 
-        // Convert file data to a string representation
+        // Convert files data to a string representation
         fileTreeData = filesData
           .filter((item: { type: string; path: string }) => item.type === 'blob')
           .map((item: { type: string; path: string }) => item.path)
@@ -722,20 +800,32 @@ IMPORTANT:
         // Try to fetch README.md content
         try {
           for (const branch of ['main', 'master']) {
+            const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
+            const headers: HeadersInit = {};
+
+            // Add GitLab token if available
+            if (gitlabToken) {
+              headers['PRIVATE-TOKEN'] = gitlabToken;
+            }
+
             try {
-              const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
-              const readmeResponse = await fetch(readmeUrl);
+              const readmeResponse = await fetch(readmeUrl, {
+                headers
+              });
 
               if (readmeResponse.ok) {
                 readmeContent = await readmeResponse.text();
+                console.log('Successfully fetched GitLab README.md');
                 break;
+              } else {
+                console.warn(`Could not fetch GitLab README.md for branch ${branch}, status: ${readmeResponse.status}`);
               }
-            } catch (error) {
-              console.warn(`Could not fetch README.md for branch ${branch}:`, error);
+            } catch (err) {
+              console.warn(`Error fetching GitLab README.md for branch ${branch}:`, err);
             }
           }
-        } catch {
-          console.warn('Could not fetch README.md, continuing with empty README');
+        } catch (err) {
+          console.warn('Could not fetch GitLab README.md, continuing with empty README', err);
         }
       }
 
@@ -748,7 +838,7 @@ IMPORTANT:
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
       setLoadingMessage(undefined);
     }
-  }, [repositoryInput, determineWikiStructure]);
+  }, [repositoryInput, determineWikiStructure, githubToken, gitlabToken]);
 
   // Define MarkdownComponents INSIDE the Home component function
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = useMemo(() => ({
@@ -824,31 +914,80 @@ IMPORTANT:
             <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-200">DeepWiki</h1>
           </div>
 
-          <form onSubmit={(e) => { e.preventDefault(); fetchRepositoryStructure(); }} className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaGithub className="text-gray-400" />
-              </div>
-              <input
-                type="text"
-                value={repositoryInput}
-                onChange={(e) => setRepositoryInput(e.target.value)}
-                placeholder="owner/repo or GitHub URL"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              {error && (
-                <div className="text-red-500 text-xs mt-1">
-                  {error}
+          <form onSubmit={(e) => { e.preventDefault(); fetchRepositoryStructure(); }} className="flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  {repositoryInput.includes('gitlab.com') ? <FaGitlab className="text-gray-400" /> : <FaGithub className="text-gray-400" />}
                 </div>
-              )}
+                <input
+                  type="text"
+                  value={repositoryInput}
+                  onChange={(e) => setRepositoryInput(e.target.value)}
+                  placeholder="owner/repo or GitHub/GitLab URL"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {error && (
+                  <div className="text-red-500 text-xs mt-1">
+                    {error}
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Loading...' : 'Generate Wiki'}
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Loading...' : 'Generate Wiki'}
-            </button>
+
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setShowTokenInputs(!showTokenInputs)}
+                className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 flex items-center"
+              >
+                {showTokenInputs ? '- Hide access tokens' : '+ Add access tokens for private repositories'}
+              </button>
+            </div>
+
+            {showTokenInputs && (
+              <div className="flex flex-col sm:flex-row gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                <div className="flex-1">
+                  <label htmlFor="github-token" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    GitHub Token (for private repos)
+                  </label>
+                  <input
+                    id="github-token"
+                    type="password"
+                    value={githubToken}
+                    onChange={(e) => setGithubToken(e.target.value)}
+                    placeholder="GitHub personal access token"
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Token is stored in memory only and never persisted.
+                  </p>
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="gitlab-token" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    GitLab Token (for private repos)
+                  </label>
+                  <input
+                    id="gitlab-token"
+                    type="password"
+                    value={gitlabToken}
+                    onChange={(e) => setGitlabToken(e.target.value)}
+                    placeholder="GitLab personal access token"
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Token is stored in memory only and never persisted.
+                  </p>
+                </div>
+              </div>
+            )}
           </form>
         </div>
       </header>
