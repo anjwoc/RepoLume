@@ -1,8 +1,8 @@
-# 🧠 DeepWiki
+# DeepWiki-Open
 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
 
-**DeepWiki** automatically creates beautiful, interactive wikis for any GitHub repository! Just enter a repo name, and DeepWiki will:
+**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub repository! Just enter a repo name, and DeepWiki will:
 
 1. Analyze the code structure
 2. Generate comprehensive documentation
