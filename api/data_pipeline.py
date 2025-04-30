@@ -43,12 +43,12 @@ def count_tokens(text: str, model: str = "text-embedding-3-small") -> int:
         # Rough approximation: 4 characters per token
         return len(text) // 4
 
-def download_github_repo(repo_url: str, local_path: str):
+def download_repo(repo_url: str, local_path: str):
     """
-    Downloads a GitHub repository to a specified local path.
+    Downloads a Git repository (GitHub or GitLab) to a specified local path.
 
     Args:
-        repo_url (str): The URL of the GitHub repository to clone.
+        repo_url (str): The URL of the Git repository to clone.
         local_path (str): The local directory where the repository will be cloned.
 
     Returns:
@@ -89,6 +89,9 @@ def download_github_repo(repo_url: str, local_path: str):
         raise ValueError(f"Error during cloning: {e.stderr.decode('utf-8')}")
     except Exception as e:
         raise ValueError(f"An unexpected error occurred: {str(e)}")
+
+# Alias for backward compatibility
+download_github_repo = download_repo
 
 def read_all_documents(path: str):
     """
@@ -300,6 +303,110 @@ def get_github_file_content(repo_url: str, file_path: str) -> str:
     except Exception as e:
         raise ValueError(f"Failed to get file content: {str(e)}")
 
+def get_gitlab_file_content(repo_url: str, file_path: str) -> str:
+    """
+    Retrieves the content of a file from a GitLab repository using the GitLab API.
+
+    Args:
+        repo_url (str): The URL of the GitLab repository (e.g., "https://gitlab.com/username/repo")
+        file_path (str): The path to the file within the repository (e.g., "src/main.py")
+
+    Returns:
+        str: The content of the file as a string
+
+    Raises:
+        ValueError: If the file cannot be fetched or if the URL is not a valid GitLab URL
+    """
+    try:
+        # Extract owner and repo name from GitLab URL
+        if not (repo_url.startswith("https://gitlab.com/") or repo_url.startswith("http://gitlab.com/")):
+            raise ValueError("Not a valid GitLab repository URL")
+
+        parts = repo_url.rstrip('/').split('/')
+        if len(parts) < 5:
+            raise ValueError("Invalid GitLab URL format")
+
+        # For GitLab, the URL format can be:
+        # - https://gitlab.com/username/repo
+        # - https://gitlab.com/group/subgroup/repo
+        # We need to extract the project path with namespace
+
+        # Remove the domain part
+        path_parts = parts[3:]
+        # Join the remaining parts to get the project path with namespace
+        project_path = '/'.join(path_parts).replace(".git", "")
+        # URL encode the path for API use
+        encoded_project_path = project_path.replace('/', '%2F')
+
+        # Use GitLab API to get file content
+        # The API endpoint for getting file content is: /api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw
+        encoded_file_path = file_path.replace('/', '%2F')
+        api_url = f"https://gitlab.com/api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw?ref=main"
+
+        logger.info(f"Fetching file content from GitLab API: {api_url}")
+        result = subprocess.run(
+            ["curl", "-s", api_url],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # GitLab API returns the raw file content directly
+        content = result.stdout.decode("utf-8")
+
+        # Check if we got an error response (GitLab returns JSON for errors)
+        if content.startswith('{') and '"message":' in content:
+            try:
+                error_data = json.loads(content)
+                if "message" in error_data:
+                    # Try with 'master' branch if 'main' failed
+                    api_url = f"https://gitlab.com/api/v4/projects/{encoded_project_path}/repository/files/{encoded_file_path}/raw?ref=master"
+                    logger.info(f"Retrying with master branch: {api_url}")
+                    result = subprocess.run(
+                        ["curl", "-s", api_url],
+                        check=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    content = result.stdout.decode("utf-8")
+
+                    # Check again for error
+                    if content.startswith('{') and '"message":' in content:
+                        error_data = json.loads(content)
+                        if "message" in error_data:
+                            raise ValueError(f"GitLab API error: {error_data['message']}")
+            except json.JSONDecodeError:
+                # If it's not valid JSON, it's probably the file content
+                pass
+
+        return content
+
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Error fetching file content: {e.stderr.decode('utf-8')}")
+    except Exception as e:
+        raise ValueError(f"Failed to get file content: {str(e)}")
+
+def get_file_content(repo_url: str, file_path: str) -> str:
+    """
+    Retrieves the content of a file from a Git repository (GitHub or GitLab).
+
+    Args:
+        repo_url (str): The URL of the repository
+        file_path (str): The path to the file within the repository
+
+    Returns:
+        str: The content of the file as a string
+
+    Raises:
+        ValueError: If the file cannot be fetched or if the URL is not valid
+    """
+    if "github.com" in repo_url:
+        return get_github_file_content(repo_url, file_path)
+    elif "gitlab.com" in repo_url:
+        return get_gitlab_file_content(repo_url, file_path)
+    else:
+        raise ValueError("Unsupported repository URL. Only GitHub and GitLab are supported.")
+
 class DatabaseManager:
     """
     Manages the creation, loading, transformation, and persistence of LocalDB instances.
@@ -341,14 +448,25 @@ class DatabaseManager:
 
             os.makedirs(root_path, exist_ok=True)
             # url
-            if repo_url_or_path.startswith("https://" or "http://"):
-                repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+            if repo_url_or_path.startswith("https://") or repo_url_or_path.startswith("http://"):
+                # Extract repo name based on the URL format
+                if "github.com" in repo_url_or_path:
+                    # GitHub URL format: https://github.com/owner/repo
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                elif "gitlab.com" in repo_url_or_path:
+                    # GitLab URL format: https://gitlab.com/owner/repo or https://gitlab.com/group/subgroup/repo
+                    # Use the last part of the URL as the repo name
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+                else:
+                    # Generic handling for other Git URLs
+                    repo_name = repo_url_or_path.split("/")[-1].replace(".git", "")
+
                 save_repo_dir = os.path.join(root_path, "repos", repo_name)
 
                 # Check if the repository directory already exists and is not empty
                 if not (os.path.exists(save_repo_dir) and os.listdir(save_repo_dir)):
                     # Only download if the repository doesn't exist or is empty
-                    download_github_repo(repo_url_or_path, save_repo_dir)
+                    download_repo(repo_url_or_path, save_repo_dir)
                 else:
                     logger.info(f"Repository already exists at {save_repo_dir}. Using existing repository.")
             else:  # local path

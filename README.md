@@ -2,7 +2,7 @@
 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
 
-**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub repository! Just enter a repo name, and DeepWiki will:
+**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub or GitLab repository! Just enter a repo name, and DeepWiki will:
 
 1. Analyze the code structure
 2. Generate comprehensive documentation
@@ -11,7 +11,7 @@
 
 ## ✨ Features
 
-- **Instant Documentation**: Turn any GitHub repo into a wiki in seconds
+- **Instant Documentation**: Turn any GitHub or GitLab repo into a wiki in seconds
 - **Smart Analysis**: AI-powered understanding of code structure and relationships
 - **Beautiful Diagrams**: Automatic Mermaid diagrams to visualize architecture and data flow
 - **Easy Navigation**: Simple, intuitive interface to explore the wiki
@@ -75,14 +75,14 @@ yarn dev
 ### Step 4: Use DeepWiki!
 
 1. Open [http://localhost:3000](http://localhost:3000) in your browser
-2. Enter a GitHub repository (like `facebook/react` or `vercel/next.js`)
+2. Enter a GitHub or GitLab repository (like `facebook/react`, `vercel/next.js`, or `https://gitlab.com/gitlab-org/gitlab`)
 3. Click "Generate Wiki" and watch the magic happen!
 
 ## 🔍 How It Works
 
 DeepWiki uses AI to:
 
-1. Clone and analyze the GitHub repository
+1. Clone and analyze the GitHub or GitLab repository
 2. Create embeddings of the code for smart retrieval
 3. Generate documentation with context-aware AI
 4. Create visual diagrams to explain code relationships
@@ -90,7 +90,7 @@ DeepWiki uses AI to:
 
 ```mermaid
 graph TD
-    A[User inputs GitHub repo] --> B[Clone Repository]
+    A[User inputs GitHub/GitLab repo] --> B[Clone Repository]
     B --> C[Analyze Code Structure]
     C --> D[Create Code Embeddings]
     D --> E[Generate Documentation]
@@ -195,6 +195,7 @@ For more details, see the [API README](./api/README.md).
 
 ### Generation Issues
 - **"Error generating wiki"**: For very large repositories, try a smaller one first
+- **"Invalid repository format"**: Make sure you're using a valid GitHub or GitLab URL format
 - **"Diagram rendering error"**: The app will automatically try to fix broken diagrams
 
 ### Common Solutions

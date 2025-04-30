@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState, useMemo } from 'react';
-import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub } from 'react-icons/fa';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub, FaGitlab } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -16,7 +16,7 @@ const DEMO_MERMAID_CHART = `graph TD
   B --> D[Component Relationships]
   B --> E[Data Flow]
   B --> F[Process Workflows]
-  
+
   style A fill:#f9d3a9,stroke:#d86c1f
   style B fill:#d4a9f9,stroke:#6c1fd8
   style C fill:#a9f9d3,stroke:#1fd86c
@@ -46,7 +46,7 @@ const wikiStyles = `
   .prose code {
     @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded font-mono text-xs;
   }
-  
+
   .prose pre {
     @apply bg-gray-900 text-gray-100 rounded-md p-4 overflow-x-auto;
   }
@@ -56,7 +56,7 @@ export default function Home() {
   // Separate states for better management
   const [repositoryInput, setRepositoryInput] = useState('facebook/react');
   // Store repo info for UI display and other non-callback purposes
-  const [repoInfo, setRepoInfo] = useState({ owner: '', repo: '' });
+  const [repoInfo, setRepoInfo] = useState({ owner: '', repo: '', type: 'github' });
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export default function Home() {
       console.error('Cannot retry Mermaid: Missing current page ID or original markdown.');
       return;
     }
-    
+
     // Need owner and repo for the API call
     const { owner, repo } = currentRepoInfo;
     if (!owner || !repo) {
@@ -128,15 +128,15 @@ Please regenerate the diagram from scratch and return ONLY the corrected Mermaid
       correctedMermaidBlock = correctedMermaidBlock.trim();
       if (correctedMermaidBlock.startsWith('```mermaid') && correctedMermaidBlock.endsWith('```')) {
         console.log('Received corrected Mermaid block from API.');
-        
+
         // Find the original broken chart in the full markdown and replace it
         // This simple replacement assumes the broken chart string is unique enough
         const originalContent = originalMarkdown[currentPageId];
         const originalChartBlock = `\`\`\`mermaid\n${originalChart}\n\`\`\``; // Reconstruct original block
-        
+
         if (originalContent.includes(originalChartBlock)) {
           const updatedContent = originalContent.replace(originalChartBlock, correctedMermaidBlock);
-          
+
           // Update the generated page content
           setGeneratedPages(prev => ({
             ...prev,
@@ -167,38 +167,54 @@ Please regenerate the diagram from scratch and return ONLY the corrected Mermaid
   }, [currentPageId, originalMarkdown, currentRepoInfo]);
 
   // Parse repository URL/input and extract owner and repo
-  const parseRepositoryInput = (input: string): { owner: string, repo: string } | null => {
+  const parseRepositoryInput = (input: string): { owner: string, repo: string, type: string, fullPath?: string } | null => {
     input = input.trim();
-    
-    let owner = '', repo = '';
-    
+
+    let owner = '', repo = '', type = 'github', fullPath;
+
     // Handle GitHub URL format
     if (input.startsWith('https://github.com/')) {
+      type = 'github';
       const parts = input.replace('https://github.com/', '').split('/');
       owner = parts[0] || '';
       repo = parts[1] || '';
-    } 
-    // Handle owner/repo format
+    }
+    // Handle GitLab URL format
+    else if (input.startsWith('https://gitlab.com/')) {
+      type = 'gitlab';
+      const parts = input.replace('https://gitlab.com/', '').split('/');
+
+      // GitLab can have nested groups, so the repo is the last part
+      // and the owner/group is everything before that
+      if (parts.length >= 2) {
+        repo = parts[parts.length - 1] || '';
+        owner = parts[0] || '';
+
+        // For GitLab, we also need to keep track of the full path for API calls
+        fullPath = parts.join('/');
+      }
+    }
+    // Handle owner/repo format (assume GitHub by default)
     else {
       const parts = input.split('/');
       owner = parts[0] || '';
       repo = parts[1] || '';
     }
-    
+
     // Clean values
     owner = owner.trim();
     repo = repo.trim();
-    
+
     // Remove .git suffix if present
     if (repo.endsWith('.git')) {
       repo = repo.slice(0, -4);
     }
-    
+
     if (!owner || !repo) {
       return null;
     }
-    
-    return { owner, repo };
+
+    return { owner, repo, type, fullPath };
   };
 
   // Generate content for a wiki page
@@ -210,18 +226,18 @@ Please regenerate the diagram from scratch and return ONLY the corrected Mermaid
           resolve();
           return;
         }
-        
+
         // Validate repo info
         if (!owner || !repo) {
           throw new Error('Invalid repository information. Owner and repo name are required.');
         }
-        
+
         // Mark page as in progress
         setPagesInProgress(prev => new Set(prev).add(page.id));
         setLoadingMessage(`Generating content for page: ${page.title}...`);
-        
+
         const filePaths = page.filePaths;
-        
+
         // Store the initially generated content BEFORE rendering/potential modification
         setGeneratedPages(prev => ({
           ...prev,
@@ -231,7 +247,7 @@ Please regenerate the diagram from scratch and return ONLY the corrected Mermaid
 
         // Make API call to generate page content
         console.log(`Starting content generation for page: ${page.title}`);
-        
+
         const response = await fetch('http://localhost:8001/chat/completions/stream', {
           method: 'POST',
           headers: {
@@ -275,7 +291,7 @@ MERMAID DIAGRAM INSTRUCTIONS:
 graph TD
   A[Start] --> B[Process]
   B --> C[End Result]
-  
+
   %% You can use subgraphs to group related nodes
   subgraph Component
     B --> D[Helper Function]
@@ -331,7 +347,7 @@ Return ONLY the raw markdown content for the wiki page.`
 
         // Clean up markdown delimiters
         content = content.replace(/^```markdown\s*/i, '').replace(/```\s*$/i, '');
-        
+
         console.log(`Received content for ${page.title}, length: ${content.length} characters`);
 
         // Store the FINAL generated content
@@ -370,7 +386,7 @@ Return ONLY the raw markdown content for the wiki page.`
       setIsLoading(false);
       return;
     }
-    
+
     try {
       setLoadingMessage('Determining wiki structure...');
 
@@ -534,22 +550,22 @@ IMPORTANT:
 
       setWikiStructure(wikiStructure);
       setCurrentPageId(pages.length > 0 ? pages[0].id : undefined);
-      
+
       // Start generating content for all pages with controlled concurrency
       if (pages.length > 0) {
         // Mark all pages as in progress
         const initialInProgress = new Set(pages.map(p => p.id));
         setPagesInProgress(initialInProgress);
-        
+
         console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
-        
+
         // Maximum concurrent requests
         const MAX_CONCURRENT = 3;
-        
+
         // Create a queue of pages
         const queue = [...pages];
         let activeRequests = 0;
-        
+
         // Function to process next items in queue
         const processQueue = () => {
           // Process as many items as we can up to our concurrency limit
@@ -558,27 +574,27 @@ IMPORTANT:
             if (page) {
               activeRequests++;
               console.log(`Starting page ${page.title} (${activeRequests} active, ${queue.length} remaining)`);
-              
+
               // Start generating content for this page
               generatePageContent(page, owner, repo)
                 .finally(() => {
                   // When done (success or error), decrement active count and process more
                   activeRequests--;
                   console.log(`Finished page ${page.title} (${activeRequests} active, ${queue.length} remaining)`);
-                  
+
                   // Check if all work is done (queue empty and no active requests)
                   if (queue.length === 0 && activeRequests === 0) {
                     console.log("All page generation tasks completed.");
                     setIsLoading(false);
                     setLoadingMessage(undefined);
                   }
-                  
+
                   // Try to process the next item immediately
                   setTimeout(processQueue, 100);
                 });
             }
           }
-          
+
           // Additional check: If the queue started empty or becomes empty and no requests were started/active
           if (queue.length === 0 && activeRequests === 0 && pages.length > 0 && pagesInProgress.size === 0) {
             // This handles the case where the queue might finish before the finally blocks fully update activeRequests
@@ -592,7 +608,7 @@ IMPORTANT:
             setLoadingMessage(undefined);
           }
         };
-        
+
         // Start processing the queue
         processQueue();
       } else {
@@ -609,7 +625,7 @@ IMPORTANT:
     }
   }, [generatePageContent]);
 
-  // Fetch repository structure using GitHub API
+  // Fetch repository structure using GitHub or GitLab API
   const fetchRepositoryStructure = useCallback(async () => {
     // Reset previous state
     setWikiStructure(undefined);
@@ -617,60 +633,115 @@ IMPORTANT:
     setGeneratedPages({});
     setPagesInProgress(new Set());
     setError(null);
-    
+
     // Parse repository input
     const parsedRepo = parseRepositoryInput(repositoryInput);
-    
+
     if (!parsedRepo) {
-      setError('Invalid repository format. Use "owner/repo" or "https://github.com/owner/repo" format.');
+      setError('Invalid repository format. Use "owner/repo", "https://github.com/owner/repo", or "https://gitlab.com/owner/repo" format.');
       return;
     }
-    
-    const { owner, repo } = parsedRepo;
-    setRepoInfo({ owner, repo });
-    
+
+    const { owner, repo, type, fullPath } = parsedRepo;
+    setRepoInfo({ owner, repo, type });
+
     try {
       // Update loading state
       setIsLoading(true);
       setLoadingMessage('Fetching repository structure...');
 
-      // Try to get the tree data for common branch names
-      let treeData = null;
-      for (const branch of ['main', 'master']) {
-        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
-        const response = await fetch(apiUrl);
-        
-        if (response.ok) {
-          treeData = await response.json();
-          break;
-        }
-      }
-
-      if (!treeData || !treeData.tree) {
-        throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
-      }
-
-      // Convert tree data to a string representation
-      const fileTreeData = treeData.tree
-        .filter((item: { type: string; path: string }) => item.type === 'blob')
-        .map((item: { type: string; path: string }) => item.path)
-        .join('\n');
-      
-      // Try to fetch README.md content
+      let fileTreeData = '';
       let readmeContent = '';
-      try {
-        const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`);
-        if (readmeResponse.ok) {
-          const readmeData = await readmeResponse.json();
-          readmeContent = atob(readmeData.content);
+
+      if (type === 'github') {
+        // GitHub API approach
+        // Try to get the tree data for common branch names
+        let treeData = null;
+        for (const branch of ['main', 'master']) {
+          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+          const response = await fetch(apiUrl);
+
+          if (response.ok) {
+            treeData = await response.json();
+            break;
+          }
         }
-      } catch {
-        console.warn('Could not fetch README.md, continuing with empty README');
+
+        if (!treeData || !treeData.tree) {
+          throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+        }
+
+        // Convert tree data to a string representation
+        fileTreeData = treeData.tree
+          .filter((item: { type: string; path: string }) => item.type === 'blob')
+          .map((item: { type: string; path: string }) => item.path)
+          .join('\n');
+
+        // Try to fetch README.md content
+        try {
+          const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`);
+          if (readmeResponse.ok) {
+            const readmeData = await readmeResponse.json();
+            readmeContent = atob(readmeData.content);
+          }
+        } catch {
+          console.warn('Could not fetch README.md, continuing with empty README');
+        }
       }
-      
+      else if (type === 'gitlab') {
+        // GitLab API approach
+        const projectPath = fullPath || `${owner}/${repo}`;
+        const encodedProjectPath = encodeURIComponent(projectPath);
+
+        // Try to get the file tree for common branch names
+        let filesData = null;
+        for (const branch of ['main', 'master']) {
+          try {
+            const apiUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/tree?recursive=true&ref=${branch}&per_page=100`;
+            const response = await fetch(apiUrl);
+
+            if (response.ok) {
+              filesData = await response.json();
+              break;
+            }
+          } catch (error) {
+            console.error(`Error fetching GitLab tree for branch ${branch}:`, error);
+          }
+        }
+
+        if (!filesData || !Array.isArray(filesData) || filesData.length === 0) {
+          throw new Error('Could not fetch repository structure. Repository might not exist, be empty, private, or the API rate limit might be exceeded.');
+        }
+
+        // Convert file data to a string representation
+        fileTreeData = filesData
+          .filter((item: { type: string; path: string }) => item.type === 'blob')
+          .map((item: { type: string; path: string }) => item.path)
+          .join('\n');
+
+        // Try to fetch README.md content
+        try {
+          for (const branch of ['main', 'master']) {
+            try {
+              const readmeUrl = `https://gitlab.com/api/v4/projects/${encodedProjectPath}/repository/files/README.md/raw?ref=${branch}`;
+              const readmeResponse = await fetch(readmeUrl);
+
+              if (readmeResponse.ok) {
+                readmeContent = await readmeResponse.text();
+                break;
+              }
+            } catch (error) {
+              console.warn(`Could not fetch README.md for branch ${branch}:`, error);
+            }
+          }
+        } catch {
+          console.warn('Could not fetch README.md, continuing with empty README');
+        }
+      }
+
       // Now determine the wiki structure
       await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
-      
+
     } catch (error) {
       console.error('Error fetching repository structure:', error);
       setIsLoading(false);
@@ -709,7 +780,7 @@ IMPORTANT:
     }) {
       const match = /language-(\w+)/.exec(className || '');
       const codeContent = children ? String(children).replace(/\n$/, '') : '';
-      
+
       // Special handling for mermaid code blocks
       if (!inline && match && match[1] === 'mermaid') {
         return (
@@ -720,7 +791,7 @@ IMPORTANT:
           />
         );
       }
-      
+
       return !inline && match ? (
         <SyntaxHighlighter
           language={match[1]}
@@ -745,14 +816,14 @@ IMPORTANT:
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8">
       <style>{wikiStyles}</style>
-      
+
       <header className="max-w-6xl mx-auto mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center">
             <FaWikipediaW className="mr-2 text-3xl text-purple-500" />
             <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-200">DeepWiki</h1>
           </div>
-          
+
           <form onSubmit={(e) => { e.preventDefault(); fetchRepositoryStructure(); }} className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -781,28 +852,28 @@ IMPORTANT:
           </form>
         </div>
       </header>
-      
+
       <main className="max-w-6xl mx-auto">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
             <p className="text-gray-800 dark:text-gray-200 text-center mb-2">{loadingMessage || 'Loading...'}</p>
-            
+
             {/* Progress bar for page generation */}
             {wikiStructure && (
               <div className="w-full max-w-md mt-2">
                 <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-2">
-                  <div 
+                  <div
                     className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
-                    style={{ 
-                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%` 
+                    style={{
+                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%`
                     }}
                   />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                   {wikiStructure.pages.length - pagesInProgress.size} of {wikiStructure.pages.length} pages completed
                 </p>
-                
+
                 {/* Show list of in-progress pages */}
                 {pagesInProgress.size > 0 && (
                   <div className="mt-4 text-xs">
@@ -829,7 +900,7 @@ IMPORTANT:
             </div>
             <p className="text-red-800 dark:text-red-300 text-sm mb-2">{error}</p>
             <p className="text-red-700 dark:text-red-300 text-xs">
-              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo; or &ldquo;https://github.com/owner/repo&rdquo;.
+              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo;, &ldquo;https://github.com/owner/repo&rdquo;, or &ldquo;https://gitlab.com/owner/repo&rdquo;.
             </p>
           </div>
         ) : wikiStructure ? (
@@ -838,14 +909,21 @@ IMPORTANT:
             <div className="w-full lg:w-80 flex-shrink-0 bg-gray-100 dark:bg-gray-800/50 rounded-lg p-4 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700/20 max-h-[600px] overflow-y-auto">
               <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">{wikiStructure.title}</h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{wikiStructure.description}</p>
-              
+
               {/* Display repository info */}
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center">
-                <FaGithub className="mr-1" />
-                <a 
-                  href={`https://github.com/${repoInfo.owner}/${repoInfo.repo}`}
+                {repoInfo.type === 'github' ? (
+                  <FaGithub className="mr-1" />
+                ) : (
+                  <FaGitlab className="mr-1" />
+                )}
+                <a
+                  href={repoInfo.type === 'github'
+                    ? `https://github.com/${repoInfo.owner}/${repoInfo.repo}`
+                    : `https://gitlab.com/${repoInfo.owner}/${repoInfo.repo}`
+                  }
                   target="_blank"
-                  rel="noopener noreferrer" 
+                  rel="noopener noreferrer"
                   className="hover:text-purple-500 transition-colors"
                 >
                   {repoInfo.owner}/{repoInfo.repo}
@@ -941,16 +1019,17 @@ IMPORTANT:
             <FaWikipediaW className="text-5xl text-purple-500 mb-4" />
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">Welcome to DeepWiki (Open Source)</h2>
             <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
-              Enter a GitHub repository to generate a comprehensive wiki based on its structure.
+              Enter a GitHub or GitLab repository to generate a comprehensive wiki based on its structure.
             </p>
             <div className="text-gray-500 dark:text-gray-500 text-sm text-center mb-6">
               <p className="mb-2">You can enter a repository in these formats:</p>
               <ul className="list-disc list-inside mb-2">
                 <li>facebook/react</li>
                 <li>https://github.com/vercel/next.js</li>
+                <li>https://gitlab.com/gitlab-org/gitlab</li>
               </ul>
             </div>
-            
+
             <div className="w-full max-w-md mt-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Now with Mermaid Diagram Support!</h3>
               <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">
@@ -961,7 +1040,7 @@ IMPORTANT:
           </div>
         )}
       </main>
-      
+
       <footer className="max-w-6xl mx-auto mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
         <p>DeepWiki - Generate Wiki from GitHub repositories</p>
       </footer>

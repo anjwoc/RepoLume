@@ -8,7 +8,7 @@ from starlette.responses import StreamingResponse
 import google.generativeai as genai
 
 from api.rag import RAG
-from api.data_pipeline import count_tokens, get_github_file_content
+from api.data_pipeline import count_tokens, get_file_content
 
 # Configure logging
 logging.basicConfig(
@@ -137,8 +137,13 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         repo_url = request.repo_url
         repo_name = repo_url.split("/")[-1] if "/" in repo_url else repo_url
 
+        # Determine repository type
+        repo_type = "GitHub"
+        if "gitlab.com" in repo_url:
+            repo_type = "GitLab"
+
         system_prompt = f"""<role>
-You are an expert code analyst examining the GitHub repository: {repo_url} ({repo_name}).
+You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You provide direct, concise, and accurate information about code repositories.
 You NEVER start responses with markdown headers or code fences.
 </role>
@@ -191,7 +196,7 @@ This file contains...
         file_content = ""
         if request.filePath:
             try:
-                file_content = get_github_file_content(request.repo_url, request.filePath)
+                file_content = get_file_content(request.repo_url, request.filePath)
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
                 # Add file content to the prompt after conversation history
                 prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
