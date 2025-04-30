@@ -1,102 +1,969 @@
-import Image from "next/image";
+'use client';
+
+import React, { useCallback, useState, useMemo } from 'react';
+import { FaExclamationTriangle, FaBookOpen, FaWikipediaW, FaGithub } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import Mermaid from '../components/Mermaid';
+
+// Define the demo mermaid chart outside the component
+const DEMO_MERMAID_CHART = `graph TD
+  A[Code Repository] --> B[DeepWiki]
+  B --> C[Architecture Diagrams]
+  B --> D[Component Relationships]
+  B --> E[Data Flow]
+  B --> F[Process Workflows]
+  
+  style A fill:#f9d3a9,stroke:#d86c1f
+  style B fill:#d4a9f9,stroke:#6c1fd8
+  style C fill:#a9f9d3,stroke:#1fd86c
+  style D fill:#a9d3f9,stroke:#1f6cd8
+  style E fill:#f9a9d3,stroke:#d81f6c
+  style F fill:#d3f9a9,stroke:#6cd81f`;
+
+// Wiki Interfaces
+interface WikiPage {
+  id: string;
+  title: string;
+  content: string;
+  filePaths: string[];
+  importance: 'high' | 'medium' | 'low';
+  relatedPages: string[];
+}
+
+interface WikiStructure {
+  id: string;
+  title: string;
+  description: string;
+  pages: WikiPage[];
+}
+
+// Add CSS styles for wiki
+const wikiStyles = `
+  .prose code {
+    @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded font-mono text-xs;
+  }
+  
+  .prose pre {
+    @apply bg-gray-900 text-gray-100 rounded-md p-4 overflow-x-auto;
+  }
+`;
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  // Separate states for better management
+  const [repositoryInput, setRepositoryInput] = useState('facebook/react');
+  // Store repo info for UI display and other non-callback purposes
+  const [repoInfo, setRepoInfo] = useState({ owner: '', repo: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | undefined>();
+  const [error, setError] = useState<string | null>(null);
+  const [wikiStructure, setWikiStructure] = useState<WikiStructure | undefined>();
+  const [currentPageId, setCurrentPageId] = useState<string | undefined>();
+  const [generatedPages, setGeneratedPages] = useState<Record<string, WikiPage>>({});
+  const [pagesInProgress, setPagesInProgress] = useState(new Set<string>());
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // State to store original markdown for potential retries
+  const [originalMarkdown, setOriginalMarkdown] = useState<Record<string, string>>({});
+
+  // Memoize repo info to avoid triggering updates in callbacks
+  const currentRepoInfo = useMemo(() => repoInfo, [repoInfo]);
+
+  // Function to handle Mermaid rendering errors and attempt auto-fix
+  const handleMermaidError = useCallback(async (errorMessage: string, originalChart: string) => {
+    if (!currentPageId || !originalMarkdown[currentPageId]) {
+      console.error('Cannot retry Mermaid: Missing current page ID or original markdown.');
+      return;
+    }
+    
+    // Need owner and repo for the API call
+    const { owner, repo } = currentRepoInfo;
+    if (!owner || !repo) {
+      console.error('Cannot retry Mermaid: Missing repository info.');
+      return;
+    }
+
+    console.log(`Handling Mermaid error for page ${currentPageId}. Error: ${errorMessage}`);
+
+    const retryPrompt = `The following Mermaid diagram code failed to render with the error: "${errorMessage}"
+
+Original Mermaid Code:
+\`\`\`mermaid
+${originalChart}
+\`\`\`
+
+Please regenerate the diagram from scratch and return ONLY the corrected Mermaid code block itself, starting with \`\`\`mermaid and ending with \`\`\`. Do not include any other text, explanation, or markdown formatting outside the code block. Fix the error: "${errorMessage}". Avoid horizontal layouts if possible, prefer "graph TD".`;
+
+    try {
+      setLoadingMessage('Attempting to auto-correct diagram error...');
+      const response = await fetch('http://localhost:8001/chat/completions/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo_url: `https://github.com/${owner}/${repo}`,
+          messages: [{ role: 'user', content: retryPrompt }]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error during retry: ${response.status}`);
+      }
+
+      let correctedMermaidBlock = '';
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error('Failed to get reader for retry response');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        correctedMermaidBlock += decoder.decode(value, { stream: true });
+      }
+      correctedMermaidBlock += decoder.decode(); // Final decode
+
+      // Basic cleaning: Trim whitespace and ensure it looks like a mermaid block
+      correctedMermaidBlock = correctedMermaidBlock.trim();
+      if (correctedMermaidBlock.startsWith('```mermaid') && correctedMermaidBlock.endsWith('```')) {
+        console.log('Received corrected Mermaid block from API.');
+        
+        // Find the original broken chart in the full markdown and replace it
+        // This simple replacement assumes the broken chart string is unique enough
+        const originalContent = originalMarkdown[currentPageId];
+        const originalChartBlock = `\`\`\`mermaid\n${originalChart}\n\`\`\``; // Reconstruct original block
+        
+        if (originalContent.includes(originalChartBlock)) {
+          const updatedContent = originalContent.replace(originalChartBlock, correctedMermaidBlock);
+          
+          // Update the generated page content
+          setGeneratedPages(prev => ({
+            ...prev,
+            [currentPageId]: {
+              ...prev[currentPageId],
+              content: updatedContent,
+            }
+          }));
+          // Update original markdown store as well in case of further errors?
+          // Or maybe just clear the original on success? For now, let's update it.
+          setOriginalMarkdown(prev => ({ ...prev, [currentPageId]: updatedContent }));
+          console.log(`Page ${currentPageId} updated with corrected Mermaid diagram.`);
+        } else {
+          console.warn('Could not find the original Mermaid block in the content for replacement.');
+          // Optionally, set an error state here or revert to fallback in Mermaid component
+        }
+      } else {
+        console.error('Received malformed corrected Mermaid block from API:', correctedMermaidBlock);
+        // Let the Mermaid component proceed with its own fallback
+      }
+
+    } catch (error) {
+      console.error('Error during Mermaid retry API call:', error);
+      // Let the Mermaid component proceed with its own fallback mechanisms
+    } finally {
+      setLoadingMessage(undefined); // Clear loading message
+    }
+  }, [currentPageId, originalMarkdown, currentRepoInfo]);
+
+  // Parse repository URL/input and extract owner and repo
+  const parseRepositoryInput = (input: string): { owner: string, repo: string } | null => {
+    input = input.trim();
+    
+    let owner = '', repo = '';
+    
+    // Handle GitHub URL format
+    if (input.startsWith('https://github.com/')) {
+      const parts = input.replace('https://github.com/', '').split('/');
+      owner = parts[0] || '';
+      repo = parts[1] || '';
+    } 
+    // Handle owner/repo format
+    else {
+      const parts = input.split('/');
+      owner = parts[0] || '';
+      repo = parts[1] || '';
+    }
+    
+    // Clean values
+    owner = owner.trim();
+    repo = repo.trim();
+    
+    // Remove .git suffix if present
+    if (repo.endsWith('.git')) {
+      repo = repo.slice(0, -4);
+    }
+    
+    if (!owner || !repo) {
+      return null;
+    }
+    
+    return { owner, repo };
+  };
+
+  // Generate content for a wiki page
+  const generatePageContent = useCallback(async (page: WikiPage, owner: string, repo: string) => {
+    return new Promise<void>(async (resolve) => {
+      try {
+        // Skip if content already exists
+        if (generatedPages[page.id]?.content) {
+          resolve();
+          return;
+        }
+        
+        // Validate repo info
+        if (!owner || !repo) {
+          throw new Error('Invalid repository information. Owner and repo name are required.');
+        }
+        
+        // Mark page as in progress
+        setPagesInProgress(prev => new Set(prev).add(page.id));
+        setLoadingMessage(`Generating content for page: ${page.title}...`);
+        
+        const filePaths = page.filePaths;
+        
+        // Store the initially generated content BEFORE rendering/potential modification
+        setGeneratedPages(prev => ({
+          ...prev,
+          [page.id]: { ...page, content: 'Loading...' } // Placeholder
+        }));
+        setOriginalMarkdown(prev => ({ ...prev, [page.id]: '' })); // Clear previous original
+
+        // Make API call to generate page content
+        console.log(`Starting content generation for page: ${page.title}`);
+        
+        const response = await fetch('http://localhost:8001/chat/completions/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            repo_url: `https://github.com/${owner}/${repo}`,
+            messages: [{
+              role: 'user',
+              content: `Generate comprehensive wiki page content for "${page.title}" in the repository ${owner}/${repo}.
+
+This page should focus on the following files:
+${filePaths.map(path => `- ${path}`).join('\n')}
+
+The wiki page should:
+1. Provide a detailed explanation of the purpose and functionality
+2. Include code examples with explanations where appropriate
+3. Explain how this component/feature fits into the overall architecture
+4. Include any setup or usage instructions if applicable
+5. Be formatted in Markdown for easy reading
+6. IMPORTANT: Use Mermaid diagrams where appropriate to visualize:
+   - Component relationships
+   - Data flow
+   - Architecture
+   - Processes or workflows
+   - Class hierarchies
+   - State transitions
+
+MERMAID DIAGRAM INSTRUCTIONS:
+- Include at least one mermaid diagram if relevant to this topic
+- IMPORTANT!!: Please orient and draw the diagram as vertically as possible. You must avoid long horizontal lists of nodes and sections!
+- Use "graph TD" (top-down) for most diagrams to ensure vertical orientation
+- Use proper formatting to avoid syntax errors:
+  - Always have a space after "graph TD"
+  - Use double dashes for arrows: A --> B (not A-B)
+  - For node labels with spaces, use brackets: A[Node Label]
+  - Keep diagrams simple and focused - don't try to show everything in one diagram
+
+- Use the following format for mermaid diagrams:
+\`\`\`mermaid
+graph TD
+  A[Start] --> B[Process]
+  B --> C[End Result]
+  
+  %% You can use subgraphs to group related nodes
+  subgraph Component
+    B --> D[Helper Function]
+    D --> B
+  end
+\`\`\`
+
+- Common diagram types to consider:
+  - graph TD (top-down graph) - PREFERRED for most cases
+  - sequenceDiagram (sequence diagram)
+  - classDiagram (class diagram)
+  - stateDiagram (state diagram)
+
+IMPORTANT FORMATTING INSTRUCTIONS:
+- Return ONLY the markdown content itself
+- DO NOT include \`\`\`markdown at the beginning or \`\`\` at the end
+- DO NOT wrap content in any code blocks or other delimiters
+- Start directly with the content (typically a heading)
+- Just provide the raw markdown content with no preamble or conclusion
+
+Return ONLY the raw markdown content for the wiki page.`
+            }]
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'No error details available');
+          console.error(`API error (${response.status}): ${errorText}`);
+          throw new Error(`Error generating page content: ${response.status} - ${response.statusText}`);
+        }
+
+        // Process the response
+        let content = '';
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('Failed to get response reader');
+        }
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            content += decoder.decode(value, { stream: true });
+          }
+          // Ensure final decoding
+          content += decoder.decode();
+        } catch (readError) {
+          console.error('Error reading stream:', readError);
+          throw new Error('Error processing response stream');
+        }
+
+        // Clean up markdown delimiters
+        content = content.replace(/^```markdown\s*/i, '').replace(/```\s*$/i, '');
+        
+        console.log(`Received content for ${page.title}, length: ${content.length} characters`);
+
+        // Store the FINAL generated content
+        const updatedPage = { ...page, content };
+        setGeneratedPages(prev => ({ ...prev, [page.id]: updatedPage }));
+        // Store this as the original for potential mermaid retries
+        setOriginalMarkdown(prev => ({ ...prev, [page.id]: content }));
+
+        resolve();
+      } catch (err) {
+        console.error(`Error generating content for page ${page.id}:`, err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        // Update page state to show error
+        setGeneratedPages(prev => ({
+          ...prev,
+          [page.id]: { ...page, content: `Error generating content: ${errorMessage}` }
+        }));
+        setError(`Failed to generate content for ${page.title}.`);
+        resolve(); // Resolve even on error to unblock queue
+      } finally {
+        // Mark page as done
+        setPagesInProgress(prev => {
+          const next = new Set(prev);
+          next.delete(page.id);
+          return next;
+        });
+        setLoadingMessage(undefined); // Clear specific loading message
+      }
+    });
+  }, [generatedPages, pagesInProgress, originalMarkdown, currentRepoInfo]);
+
+  // Determine the wiki structure from repository data
+  const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
+    if (!owner || !repo) {
+      setError('Invalid repository information. Owner and repo name are required.');
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      setLoadingMessage('Determining wiki structure...');
+
+      const response = await fetch('http://localhost:8001/chat/completions/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          repo_url: `https://github.com/${owner}/${repo}`,
+          messages: [{
+            role: 'user',
+            content: `Analyze this GitHub repository ${owner}/${repo} and create a wiki structure for it.
+
+1. The complete file tree of the project:
+<file_tree>
+${fileTree}
+</file_tree>
+
+2. The README file of the project:
+<readme>
+${readme}
+</readme>
+
+I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content.
+
+When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
+- Architecture overviews
+- Data flow descriptions
+- Component relationships
+- Process workflows
+- State machines
+- Class hierarchies
+
+Return your analysis in the following XML format:
+
+<wiki_structure>
+  <title>[Overall title for the wiki]</title>
+  <description>[Brief description of the repository]</description>
+  <pages>
+    <page id="page-1">
+      <title>[Page title]</title>
+      <description>[Brief description of what this page will cover]</description>
+      <importance>high|medium|low</importance>
+      <relevant_files>
+        <file_path>[Path to a relevant file]</file_path>
+        <!-- More file paths as needed -->
+      </relevant_files>
+      <related_pages>
+        <related>page-2</related>
+        <!-- More related page IDs as needed -->
+      </related_pages>
+    </page>
+    <!-- More pages as needed -->
+  </pages>
+</wiki_structure>
+
+IMPORTANT FORMATTING INSTRUCTIONS:
+- Return ONLY the valid XML structure specified above
+- DO NOT wrap the XML in markdown code blocks (no \`\`\` or \`\`\`xml)
+- DO NOT include any explanation text before or after the XML
+- Ensure the XML is properly formatted and valid
+- Start directly with <wiki_structure> and end with </wiki_structure>
+
+IMPORTANT:
+1. Create 4-6 pages that would make a comprehensive wiki for this repository
+2. Each page should focus on a specific aspect of the codebase (e.g., architecture, key features, setup)
+3. The relevant_files should be actual files from the repository that would be used to generate that page
+4. Return ONLY valid XML with the structure specified above, with no markdown code block delimiters`
+          }]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error determining wiki structure: ${response.status}`);
+      }
+
+      // Process the response
+      let responseText = '';
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('Failed to get response reader');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        responseText += decoder.decode(value, { stream: true });
+      }
+
+      // Clean up markdown delimiters
+      responseText = responseText.replace(/^```(?:xml)?\s*/i, '').replace(/```\s*$/i, '');
+
+      // Extract wiki structure from response
+      const xmlMatch = responseText.match(/<wiki_structure>[\s\S]*?<\/wiki_structure>/m);
+      if (!xmlMatch) {
+        throw new Error('No valid XML found in response');
+      }
+
+      const xmlText = xmlMatch[0];
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+      // Check for parsing errors
+      const parseError = xmlDoc.querySelector('parsererror');
+      if (parseError) {
+        throw new Error('Failed to parse XML response');
+      }
+
+      // Extract wiki structure
+      const titleEl = xmlDoc.querySelector('title');
+      const descriptionEl = xmlDoc.querySelector('description');
+      const pagesEls = xmlDoc.querySelectorAll('page');
+
+      const title = titleEl ? titleEl.textContent || '' : '';
+      const description = descriptionEl ? descriptionEl.textContent || '' : '';
+
+      // Parse pages
+      const pages: WikiPage[] = [];
+      pagesEls.forEach(pageEl => {
+        const id = pageEl.getAttribute('id') || `page-${pages.length + 1}`;
+        const titleEl = pageEl.querySelector('title');
+        const importanceEl = pageEl.querySelector('importance');
+        const filePathEls = pageEl.querySelectorAll('file_path');
+        const relatedEls = pageEl.querySelectorAll('related');
+
+        const title = titleEl ? titleEl.textContent || '' : '';
+        const importance = importanceEl ?
+          (importanceEl.textContent === 'high' ? 'high' :
+           importanceEl.textContent === 'medium' ? 'medium' : 'low') : 'medium';
+
+        const filePaths: string[] = [];
+        filePathEls.forEach(el => {
+          if (el.textContent) filePaths.push(el.textContent);
+        });
+
+        const relatedPages: string[] = [];
+        relatedEls.forEach(el => {
+          if (el.textContent) relatedPages.push(el.textContent);
+        });
+
+        pages.push({
+          id,
+          title,
+          content: '', // Will be generated later
+          filePaths,
+          importance,
+          relatedPages
+        });
+      });
+
+      // Create wiki structure
+      const wikiStructure: WikiStructure = {
+        id: 'wiki',
+        title,
+        description,
+        pages
+      };
+
+      setWikiStructure(wikiStructure);
+      setCurrentPageId(pages.length > 0 ? pages[0].id : undefined);
+      
+      // Start generating content for all pages with controlled concurrency
+      if (pages.length > 0) {
+        // Mark all pages as in progress
+        const initialInProgress = new Set(pages.map(p => p.id));
+        setPagesInProgress(initialInProgress);
+        
+        console.log(`Starting generation for ${pages.length} pages with controlled concurrency`);
+        
+        // Maximum concurrent requests
+        const MAX_CONCURRENT = 3;
+        
+        // Create a queue of pages
+        const queue = [...pages];
+        let activeRequests = 0;
+        
+        // Function to process next items in queue
+        const processQueue = () => {
+          // Process as many items as we can up to our concurrency limit
+          while (queue.length > 0 && activeRequests < MAX_CONCURRENT) {
+            const page = queue.shift();
+            if (page) {
+              activeRequests++;
+              console.log(`Starting page ${page.title} (${activeRequests} active, ${queue.length} remaining)`);
+              
+              // Start generating content for this page
+              generatePageContent(page, owner, repo)
+                .finally(() => {
+                  // When done (success or error), decrement active count and process more
+                  activeRequests--;
+                  console.log(`Finished page ${page.title} (${activeRequests} active, ${queue.length} remaining)`);
+                  
+                  // Check if all work is done (queue empty and no active requests)
+                  if (queue.length === 0 && activeRequests === 0) {
+                    console.log("All page generation tasks completed.");
+                    setIsLoading(false);
+                    setLoadingMessage(undefined);
+                  }
+                  
+                  // Try to process the next item immediately
+                  setTimeout(processQueue, 100);
+                });
+            }
+          }
+          
+          // Additional check: If the queue started empty or becomes empty and no requests were started/active
+          if (queue.length === 0 && activeRequests === 0 && pages.length > 0 && pagesInProgress.size === 0) {
+            // This handles the case where the queue might finish before the finally blocks fully update activeRequests
+            // or if the initial queue was processed very quickly
+             console.log("Queue empty and no active requests after loop, ensuring loading is false.");
+             setIsLoading(false);
+             setLoadingMessage(undefined);
+          } else if (pages.length === 0) {
+            // Handle case where there were no pages to begin with
+            setIsLoading(false);
+            setLoadingMessage(undefined);
+          }
+        };
+        
+        // Start processing the queue
+        processQueue();
+      } else {
+        // Set loading to false if there were no pages found
+        setIsLoading(false);
+        setLoadingMessage(undefined);
+      }
+
+    } catch (error) {
+      console.error('Error determining wiki structure:', error);
+      setIsLoading(false);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
+      setLoadingMessage(undefined);
+    }
+  }, [generatePageContent]);
+
+  // Fetch repository structure using GitHub API
+  const fetchRepositoryStructure = useCallback(async () => {
+    // Reset previous state
+    setWikiStructure(undefined);
+    setCurrentPageId(undefined);
+    setGeneratedPages({});
+    setPagesInProgress(new Set());
+    setError(null);
+    
+    // Parse repository input
+    const parsedRepo = parseRepositoryInput(repositoryInput);
+    
+    if (!parsedRepo) {
+      setError('Invalid repository format. Use "owner/repo" or "https://github.com/owner/repo" format.');
+      return;
+    }
+    
+    const { owner, repo } = parsedRepo;
+    setRepoInfo({ owner, repo });
+    
+    try {
+      // Update loading state
+      setIsLoading(true);
+      setLoadingMessage('Fetching repository structure...');
+
+      // Try to get the tree data for common branch names
+      let treeData = null;
+      for (const branch of ['main', 'master']) {
+        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+        const response = await fetch(apiUrl);
+        
+        if (response.ok) {
+          treeData = await response.json();
+          break;
+        }
+      }
+
+      if (!treeData || !treeData.tree) {
+        throw new Error('Could not fetch repository structure. Repository might not exist, be empty or private.');
+      }
+
+      // Convert tree data to a string representation
+      const fileTreeData = treeData.tree
+        .filter((item: { type: string; path: string }) => item.type === 'blob')
+        .map((item: { type: string; path: string }) => item.path)
+        .join('\n');
+      
+      // Try to fetch README.md content
+      let readmeContent = '';
+      try {
+        const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`);
+        if (readmeResponse.ok) {
+          const readmeData = await readmeResponse.json();
+          readmeContent = atob(readmeData.content);
+        }
+      } catch {
+        console.warn('Could not fetch README.md, continuing with empty README');
+      }
+      
+      // Now determine the wiki structure
+      await determineWikiStructure(fileTreeData, readmeContent, owner, repo);
+      
+    } catch (error) {
+      console.error('Error fetching repository structure:', error);
+      setIsLoading(false);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
+      setLoadingMessage(undefined);
+    }
+  }, [repositoryInput, determineWikiStructure]);
+
+  // Define MarkdownComponents INSIDE the Home component function
+  const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = useMemo(() => ({
+    p({ children, ...props }: { children?: React.ReactNode }) {
+      return <p className="mb-1 text-xs" {...props}>{children}</p>;
+    },
+    h1({ children, ...props }: { children?: React.ReactNode }) {
+      return <h1 className="text-base font-bold mt-3 mb-1" {...props}>{children}</h1>;
+    },
+    h2({ children, ...props }: { children?: React.ReactNode }) {
+      return <h2 className="text-sm font-bold mt-2 mb-1" {...props}>{children}</h2>;
+    },
+    h3({ children, ...props }: { children?: React.ReactNode }) {
+      return <h3 className="text-xs font-bold mt-2 mb-1" {...props}>{children}</h3>;
+    },
+    ul({ children, ...props }: { children?: React.ReactNode }) {
+      return <ul className="list-disc pl-4 mb-2 text-xs" {...props}>{children}</ul>;
+    },
+    ol({ children, ...props }: { children?: React.ReactNode }) {
+      return <ol className="list-decimal pl-4 mb-2 text-xs" {...props}>{children}</ol>;
+    },
+    li({ children, ...props }: { children?: React.ReactNode }) {
+      return <li className="mb-1 text-xs" {...props}>{children}</li>;
+    },
+    code({ inline, className, children, ...props }: {
+      inline?: boolean;
+      className?: string;
+      children?: React.ReactNode;
+    }) {
+      const match = /language-(\w+)/.exec(className || '');
+      const codeContent = children ? String(children).replace(/\n$/, '') : '';
+      
+      // Special handling for mermaid code blocks
+      if (!inline && match && match[1] === 'mermaid') {
+        return (
+          <Mermaid
+            chart={codeContent}
+            className="w-full max-w-full my-4"
+            onMermaidError={handleMermaidError}
+          />
+        );
+      }
+      
+      return !inline && match ? (
+        <SyntaxHighlighter
+          language={match[1]}
+          style={tomorrow}
+          className="!text-xs"
+          PreTag="div"
+          wrapLines={true}
+          showLineNumbers={true}
+          wrapLongLines={true}
+          {...props}
+        >
+          {codeContent}
+        </SyntaxHighlighter>
+      ) : (
+        <code className={`${className} bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded font-mono !text-xs`} {...props}>
+          {children}
+        </code>
+      );
+    },
+  }), [handleMermaidError]);
+
+  return (
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8">
+      <style>{wikiStyles}</style>
+      
+      <header className="max-w-6xl mx-auto mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center">
+            <FaWikipediaW className="mr-2 text-3xl text-purple-500" />
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-200">DeepWiki</h1>
+          </div>
+          
+          <form onSubmit={(e) => { e.preventDefault(); fetchRepositoryStructure(); }} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FaGithub className="text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={repositoryInput}
+                onChange={(e) => setRepositoryInput(e.target.value)}
+                placeholder="owner/repo or GitHub URL"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              {error && (
+                <div className="text-red-500 text-xs mt-1">
+                  {error}
+                </div>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Loading...' : 'Generate Wiki'}
+            </button>
+          </form>
         </div>
+      </header>
+      
+      <main className="max-w-6xl mx-auto">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
+            <p className="text-gray-800 dark:text-gray-200 text-center mb-2">{loadingMessage || 'Loading...'}</p>
+            
+            {/* Progress bar for page generation */}
+            {wikiStructure && (
+              <div className="w-full max-w-md mt-2">
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-2">
+                  <div 
+                    className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+                    style={{ 
+                      width: `${Math.max(5, 100 * (wikiStructure.pages.length - pagesInProgress.size) / wikiStructure.pages.length)}%` 
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  {wikiStructure.pages.length - pagesInProgress.size} of {wikiStructure.pages.length} pages completed
+                </p>
+                
+                {/* Show list of in-progress pages */}
+                {pagesInProgress.size > 0 && (
+                  <div className="mt-4 text-xs">
+                    <p className="text-gray-500 dark:text-gray-400 mb-1">Currently processing:</p>
+                    <ul className="text-gray-600 dark:text-gray-300">
+                      {Array.from(pagesInProgress).slice(0, 3).map(pageId => {
+                        const page = wikiStructure.pages.find(p => p.id === pageId);
+                        return page ? <li key={pageId} className="truncate">{page.title}</li> : null;
+                      })}
+                      {pagesInProgress.size > 3 && (
+                        <li>...and {pagesInProgress.size - 3} more</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-500/30 rounded-lg p-4 mb-4">
+            <div className="flex items-center text-red-800 dark:text-red-400 mb-2">
+              <FaExclamationTriangle className="mr-2" />
+              <span className="font-bold">Error</span>
+            </div>
+            <p className="text-red-800 dark:text-red-300 text-sm mb-2">{error}</p>
+            <p className="text-red-700 dark:text-red-300 text-xs">
+              Please check that your repository exists and is public. Valid formats are &ldquo;owner/repo&rdquo; or &ldquo;https://github.com/owner/repo&rdquo;.
+            </p>
+          </div>
+        ) : wikiStructure ? (
+          <div className="flex flex-col lg:flex-row gap-4 w-full overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+            {/* Wiki Navigation */}
+            <div className="w-full lg:w-80 flex-shrink-0 bg-gray-100 dark:bg-gray-800/50 rounded-lg p-4 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700/20 max-h-[600px] overflow-y-auto">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">{wikiStructure.title}</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">{wikiStructure.description}</p>
+              
+              {/* Display repository info */}
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center">
+                <FaGithub className="mr-1" />
+                <a 
+                  href={`https://github.com/${repoInfo.owner}/${repoInfo.repo}`}
+                  target="_blank"
+                  rel="noopener noreferrer" 
+                  className="hover:text-purple-500 transition-colors"
+                >
+                  {repoInfo.owner}/{repoInfo.repo}
+                </a>
+              </div>
+
+              <h4 className="text-md font-semibold text-gray-800 dark:text-gray-300 mb-2">Pages</h4>
+              <ul className="space-y-2">
+                {wikiStructure.pages.map(page => (
+                  <li key={page.id}>
+                    <button
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                        currentPageId === page.id
+                          ? 'bg-purple-700/50 text-white'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-purple-700/30'
+                      }`}
+                      onClick={() => setCurrentPageId(page.id)}
+                    >
+                      <div className="flex items-center">
+                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${
+                          page.importance === 'high' ? 'bg-green-500' :
+                          page.importance === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                        }`}></div>
+                        <span className="truncate">{page.title}</span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Wiki Content */}
+            <div className="w-full flex-grow p-4 max-h-[600px] overflow-y-auto">
+              {currentPageId && generatedPages[currentPageId] ? (
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2 break-words">
+                    {generatedPages[currentPageId].title}
+                  </h3>
+
+                  {generatedPages[currentPageId].filePaths.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Related Files:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {generatedPages[currentPageId].filePaths.map(path => (
+                          <span key={path} className="bg-gray-200 dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-300 px-2 py-1 rounded-md truncate max-w-full">
+                            {path}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={MarkdownComponents}
+                    >
+                      {generatedPages[currentPageId].content}
+                    </ReactMarkdown>
+                  </div>
+
+                  {generatedPages[currentPageId].relatedPages.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">Related Pages:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {generatedPages[currentPageId].relatedPages.map(relatedId => {
+                          const relatedPage = wikiStructure.pages.find(p => p.id === relatedId);
+                          return relatedPage ? (
+                            <button
+                              key={relatedId}
+                              className="bg-purple-100 dark:bg-purple-700/30 hover:bg-purple-200 dark:hover:bg-purple-700/50 text-xs text-purple-800 dark:text-purple-200 px-3 py-1 rounded-md transition-colors truncate max-w-full"
+                              onClick={() => setCurrentPageId(relatedId)}
+                            >
+                              {relatedPage.title}
+                            </button>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-gray-400 h-full">
+                  <FaBookOpen className="text-4xl mb-4" />
+                  <p>Select a page from the navigation to view its content</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+            <FaWikipediaW className="text-5xl text-purple-500 mb-4" />
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">Welcome to DeepWiki (Open Source)</h2>
+            <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+              Enter a GitHub repository to generate a comprehensive wiki based on its structure.
+            </p>
+            <div className="text-gray-500 dark:text-gray-500 text-sm text-center mb-6">
+              <p className="mb-2">You can enter a repository in these formats:</p>
+              <ul className="list-disc list-inside mb-2">
+                <li>facebook/react</li>
+                <li>https://github.com/vercel/next.js</li>
+              </ul>
+            </div>
+            
+            <div className="w-full max-w-md mt-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Now with Mermaid Diagram Support!</h3>
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                DeepWiki automatically generates diagrams to help visualize:
+              </div>
+              <Mermaid chart={DEMO_MERMAID_CHART} />
+            </div>
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      
+      <footer className="max-w-6xl mx-auto mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+        <p>DeepWiki - Generate Wiki from GitHub repositories</p>
       </footer>
     </div>
   );
