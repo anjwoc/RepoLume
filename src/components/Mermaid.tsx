@@ -7,6 +7,7 @@ mermaid.initialize({
   theme: 'neutral',
   securityLevel: 'loose',
   themeCSS: `
+    /* General styles for all diagrams */
     .node rect, .node circle, .node ellipse, .node polygon, .node path {
       fill: #f4f4f4;
       stroke: #999;
@@ -17,23 +18,44 @@ mermaid.initialize({
       stroke-width: 1.5px;
     }
     .edgeLabel {
-      background-color: white;
-      color: #333;
+      background-color: transparent;
+      color: #fff;
     }
     .label {
-      color: #333;
+      color: #fff;
     }
     .cluster rect {
       fill: #f4f4f4;
       stroke: #999;
       stroke-width: 1px;
     }
-    
+
+    /* Sequence diagram specific styles */
+    .actor {
+      fill: #f4f4f4;
+      stroke: #999;
+      stroke-width: 1px;
+    }
+    text.actor {
+      fill: #fff;
+      stroke: none;
+    }
+    .messageText {
+      fill: #fff;
+      stroke: none;
+    }
+    .messageLine0, .messageLine1 {
+      stroke: #666;
+    }
+    .noteText {
+      fill: #fff;
+    }
+
     /* Dark mode overrides - will be applied with data-theme="dark" */
-    [data-theme="dark"] .node rect, 
-    [data-theme="dark"] .node circle, 
-    [data-theme="dark"] .node ellipse, 
-    [data-theme="dark"] .node polygon, 
+    [data-theme="dark"] .node rect,
+    [data-theme="dark"] .node circle,
+    [data-theme="dark"] .node ellipse,
+    [data-theme="dark"] .node polygon,
     [data-theme="dark"] .node path {
       fill: #2d3748;
       stroke: #4a5568;
@@ -55,6 +77,53 @@ mermaid.initialize({
     [data-theme="dark"] .flowchart-link {
       stroke: #a0aec0;
     }
+
+    /* Dark mode sequence diagram overrides */
+    [data-theme="dark"] .actor {
+      fill: #2d3748;
+      stroke: #4a5568;
+    }
+    [data-theme="dark"] text.actor {
+      fill: #e2e8f0;
+      stroke: none;
+    }
+    [data-theme="dark"] .messageText {
+      fill: #ffffff;
+      stroke: none;
+      font-weight: 500;
+    }
+    [data-theme="dark"] .messageLine0, [data-theme="dark"] .messageLine1 {
+      stroke: #a0aec0;
+      stroke-width: 1.5px;
+    }
+    [data-theme="dark"] .noteText {
+      fill: #e2e8f0;
+    }
+    /* Additional styles for sequence diagram text */
+    [data-theme="dark"] #sequenceNumber {
+      fill: #ffffff;
+    }
+    [data-theme="dark"] text.sequenceText {
+      fill: #ffffff;
+      font-weight: 500;
+    }
+    [data-theme="dark"] text.loopText, [data-theme="dark"] text.loopText tspan {
+      fill: #ffffff;
+    }
+    /* Add a subtle background to message text for better readability */
+    [data-theme="dark"] .messageText, [data-theme="dark"] text.sequenceText {
+      paint-order: stroke;
+      stroke: #1a202c;
+      stroke-width: 2px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Force all text elements to be white */
+    text[text-anchor][dominant-baseline],
+    text[text-anchor][alignment-baseline] {
+      fill: #fff !important;
+    }
   `,
   fontFamily: 'system-ui, -apple-system, sans-serif',
   fontSize: 12,
@@ -74,7 +143,7 @@ const FullScreenModal: React.FC<{
 }> = ({ isOpen, onClose, children }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  
+
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -82,11 +151,11 @@ const FullScreenModal: React.FC<{
         onClose();
       }
     };
-    
+
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
@@ -99,11 +168,11 @@ const FullScreenModal: React.FC<{
         onClose();
       }
     };
-    
+
     if (isOpen) {
       document.addEventListener('mousedown', handleOutsideClick);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
     };
@@ -120,7 +189,7 @@ const FullScreenModal: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-      <div 
+      <div
         ref={modalRef}
         className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-5xl max-h-[90vh] w-full overflow-hidden flex flex-col"
       >
@@ -129,7 +198,7 @@ const FullScreenModal: React.FC<{
           <div className="font-medium text-gray-700 dark:text-gray-300">Diagram View</div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
                 className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
                 aria-label="Zoom out"
@@ -141,7 +210,7 @@ const FullScreenModal: React.FC<{
                 </svg>
               </button>
               <span className="text-sm text-gray-600 dark:text-gray-400">{Math.round(zoom * 100)}%</span>
-              <button 
+              <button
                 onClick={() => setZoom(Math.min(2, zoom + 0.1))}
                 className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
                 aria-label="Zoom in"
@@ -153,7 +222,7 @@ const FullScreenModal: React.FC<{
                   <line x1="8" y1="11" x2="14" y2="11"></line>
                 </svg>
               </button>
-              <button 
+              <button
                 onClick={() => setZoom(1)}
                 className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
                 aria-label="Reset zoom"
@@ -164,7 +233,7 @@ const FullScreenModal: React.FC<{
                 </svg>
               </button>
             </div>
-            <button 
+            <button
               onClick={onClose}
               className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded"
               aria-label="Close"
@@ -176,11 +245,11 @@ const FullScreenModal: React.FC<{
             </button>
           </div>
         </div>
-        
+
         {/* Modal content with zoom */}
         <div className="overflow-auto p-4 flex-1 flex items-center justify-center">
-          <div 
-            style={{ 
+          <div
+            style={{
               transform: `scale(${zoom})`,
               transformOrigin: 'center center',
               transition: 'transform 0.2s ease-out'
@@ -202,21 +271,21 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
   const mermaidRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(`mermaid-${Math.random().toString(36).substring(2, 9)}`);
   const isDarkModeRef = useRef(
-    typeof window !== 'undefined' && 
-    window.matchMedia && 
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
 
   useEffect(() => {
     if (!chart) return;
-    
+
     setRetryAttempted(false);
-    
+
     let isMounted = true;
-    
+
     const renderChart = async () => {
       if (!isMounted) return;
-      
+
       try {
         setError(null);
         setSvg('');
@@ -224,18 +293,18 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
         const processedChart = preprocessMermaidChart(chart);
 
         const { svg: renderedSvg } = await mermaid.render(idRef.current, processedChart);
-        
+
         if (!isMounted) return;
-        
+
         let processedSvg = renderedSvg;
         if (isDarkModeRef.current) {
           processedSvg = processedSvg.replace('<svg ', '<svg data-theme="dark" ');
         }
-        
+
         setSvg(processedSvg);
       } catch (err) {
         console.error('Mermaid rendering error:', err);
-        
+
         const errorMessage = err instanceof Error ? err.message : String(err);
 
         if (isMounted && !retryAttempted && onMermaidError) {
@@ -249,24 +318,24 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
           try {
             const fallbackChart = createEmergencyFallbackChart(chart);
             console.log('Attempting emergency fallback rendering with:', fallbackChart);
-            
+
             const { svg: fallbackSvg } = await mermaid.render(`${idRef.current}-fallback`, fallbackChart);
-            
+
             if (isMounted) {
               let processedSvg = fallbackSvg;
               if (isDarkModeRef.current) {
                 processedSvg = processedSvg.replace('<svg ', '<svg data-theme="dark" ');
               }
-              
+
               setSvg(processedSvg);
               setError('Diagram had syntax errors and was simplified for display');
             }
           } catch (fallbackErr) {
             console.error('Fallback rendering also failed:', fallbackErr);
-            
+
             if (isMounted) {
               setError(`Failed to render diagram: ${errorMessage}`);
-              
+
               if (mermaidRef.current) {
                 mermaidRef.current.innerHTML = `
                   <div class="text-red-500 dark:text-red-400 text-xs mb-1">Syntax error in diagram</div>
@@ -280,7 +349,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
     };
 
     renderChart();
-    
+
     return () => {
       isMounted = false;
     };
@@ -312,13 +381,13 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
   return (
     <>
       <div className="relative group">
-        <div 
+        <div
           className={`flex justify-center overflow-auto text-center my-2 cursor-pointer hover:shadow-md transition-shadow duration-200 rounded-md ${className}`}
           dangerouslySetInnerHTML={{ __html: svg }}
           onClick={handleDiagramClick}
           title="Click to view fullscreen"
         />
-        
+
         <div className="absolute top-2 right-2 bg-gray-700/70 dark:bg-gray-900/70 text-white p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5 text-xs shadow-md pointer-events-none">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
@@ -329,9 +398,9 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', onMermaidError
           <span>Click to zoom</span>
         </div>
       </div>
-      
-      <FullScreenModal 
-        isOpen={isFullscreen} 
+
+      <FullScreenModal
+        isOpen={isFullscreen}
         onClose={() => setIsFullscreen(false)}
       >
         <div dangerouslySetInnerHTML={{ __html: svg }} />
@@ -353,29 +422,29 @@ const createEmergencyFallbackChart = (originalChart: string): string => {
   const nodeRegex = /([A-Za-z0-9_]+)(?:\[["']?(.*?)["']?\])?/g;
   const nodes = new Set<string>();
   let match;
-  
+
   while ((match = nodeRegex.exec(originalChart)) !== null) {
     if (match[1] && !match[1].match(/^(graph|flowchart|subgraph|end|style|classDef|class|click|linkStyle|direction)$/)) {
       nodes.add(match[1]);
     }
   }
-  
+
   const nodesList = Array.from(nodes).slice(0, 10);
   if (nodesList.length === 0) {
     return 'graph TD\nA[Error: Could not extract nodes]';
   }
-  
+
   let fallbackChart = 'graph TD\n';
-  
+
   nodesList.forEach(node => {
     fallbackChart += `${node}[${node}]\n`;
   });
-  
+
   for (let i = 0; i < nodesList.length - 1; i++) {
     fallbackChart += `${nodesList[i]}-->${nodesList[i + 1]}\n`;
   }
-  
+
   return fallbackChart;
 };
 
-export default Mermaid; 
+export default Mermaid;

@@ -9,8 +9,8 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import Mermaid from '../components/Mermaid';
 
-// Define the demo mermaid chart outside the component
-const DEMO_MERMAID_CHART = `graph TD
+// Define the demo mermaid charts outside the component
+const DEMO_FLOW_CHART = `graph TD
   A[Code Repository] --> B[DeepWiki]
   B --> C[Architecture Diagrams]
   B --> D[Component Relationships]
@@ -23,6 +23,22 @@ const DEMO_MERMAID_CHART = `graph TD
   style D fill:#a9d3f9,stroke:#1f6cd8
   style E fill:#f9a9d3,stroke:#d81f6c
   style F fill:#d3f9a9,stroke:#6cd81f`;
+
+const DEMO_SEQUENCE_CHART = `sequenceDiagram
+  participant User
+  participant DeepWiki
+  participant GitHub
+
+  User->>DeepWiki: Enter repository URL
+  DeepWiki->>GitHub: Request repository data
+  GitHub-->>DeepWiki: Return repository data
+  DeepWiki->>DeepWiki: Process and analyze code
+  DeepWiki-->>User: Display wiki with diagrams
+
+  %% Add a note to make text more visible
+  Note over User,GitHub: DeepWiki supports sequence diagrams for visualizing interactions`;
+
+// Both chart types are used directly in the UI
 
 // Wiki Interfaces
 interface WikiPage {
@@ -99,7 +115,10 @@ Original Mermaid Code:
 ${originalChart}
 \`\`\`
 
-Please regenerate the diagram from scratch and return ONLY the corrected Mermaid code block itself, starting with \`\`\`mermaid and ending with \`\`\`. Do not include any other text, explanation, or markdown formatting outside the code block. Fix the error: "${errorMessage}". Avoid horizontal layouts if possible, prefer "graph TD".`;
+Please regenerate the diagram from scratch and return ONLY the corrected Mermaid code block itself, starting with \`\`\`mermaid and ending with \`\`\`. Do not include any other text, explanation, or markdown formatting outside the code block. Fix the error: "${errorMessage}".
+
+If this is a flow diagram, avoid horizontal layouts if possible and prefer "graph TD" orientation.
+If this is a sequence diagram, ensure proper syntax with "sequenceDiagram" directive and correct arrow notation (e.g., A->>B: Message).`;
 
     try {
       setLoadingMessage('Attempting to auto-correct diagram error...');
@@ -277,16 +296,28 @@ The wiki page should:
    - Processes or workflows
    - Class hierarchies
    - State transitions
+   - Sequence of operations
 
 MERMAID DIAGRAM INSTRUCTIONS:
 - Include at least one mermaid diagram if relevant to this topic
-- IMPORTANT!!: Please orient and draw the diagram as vertically as possible. You must avoid long horizontal lists of nodes and sections!
-- Use "graph TD" (top-down) for most diagrams to ensure vertical orientation
-- Use proper formatting to avoid syntax errors:
-  - Always have a space after "graph TD"
+- DeepWiki supports both flow diagrams AND sequence diagrams
+- Choose the appropriate diagram type based on what you're visualizing:
+  - Use flow diagrams (graph TD) for component relationships, architecture, and hierarchies
+  - Use sequence diagrams (sequenceDiagram) for interactions between components, API flows, and time-based processes
+
+- For flow diagrams:
+  - IMPORTANT!!: Please orient and draw the diagram as vertically as possible. You must avoid long horizontal lists of nodes and sections!
+  - Use "graph TD" (top-down) for most diagrams to ensure vertical orientation
   - Use double dashes for arrows: A --> B (not A-B)
   - Use proper node IDs (alphanumeric with no spaces)
-  - Add labels in square brackets: A[Label]`;
+  - Add labels in square brackets: A[Label]
+
+- For sequence diagrams:
+  - Start with "sequenceDiagram" directive
+  - Define participants: participant A, participant B
+  - Show interactions with arrows: A->>B: Message
+  - Use solid arrows (->) or dotted arrows (-->)
+  - Add notes with: Note over A: Note text`;
 
         // Prepare request body
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -374,7 +405,7 @@ MERMAID DIAGRAM INSTRUCTIONS:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, pagesInProgress, originalMarkdown, currentRepoInfo, githubToken, gitlabToken, repoInfo.type]);
+  }, [generatedPages, githubToken, gitlabToken, repoInfo.type]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -1172,9 +1203,18 @@ IMPORTANT:
             <div className="w-full max-w-md mt-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Now with Mermaid Diagram Support!</h3>
               <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                DeepWiki automatically generates diagrams to help visualize:
+                DeepWiki supports both flow diagrams and sequence diagrams to help visualize:
               </div>
-              <Mermaid chart={DEMO_MERMAID_CHART} />
+
+              <div className="mb-4">
+                <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Flow Diagram Example:</h4>
+                <Mermaid chart={DEMO_FLOW_CHART} />
+              </div>
+
+              <div>
+                <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sequence Diagram Example:</h4>
+                <Mermaid chart={DEMO_SEQUENCE_CHART} />
+              </div>
             </div>
           </div>
         )}
