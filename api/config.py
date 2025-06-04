@@ -192,26 +192,17 @@ def load_lang_config():
         },
         "default": "en"
     }
-    try:
-        # If environment variable is set, use the directory specified by it
-        if CONFIG_DIR:
-            config_path = Path(CONFIG_DIR) / "lang.json"
-        else:
-            # Otherwise use default directory
-            config_path = Path(__file__).parent / "config" / "lang.json"
 
-        logger.info(f"Loading language configuration from {config_path}")
+    loaded_config = load_json_config("lang.json") # Let load_json_config handle path and loading
 
-        if not config_path.exists():
-            logger.warning(f"Language configuration file {config_path} does not exist")
-            return default_config
-        return load_json_config(config_path)
-    except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON from language configuration file {config_path}: {str(e)}")
+    if not loaded_config:
         return default_config
-    except Exception as e:
-        logger.error(f"Error loading language configuration file {config_path}: {str(e)}")
+
+    if "supported_languages" not in loaded_config or "default" not in loaded_config:
+        logger.warning("Language configuration file 'lang.json' is malformed. Using default language configuration.")
         return default_config
+
+    return loaded_config
 
 # Default excluded directories and files
 DEFAULT_EXCLUDED_DIRS: List[str] = [
