@@ -128,6 +128,10 @@ class AuthorizationConfig(BaseModel):
 
 from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 
+@app.get("/lang/config")
+async def get_lang_config():
+    return configs["lang_config"]
+
 @app.get("/auth/status")
 async def get_auth_status():
     """
@@ -444,6 +448,11 @@ async def get_cached_wiki(
     """
     Retrieves cached wiki data (structure and generated pages) for a repository.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+    if not supported_langs.__contains__(language):
+        language = configs["lang_config"]["default"]
+
     logger.info(f"Attempting to retrieve wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
     cached_data = await read_wiki_cache(owner, repo, repo_type, language)
     if cached_data:
@@ -459,6 +468,12 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
     """
     Stores generated wiki data (structure and pages) to the server-side cache.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+
+    if not supported_langs.__contains__(request_data.language):
+        request_data.language = configs["lang_config"]["default"]
+
     logger.info(f"Attempting to save wiki cache for {request_data.owner}/{request_data.repo} ({request_data.repo_type}), lang: {request_data.language}")
     success = await save_wiki_cache(request_data)
     if success:
@@ -472,11 +487,16 @@ async def delete_wiki_cache(
     repo: str = Query(..., description="Repository name"),
     repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
     language: str = Query(..., description="Language of the wiki content"),
-    authorization_code: str = Query(..., description="Authorization code")
+    authorization_code: Optional[str] = Query(None, description="Authorization code")
 ):
     """
     Deletes a specific wiki cache from the file system.
     """
+    # Language validation
+    supported_langs = configs["lang_config"]["supported_languages"]
+    if not supported_langs.__contains__(language):
+        raise HTTPException(status_code=400, detail="Language is not supported")
+
     if WIKI_AUTH_MODE:
         logger.info("check the authorization code")
         if WIKI_AUTH_CODE != authorization_code:

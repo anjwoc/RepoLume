@@ -44,7 +44,7 @@ const DEMO_SEQUENCE_CHART = `sequenceDiagram
 
 export default function Home() {
   const router = useRouter();
-  const { language, setLanguage, messages } = useLanguage();
+  const { language, setLanguage, messages, supportedLanguages } = useLanguage();
   const { projects, isLoading: projectsLoading } = useProcessedProjects();
 
   // Create a simple translation function
@@ -365,6 +365,7 @@ export default function Home() {
             repositoryInput={repositoryInput}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
+            supportedLanguages={supportedLanguages}
             isComprehensiveView={isComprehensiveView}
             setIsComprehensiveView={setIsComprehensiveView}
             provider={provider}

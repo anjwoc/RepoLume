@@ -59,6 +59,10 @@ const nextConfig: NextConfig = {
         source: '/api/auth/validate',
         destination: `${TARGET_SERVER_BASE_URL}/auth/validate`,
       },
+      {
+        source: '/api/lang/config',
+        destination: `${TARGET_SERVER_BASE_URL}/lang/config`,
+      },
     ];
   },
 };
