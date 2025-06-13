@@ -1420,7 +1420,9 @@ IMPORTANT:
       }
 
       if(authRequired && !authCode) {
-        console.warn("Authorization code is required");
+        setIsLoading(false);
+        console.error("Authorization code is required");
+        setError('Authorization code is required');
         return;
       }
 
@@ -1442,7 +1444,10 @@ IMPORTANT:
         // setError(\`Cache clear failed: ${errorText}. Trying to refresh...\`);
         if(response.status == 401) {
           setIsLoading(false);
-          throw new Error('Failed to validate the authorization code');
+          setLoadingMessage(undefined);
+          setError('Failed to validate the authorization code');
+          console.error('Failed to validate the authorization code')
+          return;
         }
       }
     } catch (err) {
