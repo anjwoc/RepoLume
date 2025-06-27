@@ -1120,8 +1120,33 @@ IMPORTANT:
         let treeData = null;
         let apiErrorDetails = '';
 
+        // Determine the GitHub API base URL based on the repository URL
+        const getGithubApiUrl = (repoUrl: string | null): string => {
+          if (!repoUrl) {
+            return 'https://api.github.com'; // Default to public GitHub
+          }
+          
+          try {
+            const url = new URL(repoUrl);
+            const hostname = url.hostname;
+            
+            // If it's the public GitHub, use the standard API URL
+            if (hostname === 'github.com') {
+              return 'https://api.github.com';
+            }
+            
+            // For GitHub Enterprise, use the enterprise API URL format
+            // GitHub Enterprise API URL format: https://github.company.com/api/v3
+            return `${url.protocol}//${hostname}/api/v3`;
+          } catch {
+            return 'https://api.github.com'; // Fallback to public GitHub if URL parsing fails
+          }
+        };
+
+        const githubApiBaseUrl = getGithubApiUrl(effectiveRepoInfo.repoUrl);
+
         for (const branch of ['main', 'master']) {
-          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+          const apiUrl = `${githubApiBaseUrl}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
           const headers = createGithubHeaders(currentToken);
 
           console.log(`Fetching repository structure from branch: ${branch}`);
@@ -1162,7 +1187,7 @@ IMPORTANT:
         try {
           const headers = createGithubHeaders(currentToken);
 
-          const readmeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+          const readmeResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}/readme`, {
             headers
           });
 
