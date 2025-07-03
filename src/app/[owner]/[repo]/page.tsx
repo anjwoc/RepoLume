@@ -251,6 +251,43 @@ export default function RepoWikiPage() {
   const [authCode, setAuthCode] = useState<string>('');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
+  // Default branch state
+  const [defaultBranch, setDefaultBranch] = useState<string>('main');
+
+  // Helper function to generate proper repository file URLs
+  const generateFileUrl = useCallback((filePath: string): string => {
+    if (effectiveRepoInfo.type === 'local') {
+      // For local repositories, we can't generate web URLs
+      return filePath;
+    }
+
+    const repoUrl = effectiveRepoInfo.repoUrl;
+    if (!repoUrl) {
+      return filePath;
+    }
+
+    try {
+      const url = new URL(repoUrl);
+      const hostname = url.hostname;
+      
+      if (hostname === 'github.com' || hostname.includes('github')) {
+        // GitHub URL format: https://github.com/owner/repo/blob/branch/path
+        return `${repoUrl}/blob/${defaultBranch}/${filePath}`;
+      } else if (hostname === 'gitlab.com' || hostname.includes('gitlab')) {
+        // GitLab URL format: https://gitlab.com/owner/repo/-/blob/branch/path
+        return `${repoUrl}/-/blob/${defaultBranch}/${filePath}`;
+      } else if (hostname === 'bitbucket.org' || hostname.includes('bitbucket')) {
+        // Bitbucket URL format: https://bitbucket.org/owner/repo/src/branch/path
+        return `${repoUrl}/src/${defaultBranch}/${filePath}`;
+      }
+    } catch (error) {
+      console.warn('Error generating file URL:', error);
+    }
+
+    // Fallback to just the file path
+    return filePath;
+  }, [effectiveRepoInfo, defaultBranch]);
+
   // Memoize repo info to avoid triggering updates in callbacks
 
   // Add useEffect to handle scroll reset
@@ -367,7 +404,7 @@ Format it exactly like this:
 Remember, do not provide any acknowledgements, disclaimers, apologies, or any other preface before the \`<details>\` block. JUST START with the \`<details>\` block.
 The following files were used as context for generating this wiki page:
 
-${filePaths.map(path => `- [${path}](${path})`).join('\n')}
+${filePaths.map(path => `- [${path}](${generateFileUrl(path)})`).join('\n')}
 <!-- Add additional relevant files if fewer than 5 were provided -->
 </details>
 
@@ -407,7 +444,7 @@ Based ONLY on the content of the \`[RELEVANT_SOURCE_FILES]\`:
         *   Configuration options, their types, and default values.
         *   Data model fields, types, constraints, and descriptions.
 
-5.  **Code Snippets:**
+5.  **Code Snippets (ENTIRELY OPTIONAL):**
     *   Include short, relevant code snippets (e.g., Python, Java, JavaScript, SQL, JSON, YAML) directly from the \`[RELEVANT_SOURCE_FILES]\` to illustrate key implementation details, data structures, or configurations.
     *   Ensure snippets are well-formatted within Markdown code blocks with appropriate language identifiers.
 
@@ -591,7 +628,7 @@ Remember:
         setLoadingMessage(undefined); // Clear specific loading message
       }
     });
-  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests]);
+  }, [generatedPages, currentToken, effectiveRepoInfo, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, modelExcludedDirs, modelExcludedFiles, language, activeContentRequests, generateFileUrl]);
 
   // Determine the wiki structure from repository data
   const determineWikiStructure = useCallback(async (fileTree: string, readme: string, owner: string, repo: string) => {
@@ -1111,6 +1148,8 @@ IMPORTANT:
           const data = await response.json();
           fileTreeData = data.file_tree;
           readmeContent = data.readme;
+          // For local repos, we can't determine the actual branch, so use 'main' as default
+          setDefaultBranch('main');
         } catch (err) {
           throw err;
         }
@@ -1145,7 +1184,30 @@ IMPORTANT:
 
         const githubApiBaseUrl = getGithubApiUrl(effectiveRepoInfo.repoUrl);
 
-        for (const branch of ['main', 'master']) {
+        // First, try to get the default branch from the repository info
+        let defaultBranchLocal = null;
+        try {
+          const repoInfoResponse = await fetch(`${githubApiBaseUrl}/repos/${owner}/${repo}`, {
+            headers: createGithubHeaders(currentToken)
+          });
+          
+          if (repoInfoResponse.ok) {
+            const repoData = await repoInfoResponse.json();
+            defaultBranchLocal = repoData.default_branch;
+            console.log(`Found default branch: ${defaultBranchLocal}`);
+            // Store the default branch in state
+            setDefaultBranch(defaultBranchLocal || 'main');
+          }
+        } catch (err) {
+          console.warn('Could not fetch repository info for default branch:', err);
+        }
+
+        // Create list of branches to try, prioritizing the actual default branch
+        const branchesToTry = defaultBranchLocal 
+          ? [defaultBranchLocal, 'main', 'master'].filter((branch, index, arr) => arr.indexOf(branch) === index)
+          : ['main', 'master'];
+
+        for (const branch of branchesToTry) {
           const apiUrl = `${githubApiBaseUrl}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
           const headers = createGithubHeaders(currentToken);
 
@@ -1215,6 +1277,7 @@ IMPORTANT:
         try {
           // Step 1: Get project info to determine default branch
           let projectInfoUrl: string;
+          let defaultBranchLocal = 'main'; // fallback
           try {
             const validatedUrl = new URL(projectDomain ?? ''); // Validate domain
             projectInfoUrl = `${validatedUrl.origin}/api/v4/projects/${encodedProjectPath}`;
@@ -1228,10 +1291,16 @@ IMPORTANT:
             throw new Error(`GitLab project info error: Status ${projectInfoRes.status}, Response: ${errorData}`);
           }
 
+          const projectInfo = await projectInfoRes.json();
+          defaultBranchLocal = projectInfo.default_branch || 'main';
+          console.log(`Found GitLab default branch: ${defaultBranchLocal}`);
+          // Store the default branch in state
+          setDefaultBranch(defaultBranchLocal);
+
           // Step 2: Paginate to fetch full file tree
           let page = 1;
           let morePages = true;
-
+          
           while (morePages) {
             const apiUrl = `${projectInfoUrl}/repository/tree?recursive=true&per_page=100&page=${page}`;
             const response = await fetch(apiUrl, { headers });
@@ -1285,7 +1354,7 @@ IMPORTANT:
         // Try to get the file tree for common branch names
         let filesData = null;
         let apiErrorDetails = '';
-        let defaultBranch = '';
+        let defaultBranchLocal = '';
         const headers = createBitbucketHeaders(currentToken);
 
         // First get project info to determine default branch
@@ -1297,9 +1366,11 @@ IMPORTANT:
 
           if (response.ok) {
             const projectData = JSON.parse(responseText);
-            defaultBranch = projectData.mainbranch.name;
+            defaultBranchLocal = projectData.mainbranch.name;
+            // Store the default branch in state
+            setDefaultBranch(defaultBranchLocal);
 
-            const apiUrl = `https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranch}/?recursive=true&per_page=100`;
+            const apiUrl = `https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranchLocal}/?recursive=true&per_page=100`;
             try {
               const response = await fetch(apiUrl, {
                 headers
@@ -1314,7 +1385,7 @@ IMPORTANT:
                 apiErrorDetails = `Status: ${response.status}, Response: ${errorData}`;
               }
             } catch (err) {
-              console.error(`Network error fetching Bitbucket branch ${defaultBranch}:`, err);
+              console.error(`Network error fetching Bitbucket branch ${defaultBranchLocal}:`, err);
             }
           } else {
             const errorData = responseText;
@@ -1342,7 +1413,7 @@ IMPORTANT:
         try {
           const headers = createBitbucketHeaders(currentToken);
 
-          const readmeResponse = await fetch(`https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranch}/README.md`, {
+          const readmeResponse = await fetch(`https://api.bitbucket.org/2.0/repositories/${encodedRepoPath}/src/${defaultBranchLocal}/README.md`, {
             headers
           });
 
