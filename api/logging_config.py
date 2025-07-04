@@ -10,7 +10,8 @@ def setup_logging(format: str = None):
     Ensures log directory exists, and configures both file and console handlers.
     """
     # Determine log directory and default file path
-    base_dir = Path(__file__).parent
+    # base_dir is now the workspace root
+    base_dir = Path(__file__).resolve().parent.parent
     log_dir = base_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     default_log_file = log_dir / "application.log"

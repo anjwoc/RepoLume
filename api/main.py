@@ -53,5 +53,6 @@ if __name__ == "__main__":
         "api.api:app",
         host="0.0.0.0",
         port=port,
-        reload=is_development
+        reload=is_development,
+        reload_dirs=["api"] if is_development else None
     )
