@@ -2,6 +2,9 @@ import logging
 import os
 from pathlib import Path
 
+class IgnoreLogChangeDetectedFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord):
+        return "Detected file change in" not in record.getMessage()
 
 def setup_logging(format: str = None):
     """
@@ -10,8 +13,7 @@ def setup_logging(format: str = None):
     Ensures log directory exists, and configures both file and console handlers.
     """
     # Determine log directory and default file path
-    # base_dir is now the workspace root
-    base_dir = Path(__file__).resolve().parent.parent
+    base_dir = Path(__file__).parent
     log_dir = base_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     default_log_file = log_dir / "application.log"
@@ -42,6 +44,10 @@ def setup_logging(format: str = None):
         ],
         force=True
     )
+    
+    # Ignore log file's change detection
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(IgnoreLogChangeDetectedFilter())
 
     # Initial debug message to confirm configuration
     logger = logging.getLogger(__name__)
