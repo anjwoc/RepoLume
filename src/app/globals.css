@@ -31,6 +31,11 @@ html[data-theme='dark'] {
   --link-color: #b19cd9; /* Lighter purple for dark mode links */
 }
 
+/* Fix for unreadable <select> options in Chrome's dark mode */
+[data-theme="dark"] select option {
+  background: var(--background);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
