@@ -578,10 +578,28 @@ This file contains...
                 response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
                 # Handle streaming response from Ollama
                 async for chunk in response:
-                    text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
-                    if text and not text.startswith('model=') and not text.startswith('created_at='):
-                        text = text.replace('<think>', '').replace('</think>', '')
-                        await websocket.send_text(text)
+                    text = None
+                    if isinstance(chunk, dict):
+                        text = chunk.get("message", {}).get("content") if isinstance(chunk.get("message"), dict) else chunk.get("message")
+                    else:
+                        message = getattr(chunk, "message", None)
+                        if message is not None:
+                            if isinstance(message, dict):
+                                text = message.get("content")
+                            else:
+                                text = getattr(message, "content", None)
+
+                    if not text:
+                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None)
+
+                    if not text and hasattr(chunk, "__dict__"):
+                        message = chunk.__dict__.get("message")
+                        if isinstance(message, dict):
+                            text = message.get("content")
+
+                    if isinstance(text, str) and text and not text.startswith('model=') and not text.startswith('created_at='):
+                        clean_text = text.replace('<think>', '').replace('</think>', '')
+                        await websocket.send_text(clean_text)
                 # Explicitly close the WebSocket connection after the response is complete
                 await websocket.close()
             elif request.provider == "openrouter":
