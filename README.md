@@ -1,3 +1,12 @@
+
+### ⚠️ Announcement: Shifting focus to AsyncReview
+---
+
+**IMPORTANT UPDATE** DeepWiki-Open maintenance is ongoing, but primary active development is moving to **[AsyncReview](https://github.com/AsyncFuncAI/AsyncReview/)**. Thank you for the support on this project; please join me in the new repository for this year's primary effort.
+
+---
+---
+
 # DeepWiki-Open
 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
