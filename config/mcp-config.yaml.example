@@ -1,0 +1,98 @@
+# LocalWiki MCP 설정 파일 (~/.localwiki/mcp-config.yaml)
+# 사용할 소스만 enabled: true 로 변경하세요.
+# 설정 적용: localwiki generate ./repo --agent gemini --lang ko
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 데이터베이스 MCP (DBHub 통합 — PostgreSQL/MySQL/MSSQL/MariaDB)
+# 설치: npm install -g dbhub
+# ─────────────────────────────────────────────────────────────────────────────
+databases:
+
+  postgresql:
+    enabled: false
+    connection_string: "postgresql://user:password@localhost:5432/mydb"
+    display_name: "PostgreSQL"
+    # 예) 클라우드: "postgresql://user:pass@db.example.com:5432/prod"
+    # 예) AWS RDS : "postgresql://user:pass@mydb.xxxxx.rds.amazonaws.com/mydb"
+
+  mysql:
+    enabled: false
+    connection_string: "mysql://user:password@localhost:3306/mydb"
+    display_name: "MySQL"
+
+  mssql:
+    enabled: false
+    # MS-SQL 연결 문자열 (DBHub 지원)
+    connection_string: "sqlserver://user:password@localhost:1433?database=mydb"
+    display_name: "MS-SQL"
+
+  mariadb:
+    enabled: false
+    # MariaDB는 MySQL 프로토콜 사용
+    connection_string: "mysql://user:password@localhost:3306/mydb"
+    display_name: "MariaDB"
+
+  oracle:
+    # Oracle은 별도 SQLcl MCP 사용 (https://www.oracle.com/database/sqldeveloper/technologies/sqlcl/)
+    # 설치: https://www.oracle.com/tools/downloads/sqlcl-downloads.html
+    enabled: false
+    connection_string: "jdbc:oracle:thin:@localhost:1521:XE"
+    display_name: "Oracle"
+    # 참고: ORACLE_CONNECT 환경변수로도 설정 가능
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Atlassian MCP (Jira + Confluence)
+# 출처: https://www.atlassian.com/platform/marketplace/apps/remote-mcp
+# ─────────────────────────────────────────────────────────────────────────────
+atlassian:
+  enabled: false
+
+  # Cloud 방식 (Atlassian Cloud 구독 — 권장)
+  # 사전 조건: Atlassian 관리자 → Settings → Products → Remote MCP server 활성화
+  mode: "cloud"           # "cloud" | "datacenter"
+
+  cloud:
+    mcp_url: "https://mcp.atlassian.com/v1/sse"
+    # Cloud 모드는 OAuth 2.1 사용 — 별도 토큰 불필요
+    # mcp-atlassian 패키지 필요: pip install mcp-atlassian
+
+  # DataCenter / On-Prem 방식
+  datacenter:
+    base_url: "https://jira.your-company.com"
+    confluence_url: "https://confluence.your-company.com"
+    pat: "${ATLASSIAN_PAT}"     # 환경변수로 PAT 설정
+
+  # 검색 범위 제한 (선택)
+  jira_project: ""          # 예) "PROJ" — 특정 프로젝트만
+  space_key: ""             # 예) "ENG" — 특정 Confluence 스페이스만
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GitHub MCP
+# 출처: https://github.com/github/github-mcp-server (MIT License)
+# ─────────────────────────────────────────────────────────────────────────────
+github:
+  enabled: false
+
+  # Docker 방식 (권장 — 별도 빌드 불필요)
+  mode: "docker"            # "docker" | "local"
+
+  docker:
+    image: "ghcr.io/github/github-mcp-server"
+    # 사전 조건: docker pull ghcr.io/github/github-mcp-server
+
+  local:
+    # go build로 직접 빌드한 바이너리
+    binary_path: ""         # 예) "/usr/local/bin/github-mcp-server"
+    token: "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+
+  # 리포 자동 감지 (git remote origin에서 추출)
+  # 아래 값을 직접 설정하면 자동 감지를 우선합니다
+  owner: ""                 # 예) "myorg"
+  repo: ""                  # 예) "my-service"
+
+  # 활성화할 기능 (성능 최적화)
+  toolsets:
+    - repos
+    - issues
+    - pull_requests
+    - code_security

@@ -1,6 +1,6 @@
-# Using DeepWiki with Ollama: Beginner's Guide
+# Using LocalWiki with Ollama: Beginner's Guide
 
-DeepWiki supports local AI models through Ollama, which is perfect if you want to:
+LocalWiki supports local AI models through Ollama, which is perfect if you want to:
 
 - Run everything locally without relying on cloud APIs
 - Avoid API costs from OpenAI or Google
@@ -33,14 +33,14 @@ ollama pull nomic-embed-text
 ollama pull qwen3:1.7b
 ```
 
-The first command downloads the embedding model that DeepWiki uses to understand your code. The second downloads a small but capable language model for generating documentation.
+The first command downloads the embedding model that LocalWiki uses to understand your code. The second downloads a small but capable language model for generating documentation.
 
-## Step 3: Set Up DeepWiki
+## Step 3: Set Up LocalWiki
 
-Clone the DeepWiki repository:
+Clone the LocalWiki repository:
 ```bash
-git clone https://github.com/AsyncFuncAI/deepwiki-open.git
-cd deepwiki-open
+git clone https://github.com/localwiki.git
+cd localwiki
 ```
 
 Create a `.env` file in the project root:
@@ -69,7 +69,7 @@ npm install
 npm run dev
 ```
 
-## Step 4: Use DeepWiki with Ollama
+## Step 4: Use LocalWiki with Ollama
 
 1. Open http://localhost:3000 in your browser
 2. Enter a GitHub, GitLab, or Bitbucket repository URL
@@ -86,21 +86,21 @@ cp api/config/embedder.ollama.json.bak api/config/embedder.json
 # overwrite api/config/embedder.json? (y/n [n]) y
 ```
 
-2. Build the docker image `docker build -f Dockerfile-ollama-local -t deepwiki:ollama-local .`
+2. Build the docker image `docker build -f Dockerfile-ollama-local -t localwiki:ollama-local .`
 3. Run the container:
    ```bash
    # For regular use
-   docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
+   docker run -p 3000:3000 -p 8001:8001 --name localwiki \
      -v ~/.adalflow:/root/.adalflow \
      -e OLLAMA_HOST=your_ollama_host \
-     deepwiki:ollama-local
+     localwiki:ollama-local
    
    # For local repository analysis
-   docker run -p 3000:3000 -p 8001:8001 --name deepwiki \
+   docker run -p 3000:3000 -p 8001:8001 --name localwiki \
      -v ~/.adalflow:/root/.adalflow \
      -e OLLAMA_HOST=your_ollama_host \
      -v /path/to/your/repo:/app/local-repos/repo-name \
-     deepwiki:ollama-local
+     localwiki:ollama-local
    ```
 
 4. When using local repositories in the interface: use `/app/local-repos/repo-name` as the local repository path.
@@ -111,7 +111,7 @@ Note: For Apple Silicon Macs, the Dockerfile automatically uses ARM64 binaries f
 
 ## How It Works
 
-When you select "Use Local Ollama", DeepWiki will:
+When you select "Use Local Ollama", LocalWiki will:
 
 1. Use the `nomic-embed-text` model for creating embeddings of your code
 2. Use the `qwen3:1.7b` model for generating documentation
@@ -182,7 +182,7 @@ For optimal performance with Ollama:
 
 ## Limitations
 
-When using Ollama with DeepWiki:
+When using Ollama with LocalWiki:
 
 1. **No Internet Access**: The models run completely offline and cannot access external information
 2. **Limited Context Window**: Local models typically have smaller context windows than cloud APIs
@@ -190,6 +190,6 @@ When using Ollama with DeepWiki:
 
 ## Conclusion
 
-Using DeepWiki with Ollama gives you a completely local, private solution for code documentation. While it may not match the speed or quality of cloud-based solutions, it provides a free and privacy-focused alternative that works well for most projects.
+Using LocalWiki with Ollama gives you a completely local, private solution for code documentation. While it may not match the speed or quality of cloud-based solutions, it provides a free and privacy-focused alternative that works well for most projects.
 
-Enjoy using DeepWiki with your local Ollama models!
+Enjoy using LocalWiki with your local Ollama models!

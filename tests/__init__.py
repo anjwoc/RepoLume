@@ -1,1 +1,1 @@
-# Tests for DeepWiki
+# Tests for LocalWiki

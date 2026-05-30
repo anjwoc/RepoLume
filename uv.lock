@@ -340,7 +340,7 @@ wheels = [
 ]
 
 [[package]]
-name = "deepwiki-open"
+name = "localwiki"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

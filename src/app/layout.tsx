@@ -4,7 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
 export const metadata: Metadata = {
-  title: "Deepwiki Open Source | Sheing Ng",
+  title: "Localwiki Open Source | Sheing Ng",
   description: "Created by Sheing Ng",
 };
 

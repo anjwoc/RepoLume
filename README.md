@@ -1,42 +1,37 @@
-# DeepWiki-Open (Grok-Wiki)
+# LocalWiki
 
-<img width="1536" height="1024" alt="grok-wiki" src="https://github.com/user-attachments/assets/1f569784-d1c8-479d-9a99-d3ef4ad3ec84" />
+**LocalWiki** is a powerful general-purpose tool designed to analyze code repositories and automatically generate comprehensive, interactive wikis with visual diagrams.
 
-**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub, GitLab, or BitBucket repository! Just enter a repo name, and DeepWiki will:
+## ✨ Features
+- **Instant Documentation**: Analyze code structure and generate wikis automatically.
+- **Visual Diagrams**: Automatically generated Mermaid diagrams for architecture and data flow.
+- **RAG-based Q&A**: Ask questions and converse with your repository code.
+- **DeepResearch**: Multi-turn in-depth research of the codebase.
 
-1. Analyze the code structure
-2. Generate comprehensive documentation
-3. Create visual diagrams to explain how everything works
-4. Organize it all into an easy-to-navigate wiki
+## 🚀 Quick Start
 
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
-[![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)
-[![Twitter/X](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/sashimikun_void)
-[![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/VQMBGR8u5v)
+### Step 1: Environment Variables
+Create a `.env` file in the project root with the required API keys:
+```
+GOOGLE_API_KEY=your_google_api_key
+OPENAI_API_KEY=your_openai_api_key
+```
 
-[English](./README.md) | [简体中文](./README.zh.md) | [繁體中文](./README.zh-tw.md) | [日本語](./README.ja.md) | [Español](./README.es.md) | [한국어](./README.kr.md) | [Tiếng Việt](./README.vi.md) | [Português Brasileiro](./README.pt-br.md) | [Français](./README.fr.md) | [Русский](./README.ru.md)
+### Step 2: Start Backend
+```bash
+python -m pip install poetry==2.0.1 && poetry install -C api
+python -m api.main
+```
 
-## Deepwiki-Open 2.0 (Grok Wiki is now live)
+### Step 3: Start Frontend
+```bash
+npm install
+npm run dev
+```
 
-- **Download at** https://grok-wiki.com
+Open `http://localhost:3000` in your browser.
 
-
-
-https://github.com/user-attachments/assets/48d1e60a-eb91-4c05-a5a8-3624ffb79fb1
-
-
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-- Open issues for bugs or feature requests
-- Submit pull requests to improve the code
-- Share your feedback and ideas
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## ⭐ Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=AsyncFuncAI/deepwiki-open&type=Date)](https://star-history.com/#AsyncFuncAI/deepwiki-open&Date)
+## 🛠️ Project Structure
+- `api/`: Backend API server (FastAPI, RAG pipelines, etc.)
+- `src/`: Frontend Next.js app (UI components, Wiki rendering)
+- `public/`: Static assets
