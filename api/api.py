@@ -9,6 +9,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
+import shutil
+import time
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -56,6 +58,7 @@ class ProcessedProjectEntry(BaseModel):
     repo_type: str # Renamed from type to repo_type for clarity with existing models
     submittedAt: int # Timestamp
     language: str # Extracted from filename
+    model: Optional[str] = None
 
 class RepoInfo(BaseModel):
     owner: str
@@ -97,6 +100,7 @@ class WikiCacheData(BaseModel):
     repo: Optional[RepoInfo] = None
     provider: Optional[str] = None
     model: Optional[str] = None
+    language: Optional[str] = None
 
 class WikiCacheRequest(BaseModel):
     """
@@ -145,6 +149,49 @@ class AuthorizationConfig(BaseModel):
     code: str = Field(..., description="Authorization code")
 
 from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
+from api.task_streams import router as task_stream_router
+
+app.include_router(task_stream_router)
+
+@app.get("/api/fs/select_folder")
+async def select_folder():
+    """
+    Opens a native folder picker dialog on the host OS and returns the absolute path.
+    """
+    import os
+    import platform
+    import subprocess
+    
+    try:
+        # Try applescript on Mac first since tkinter can have focus/loop issues in a web server thread
+        if platform.system() == "Darwin":
+            script = '''
+            tell application (path to frontmost application as text)
+                activate
+                set folderPath to choose folder with prompt "Select Project Folder"
+                POSIX path of folderPath
+            end tell
+            '''
+            result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                return {"path": result.stdout.strip()}
+            else:
+                print(f"AppleScript returned non-zero or empty. Err: {result.stderr}")
+                return {"path": ""}
+            
+        # Fallback to tkinter
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        folder_path = filedialog.askdirectory(title="Select Project Folder")
+        root.destroy()
+        return {"path": folder_path}
+    except Exception as e:
+        print(f"Error opening folder picker: {e}")
+        return {"path": ""}
+
 
 @app.get("/lang/config")
 async def get_lang_config():
@@ -405,14 +452,17 @@ app.add_websocket_route("/ws/chat", handle_websocket_chat)
 WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
 
-def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str) -> str:
+def get_wiki_cache_path(owner: str, repo: str, repo_type: str, language: str, model: Optional[str] = None) -> str:
     """Generates the file path for a given wiki cache."""
-    filename = f"localwiki_cache_{repo_type}_{owner}_{repo}_{language}.json"
+    model_str = f"_{model}" if model else ""
+    # Safe model string replacement for filenames if needed, though most characters are safe except slashes.
+    model_str = model_str.replace("/", "-")
+    filename = f"localwiki_cache_{repo_type}_{owner}_{repo}_{language}{model_str}.json"
     return os.path.join(WIKI_CACHE_DIR, filename)
 
-async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) -> Optional[WikiCacheData]:
+async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str, model: Optional[str] = None) -> Optional[WikiCacheData]:
     """Reads wiki cache data from the file system."""
-    cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
+    cache_path = get_wiki_cache_path(owner, repo, repo_type, language, model)
     if os.path.exists(cache_path):
         try:
             with open(cache_path, 'r', encoding='utf-8') as f:
@@ -425,7 +475,7 @@ async def read_wiki_cache(owner: str, repo: str, repo_type: str, language: str) 
 
 async def save_wiki_cache(data: WikiCacheRequest) -> bool:
     """Saves wiki cache data to the file system."""
-    cache_path = get_wiki_cache_path(data.repo.owner, data.repo.repo, data.repo.type, data.language)
+    cache_path = get_wiki_cache_path(data.repo.owner, data.repo.repo, data.repo.type, data.language, data.model)
     logger.info(f"Attempting to save wiki cache. Path: {cache_path}")
     try:
         payload = WikiCacheData(
@@ -433,9 +483,9 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
             generated_pages=data.generated_pages,
             repo=data.repo,
             provider=data.provider,
-            model=data.model
+            model=data.model,
+            language=data.language
         )
-        # Log size of data to be cached for debugging (avoid logging full content if large)
         try:
             payload_json = payload.model_dump_json()
             payload_size = len(payload_json.encode('utf-8'))
@@ -443,11 +493,37 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
         except Exception as ser_e:
             logger.warning(f"Could not serialize payload for size logging: {ser_e}")
 
-
         logger.info(f"Writing cache file to: {cache_path}")
         with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(payload.model_dump(), f, indent=2)
         logger.info(f"Wiki cache successfully saved to {cache_path}")
+
+        # Also write the generated pages to the wiki-out directory as .md files (separated by language)
+        wiki_out_repo_name = f"{data.repo.repo}_{data.model}" if data.model else data.repo.repo
+        wiki_out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out", wiki_out_repo_name, data.language)
+        os.makedirs(wiki_out_dir, exist_ok=True)
+        
+        # Determine sections from wiki_structure
+        section_map = {} # page_id -> section_id
+        if data.wiki_structure and data.wiki_structure.sections:
+            for sec in data.wiki_structure.sections:
+                for page_id in sec.pages:
+                    section_map[page_id] = sec.id
+                    
+        for page_id, page in data.generated_pages.items():
+            section_id = section_map.get(page_id)
+            if section_id:
+                section_dir = os.path.join(wiki_out_dir, section_id)
+                os.makedirs(section_dir, exist_ok=True)
+                page_path = os.path.join(section_dir, f"{page_id}.md")
+            else:
+                page_path = os.path.join(wiki_out_dir, f"{page_id}.md")
+                
+            with open(page_path, 'w', encoding='utf-8') as f:
+                f.write(page.content)
+                
+        logger.info(f"Wiki markdown files also saved to {wiki_out_dir}")
+
         return True
     except IOError as e:
         logger.error(f"IOError saving wiki cache to {cache_path}: {e.strerror} (errno: {e.errno})", exc_info=True)
@@ -456,6 +532,69 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
         logger.error(f"Unexpected error saving wiki cache to {cache_path}: {e}", exc_info=True)
         return False
 
+async def read_wiki_out_cache(repo: str, language: str, model: Optional[str] = None) -> Optional[WikiCacheData]:
+    wiki_out_repo_name = f"{repo}_{model}" if model else repo
+    wiki_out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out", wiki_out_repo_name, language)
+    if not os.path.exists(wiki_out_dir):
+        return None
+        
+    pages = []
+    generated_pages = {}
+    sections = []
+    rootSections = []
+    
+    for item in os.listdir(wiki_out_dir):
+        item_path = os.path.join(wiki_out_dir, item)
+        if os.path.isdir(item_path) and not item.startswith("."):
+            rootSections.append(item)
+            section_pages = []
+            for f in os.listdir(item_path):
+                if f.endswith(".md"):
+                    page_id = f.replace(".md", "")
+                    section_pages.append(page_id)
+                    with open(os.path.join(item_path, f), "r", encoding="utf-8") as fd:
+                        content = fd.read()
+                    
+                    page_obj = WikiPage(
+                        id=page_id,
+                        title=page_id,
+                        content=content,
+                        filePaths=[],
+                        importance="medium",
+                        relatedPages=[]
+                    )
+                    pages.append(page_obj)
+                    generated_pages[page_id] = page_obj
+                    
+            sections.append(WikiSection(
+                id=item,
+                title=item,
+                pages=section_pages
+            ))
+            
+    wiki_structure = WikiStructureModel(
+        id=repo,
+        title=f"{repo} Wiki",
+        description="Generated from wiki-out folder",
+        pages=pages,
+        sections=sections,
+        rootSections=rootSections
+    )
+    
+    return WikiCacheData(
+        wiki_structure=wiki_structure,
+        generated_pages=generated_pages,
+        repo=RepoInfo(
+            owner="local",
+            repo=repo,
+            type="local",
+            localPath=wiki_out_dir,
+            repoUrl=wiki_out_dir
+        ),
+        provider="local",
+        model="local"
+    )
+
 # --- Wiki Cache API Endpoints ---
 
 @app.get("/api/wiki_cache", response_model=Optional[WikiCacheData])
@@ -463,7 +602,8 @@ async def get_cached_wiki(
     owner: str = Query(..., description="Repository owner"),
     repo: str = Query(..., description="Repository name"),
     repo_type: str = Query(..., description="Repository type (e.g., github, gitlab)"),
-    language: str = Query(..., description="Language of the wiki content")
+    language: str = Query(..., description="Language of the wiki content"),
+    model: Optional[str] = Query(None, description="Optional model to load specific cache")
 ):
     """
     Retrieves cached wiki data (structure and generated pages) for a repository.
@@ -473,15 +613,25 @@ async def get_cached_wiki(
     if not supported_langs.__contains__(language):
         language = configs["lang_config"]["default"]
 
-    logger.info(f"Attempting to retrieve wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
-    cached_data = await read_wiki_cache(owner, repo, repo_type, language)
-    if cached_data:
-        return cached_data
-    else:
-        # Return 200 with null body if not found, as frontend expects this behavior
-        # Or, raise HTTPException(status_code=404, detail="Wiki cache not found") if preferred
-        logger.info(f"Wiki cache not found for {owner}/{repo} ({repo_type}), lang: {language}")
-        return None
+    logger.info(f"Fetching cached wiki for {owner}/{repo} ({repo_type}) in {language} with model {model}")
+    
+    # Try with explicit model if provided
+    cache_data = await read_wiki_cache(owner, repo, repo_type, language, model)
+    if not cache_data and model:
+        # Fallback to no-model path for older caches
+        cache_data = await read_wiki_cache(owner, repo, repo_type, language)
+
+    if not cache_data:
+        logger.info("Cache not found in wikicache, checking wiki-out directory...")
+        cache_data = await read_wiki_out_cache(repo, language, model)
+        if not cache_data and model:
+            cache_data = await read_wiki_out_cache(repo, language)
+            
+    if cache_data:
+        return cache_data
+        
+    logger.info(f"Wiki cache not found for {owner}/{repo} ({repo_type}), lang: {language}")
+    return None
 
 @app.post("/api/wiki_cache")
 async def store_wiki_cache(request_data: WikiCacheRequest):
@@ -501,6 +651,36 @@ async def store_wiki_cache(request_data: WikiCacheRequest):
     else:
         raise HTTPException(status_code=500, detail="Failed to save wiki cache")
 
+def cleanup_trash():
+    """Delete files and folders in .trash directories older than 3 days."""
+    try:
+        current_time = time.time()
+        ttl_seconds = 3 * 24 * 3600
+        
+        trash_dirs = [
+            os.path.join(WIKI_CACHE_DIR, ".trash"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out", ".trash")
+        ]
+        
+        for trash_dir in trash_dirs:
+            if not os.path.exists(trash_dir):
+                continue
+                
+            for name in os.listdir(trash_dir):
+                path = os.path.join(trash_dir, name)
+                if current_time - os.path.getmtime(path) > ttl_seconds:
+                    if os.path.isdir(path):
+                        shutil.rmtree(path, ignore_errors=True)
+                    else:
+                        try:
+                            os.remove(path)
+                        except OSError:
+                            pass
+                    logger.info(f"Deleted expired trash item: {path}")
+    except Exception as e:
+        logger.error(f"Error during cleanup_trash: {e}")
+
+
 @app.delete("/api/wiki_cache")
 async def delete_wiki_cache(
     owner: str = Query(..., description="Repository owner"),
@@ -510,32 +690,60 @@ async def delete_wiki_cache(
     authorization_code: Optional[str] = Query(None, description="Authorization code")
 ):
     """
-    Deletes a specific wiki cache from the file system.
+    Moves wiki cache and generated wiki files to .trash directory with a 3-day TTL.
     """
     # Language validation
     supported_langs = configs["lang_config"]["supported_languages"]
     if not supported_langs.__contains__(language):
-        raise HTTPException(status_code=400, detail="Language is not supported")
+        language = configs["lang_config"]["default"]
 
     if WIKI_AUTH_MODE:
         logger.info("check the authorization code")
         if not authorization_code or WIKI_AUTH_CODE != authorization_code:
             raise HTTPException(status_code=401, detail="Authorization code is invalid")
 
-    logger.info(f"Attempting to delete wiki cache for {owner}/{repo} ({repo_type}), lang: {language}")
+    logger.info(f"Attempting to soft delete wiki files for {owner}/{repo} ({repo_type}), lang: {language}")
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language)
+    
+    # Run TTL cleanup
+    cleanup_trash()
 
-    if os.path.exists(cache_path):
-        try:
-            os.remove(cache_path)
-            logger.info(f"Successfully deleted wiki cache: {cache_path}")
-            return {"message": f"Wiki cache for {owner}/{repo} ({language}) deleted successfully"}
-        except Exception as e:
-            logger.error(f"Error deleting wiki cache {cache_path}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to delete wiki cache: {str(e)}")
-    else:
-        logger.warning(f"Wiki cache not found, cannot delete: {cache_path}")
-        raise HTTPException(status_code=404, detail="Wiki cache not found")
+    deleted_items = []
+    timestamp = int(time.time())
+    
+    try:
+        # Move cache file to trash
+        if os.path.exists(cache_path):
+            cache_trash_dir = os.path.join(WIKI_CACHE_DIR, ".trash")
+            os.makedirs(cache_trash_dir, exist_ok=True)
+            new_name = f"{os.path.basename(cache_path)}_{timestamp}.bak"
+            shutil.move(cache_path, os.path.join(cache_trash_dir, new_name))
+            deleted_items.append("cache_file")
+            
+        # Move wiki-out directory to trash
+        wiki_out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out", repo, language)
+        if os.path.exists(wiki_out_dir):
+            wiki_trash_dir = os.path.join(os.path.dirname(os.path.dirname(wiki_out_dir)), ".trash")
+            os.makedirs(wiki_trash_dir, exist_ok=True)
+            new_name = f"{repo}_{language}_{timestamp}"
+            shutil.move(wiki_out_dir, os.path.join(wiki_trash_dir, new_name))
+            deleted_items.append("wiki_out_dir")
+            
+            # Clean up repo directory if empty
+            repo_dir = os.path.dirname(wiki_out_dir)
+            if not os.listdir(repo_dir):
+                shutil.rmtree(repo_dir, ignore_errors=True)
+            
+        if not deleted_items:
+            # If we didn't find anything to delete, that's okay, maybe it was already deleted
+            return {"message": "Wiki files not found or already deleted"}
+            
+        logger.info(f"Successfully moved to trash: {deleted_items} for {owner}/{repo}")
+        return {"message": f"Wiki files for {owner}/{repo} ({language}) moved to trash successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error moving wiki files to trash: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete wiki files: {str(e)}")
 
 @app.get("/health")
 async def health_check():
@@ -545,6 +753,34 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "service": "localwiki-api"
     }
+
+@app.get("/check-connection")
+async def check_connection(
+    mode: str = Query("cli", description="'cli' or 'api'"),
+    url: Optional[str] = Query(None, description="litellm base URL for CLI mode"),
+    provider: Optional[str] = Query(None, description="Provider for API mode"),
+    api_key: Optional[str] = Query(None, description="API key for API mode"),
+):
+    """Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation starts."""
+    import httpx
+    if mode == "cli":
+        if not url:
+            return JSONResponse({"ok": False, "message": "URL이 필요합니다."})
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{url.rstrip('/')}/health")
+                if resp.status_code < 500:
+                    return {"ok": True, "message": f"✅ litellm 서버 연결 성공! ({url})"}
+                return {"ok": False, "message": f"서버 응답 오류: HTTP {resp.status_code}"}
+        except httpx.ConnectError:
+            return JSONResponse({"ok": False, "message": f"❌ 연결 실패: {url} 에 서버가 없습니다."})
+        except Exception as e:
+            return JSONResponse({"ok": False, "message": f"❌ 연결 오류: {str(e)}"})
+    else:
+        # API mode: just check the key looks valid (real validation would cost tokens)
+        if not api_key or len(api_key.strip()) < 10:
+            return JSONResponse({"ok": False, "message": "API 키가 너무 짧습니다."})
+        return {"ok": True, "message": "✅ API 키가 등록되었습니다. 생성 시 실제 검증됩니다."}
 
 @app.get("/")
 async def root():
@@ -595,17 +831,32 @@ async def get_processed_projects():
             if filename.startswith("localwiki_cache_") and filename.endswith(".json"):
                 file_path = os.path.join(WIKI_CACHE_DIR, filename)
                 try:
-                    stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
+                    stats = await asyncio.to_thread(os.stat, file_path)
                     parts = filename.replace("localwiki_cache_", "").replace(".json", "").split('_')
 
-                    # Expecting repo_type_owner_repo_language
-                    # Example: localwiki_cache_github_AsyncFuncAI_localwiki_en.json
-                    # parts = [github, AsyncFuncAI, localwiki, en]
                     if len(parts) >= 4:
                         repo_type = parts[0]
                         owner = parts[1]
-                        language = parts[-1] # language is the last part
-                        repo = "_".join(parts[2:-1]) # repo can contain underscores
+                        
+                        # We no longer reliably parse repo, language, model from parts because of ambiguity.
+                        # Instead, let's load the JSON to get explicit properties
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                                language = data.get("language")
+                                model = data.get("model")
+                                repo_obj = data.get("repo", {})
+                                if isinstance(repo_obj, dict) and "repo" in repo_obj:
+                                    repo = repo_obj.get("repo")
+                                else:
+                                    # Fallback
+                                    repo = "_".join(parts[2:-1])
+                                    if not language: language = parts[-1]
+                        except Exception:
+                            # Fallback to simple parsing if read fails
+                            repo = "_".join(parts[2:-1])
+                            language = parts[-1]
+                            model = None
 
                         project_entries.append(
                             ProcessedProjectEntry(
@@ -614,15 +865,45 @@ async def get_processed_projects():
                                 repo=repo,
                                 name=f"{owner}/{repo}",
                                 repo_type=repo_type,
-                                submittedAt=int(stats.st_mtime * 1000), # Convert to milliseconds
-                                language=language
+                                submittedAt=int(stats.st_mtime * 1000),
+                                language=language or "ko",
+                                model=model
                             )
                         )
-                    else:
-                        logger.warning(f"Could not parse project details from filename: {filename}")
                 except Exception as e:
                     logger.error(f"Error processing file {file_path}: {e}")
-                    continue # Skip this file on error
+                    continue
+
+        # Add items from wiki-out
+        wiki_out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out")
+        if os.path.exists(wiki_out_dir):
+            try:
+                repo_dirs = await asyncio.to_thread(os.listdir, wiki_out_dir)
+                for repo_dirname in repo_dirs:
+                    repo_path = os.path.join(wiki_out_dir, repo_dirname)
+                    if os.path.isdir(repo_path) and not repo_dirname.startswith("."):
+                        lang_dirs = await asyncio.to_thread(os.listdir, repo_path)
+                        for lang_dirname in lang_dirs:
+                            lang_path = os.path.join(repo_path, lang_dirname)
+                            if os.path.isdir(lang_path) and not lang_dirname.startswith("."):
+                                try:
+                                    stats = await asyncio.to_thread(os.stat, lang_path)
+                                    project_entries.append(
+                                        ProcessedProjectEntry(
+                                            id=f"wiki-out-{repo_dirname}-{lang_dirname}",
+                                            owner="local",
+                                            repo=repo_dirname,
+                                            name=f"local/{repo_dirname}",
+                                            repo_type="local",
+                                            submittedAt=int(stats.st_mtime * 1000),
+                                            language=lang_dirname
+                                        )
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error processing wiki-out {lang_path}: {e}")
+                                    continue
+            except Exception as e:
+                logger.error(f"Error listing wiki-out directory: {e}")
 
         # Sort by most recent first
         project_entries.sort(key=lambda p: p.submittedAt, reverse=True)

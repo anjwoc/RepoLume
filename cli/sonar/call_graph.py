@@ -1,12 +1,11 @@
 """
-Call Graph data model — ported from CodeBoarding.
+Call Graph data model for LocalWiki Sonar.
 
-원본 출처: CodeBoarding/static_analyzer/graph.py (MIT License)
+Portions adapted from CodeBoarding/static_analyzer/graph.py (MIT License)
 Copyright 2025 CodeBoarding Team
 https://github.com/CodeBoarding/CodeBoarding
 
-이 파일은 CodeBoarding의 CallGraph, Node 구조를 LocalWiki에 맞게
-의존성을 최소화하여 이식한 버전입니다.
+This file keeps only the lightweight graph structures needed by LocalWiki.
 """
 from __future__ import annotations
 

@@ -90,11 +90,11 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     repo_name = args.name or Path(args.repo.rstrip("/")).name
 
-    # ── 2. Sonar 정적 분석 (CodeBoarding 내제화 버전) ─────────────────────
+    # ── 2. LocalWiki 정적 분석 ─────────────────────
     sonar_collection = None
     if not getattr(args, 'no_sonar', False):
         from cli.sonar.sonar_analyzer import SonarAnalyzer
-        print("🔭  Sonar 정적 분석 시작 (CodeBoarding 내제화 엔진)...")
+        print("🔭  LocalWiki 정적 분석 시작......")
         try:
             sonar = SonarAnalyzer(str(repo.path))
             sonar_collection = sonar.analyze(use_cache=True)
@@ -231,7 +231,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
     elapsed = time.perf_counter() - t1
     print(f"✅  Pages generated in {elapsed:.1f}s")
 
-    # ── 7. Sonar 다이어그램 주입 (내제화 엔진) ────────────────────────────
+    # ── 7. Sonar 다이어그램 주입 ─────────────────────────────────────────
     # NOTE: Sonar diagrams are injected during page generation via WikiPageGenerator.
     # Any pages without diagrams get the overview diagram as fallback.
     sonar_injected = sum(1 for c in page_contents.values() if "\u0060\u0060\u0060mermaid" in c)
@@ -357,7 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--verbose", "-v", action="store_true")
     gen.add_argument("--quiet", "-q", action="store_true")
     gen.add_argument("--no-sonar", action="store_true",
-                     help="Skip Sonar 정적 분석 (CodeBoarding 내제화 엔진)")
+                     help="LocalWiki 정적 분석 건너뜀")
     gen.add_argument("--no-index", action="store_true",
                      help="Skip graph index (use raw file reading only)")
     gen.add_argument("--auto-index", action="store_true",

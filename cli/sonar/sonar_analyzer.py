@@ -1,11 +1,11 @@
 """
-Sonar Analyzer — main entry point for CodeBoarding-style static analysis.
+Sonar Analyzer — main entry point for LocalWiki static analysis.
 
 Orchestrates AST analysis → CallGraph → Mermaid diagram generation.
 Results are cached to avoid re-analysis on repeated runs.
 
-원본 출처: CodeBoarding (MIT License, https://github.com/CodeBoarding/CodeBoarding)
-이 모듈은 CodeBoarding의 핵심 분석 파이프라인을 LocalWiki에 내제화한 버전입니다.
+Portions adapted from CodeBoarding (MIT License).
+This module is the LocalWiki Sonar static-analysis entry point.
 """
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ class DiagramCollection:
 
 class SonarAnalyzer:
     """
-    CodeBoarding-compatible static analyzer (lightweight, no LSP).
+    LocalWiki static analyzer (lightweight, no LSP).
 
     Generates:
     - Overview architecture diagram (all top nodes)
@@ -193,10 +193,10 @@ class SonarAnalyzer:
         content = "\n\n".join(parts)
         source = DataSource(
             type="code",
-            name="Static Analysis (CodeBoarding)",
+            name="Static Analysis (LocalWiki)",
             url=self._repo_path,
             excerpt=f"AST: {len(file_paths)} files, {len(diagrams)} diagrams",
-            metadata={"source": "codeboarding-ported", "license": "MIT"},
+            metadata={"source": "localwiki-analyzer", "license": "MIT"},
         )
 
         score = 25 if ast_summaries else 0

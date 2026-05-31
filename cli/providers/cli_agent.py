@@ -50,7 +50,7 @@ class CLIAgentProvider:
 
     # ------------------------------------------------------------------ #
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, event_sink=None) -> str:
         """Send prompt to the CLI agent and return the generated text."""
         if not self._bin:
             raise RuntimeError(
@@ -74,6 +74,9 @@ class CLIAgentProvider:
             ]
             if self.model:
                 cmd += ["--model", self.model]
+
+            if event_sink is not None:
+                return self._generate_streaming(cmd, event_sink)
 
             logger.debug(f"Invoking agent: {' '.join(cmd[:5])}...")
             result = subprocess.run(
@@ -106,6 +109,47 @@ class CLIAgentProvider:
 
         finally:
             os.unlink(prompt_file)
+
+    def _generate_streaming(self, cmd: list[str], event_sink) -> str:
+        """Invoke localwiki-agent in JSONL mode and forward events to event_sink."""
+        stream_cmd = [*cmd, "--stream-jsonl"]
+        logger.debug(f"Invoking streaming agent: {' '.join(stream_cmd[:6])}...")
+        process = subprocess.Popen(
+            stream_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+
+        content_parts: list[str] = []
+        assert process.stdout is not None
+        for line in process.stdout:
+            raw = line.strip()
+            if not raw:
+                continue
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                event = {"type": "agent_log", "source": "stdout", "content": raw}
+
+            event_type = event.get("type")
+            if event_type == "chunk":
+                content_parts.append(event.get("content", ""))
+            elif event_type == "complete" and event.get("content"):
+                content_parts = [event.get("content", "")]
+            if callable(event_sink):
+                event_sink(event)
+
+        stderr = process.stderr.read() if process.stderr else ""
+        return_code = process.wait(timeout=self.timeout + 10)
+        if stderr and callable(event_sink):
+            event_sink({"type": "agent_log", "source": "stderr", "content": stderr})
+
+        if return_code != 0:
+            raise RuntimeError(f"localwiki-agent exited {return_code}: {stderr.strip()}")
+
+        return "".join(content_parts).strip()
 
     def check_available(self) -> bool:
         """Return True if the underlying CLI agent is installed."""

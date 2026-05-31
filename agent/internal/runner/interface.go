@@ -8,9 +8,10 @@ import (
 
 // Chunk is a single streaming output chunk from the agent.
 type Chunk struct {
-	Text  string
-	Done  bool
-	Error error
+	Text   string
+	Source string
+	Done   bool
+	Error  error
 }
 
 // RunRequest holds everything needed to invoke a CLI agent.
@@ -65,6 +66,22 @@ func CollectChunks(ch <-chan Chunk) (string, error) {
 	for chunk := range ch {
 		if chunk.Error != nil {
 			return string(buf), chunk.Error
+		}
+		buf = append(buf, chunk.Text...)
+	}
+	return string(buf), nil
+}
+
+// CollectChunksWithCallback drains a chunk channel, invoking cb for each chunk
+// before returning the concatenated text.
+func CollectChunksWithCallback(ch <-chan Chunk, cb func(Chunk)) (string, error) {
+	var buf []byte
+	for chunk := range ch {
+		if chunk.Error != nil {
+			return string(buf), chunk.Error
+		}
+		if cb != nil {
+			cb(chunk)
 		}
 		buf = append(buf, chunk.Text...)
 	}

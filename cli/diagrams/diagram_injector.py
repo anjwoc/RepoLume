@@ -1,5 +1,5 @@
 """
-Diagram Injector — merges CodeBoarding Mermaid diagrams into wiki pages.
+Diagram Injector — LocalWiki Mermaid 다이어그램을 위키 페이지에 주입합니다.
 
 Strategy:
 1. Find the "Architecture" or "System Architecture" section in the wiki page.
@@ -77,7 +77,7 @@ def _find_best_injection_point(content: str, topic: str) -> Optional[Tuple[int, 
 
 class DiagramInjector:
     """
-    Injects CodeBoarding Mermaid diagrams into generated wiki pages.
+    LocalWiki Mermaid 다이어그램을 생성된 위키 페이지에 주입합니다.
 
     Usage::
 

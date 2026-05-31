@@ -34,6 +34,16 @@ type jsonOutput struct {
 	Elapsed string `json:"elapsed_ms"`
 }
 
+type jsonlEvent struct {
+	Type    string `json:"type"`
+	Agent   string `json:"agent,omitempty"`
+	Model   string `json:"model,omitempty"`
+	Source  string `json:"source,omitempty"`
+	Content string `json:"content,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Elapsed string `json:"elapsed_ms,omitempty"`
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -57,15 +67,16 @@ func main() {
 // cmdRun handles `localwiki-agent run ...`
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	agentName    := fs.String("agent", "gemini", "Agent to use: gemini | codex | claude")
-	prompt       := fs.String("prompt", "", "Prompt string (use --prompt-file for long prompts)")
-	promptFile   := fs.String("prompt-file", "", "File containing the prompt")
-	cwd          := fs.String("cwd", ".", "Working directory (repo path)")
-	model        := fs.String("model", "", "Model override (e.g. gemini-2.5-pro)")
-	geminiModel  := fs.String("gemini-model", "", "Default Gemini model")
-	codexModel   := fs.String("codex-model", "", "Default Codex model")
-	claudeModel  := fs.String("claude-model", "", "Default Claude model")
-	timeoutSec   := fs.Int("timeout", 300, "Timeout in seconds")
+	agentName := fs.String("agent", "gemini", "Agent to use: gemini | codex | claude")
+	prompt := fs.String("prompt", "", "Prompt string (use --prompt-file for long prompts)")
+	promptFile := fs.String("prompt-file", "", "File containing the prompt")
+	cwd := fs.String("cwd", ".", "Working directory (repo path)")
+	model := fs.String("model", "", "Model override (e.g. gemini-2.5-pro)")
+	geminiModel := fs.String("gemini-model", "", "Default Gemini model")
+	codexModel := fs.String("codex-model", "", "Default Codex model")
+	claudeModel := fs.String("claude-model", "", "Default Claude model")
+	timeoutSec := fs.Int("timeout", 300, "Timeout in seconds")
+	streamJSONL := fs.Bool("stream-jsonl", false, "Emit newline-delimited JSON status/chunk/error/complete events")
 	_ = fs.Parse(args)
 
 	// Resolve prompt
@@ -88,6 +99,14 @@ func cmdRun(args []string) int {
 		fatal("%v", err)
 	}
 	if !r.Available() {
+		if *streamJSONL {
+			emitJSONL(jsonlEvent{
+				Type:  "error",
+				Agent: *agentName,
+				Error: fmt.Sprintf("%s CLI not found in PATH. Install it first.", *agentName),
+			})
+			return 1
+		}
 		outputError(*agentName, fmt.Sprintf("%s CLI not found in PATH. Install it first.", *agentName))
 		return 1
 	}
@@ -109,6 +128,10 @@ func cmdRun(args []string) int {
 	}
 
 	t0 := time.Now()
+	if *streamJSONL {
+		return runJSONL(ctx, r, req, t0)
+	}
+
 	result, err := r.RunCollect(ctx, req)
 	elapsed := time.Since(t0)
 
@@ -128,6 +151,56 @@ func cmdRun(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func runJSONL(ctx context.Context, r runner.Runner, req runner.RunRequest, started time.Time) int {
+	model := req.Model
+	if model == "" {
+		model = r.DefaultModel()
+	}
+	emitJSONL(jsonlEvent{Type: "status", Agent: r.Name(), Model: model, Content: "agent started"})
+
+	ch, err := r.Run(ctx, req)
+	if err != nil {
+		emitJSONL(jsonlEvent{Type: "error", Agent: r.Name(), Model: model, Error: err.Error()})
+		return 1
+	}
+
+	content, err := runner.CollectChunksWithCallback(ch, func(chunk runner.Chunk) {
+		if chunk.Text != "" {
+			emitJSONL(jsonlEvent{
+				Type:    "chunk",
+				Agent:   r.Name(),
+				Model:   model,
+				Source:  sourceOrDefault(chunk.Source),
+				Content: chunk.Text,
+			})
+		}
+	})
+	if err != nil {
+		emitJSONL(jsonlEvent{Type: "error", Agent: r.Name(), Model: model, Error: err.Error()})
+		return 1
+	}
+
+	emitJSONL(jsonlEvent{
+		Type:    "complete",
+		Agent:   r.Name(),
+		Model:   model,
+		Content: content,
+		Elapsed: fmt.Sprintf("%d", time.Since(started).Milliseconds()),
+	})
+	return 0
+}
+
+func emitJSONL(event jsonlEvent) {
+	_ = json.NewEncoder(os.Stdout).Encode(event)
+}
+
+func sourceOrDefault(source string) string {
+	if source == "" {
+		return "stdout"
+	}
+	return source
 }
 
 // cmdList prints available agents.

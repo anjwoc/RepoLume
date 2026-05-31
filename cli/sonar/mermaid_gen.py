@@ -1,12 +1,11 @@
 """
 Mermaid Diagram Generator — converts CallGraph into Mermaid LR diagrams.
 
-원본 출처: CodeBoarding/output_generators/markdown.py (MIT License)
+Portions adapted from CodeBoarding/output_generators/markdown.py (MIT License)
 Copyright 2025 CodeBoarding Team
 https://github.com/CodeBoarding/CodeBoarding
 
-이 파일은 CodeBoarding의 Mermaid 다이어그램 생성 로직을
-LocalWiki의 CallGraph 모델에 맞게 이식한 버전입니다.
+This file generates Mermaid diagrams for the LocalWiki CallGraph model.
 """
 from __future__ import annotations
 

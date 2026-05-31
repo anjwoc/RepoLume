@@ -55,6 +55,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!docker-compose-litellm.env.example
+secrets/
+wiki-out/
 
 # vercel
 .vercel

@@ -1,0 +1,37 @@
+LocalWiki Notices
+=================
+
+This repository is licensed under the MIT License. See LICENSE.
+
+Portions of this repository are derived from or adapted from MIT-licensed
+projects and must retain their copyright notices.
+
+LocalWiki contributors
+----------------------
+
+Copyright (c) 2026 LocalWiki contributors
+
+Original LocalWiki / Open LocalWiki components
+----------------------------------------------
+
+Copyright (c) 2024 Sheing Ng
+
+Licensed under the MIT License. The original copyright and license notice are
+preserved in LICENSE.
+
+CodeBoarding-derived portions
+-----------------------------
+
+Small portions of the LocalWiki Sonar static-analysis layer are adapted from
+CodeBoarding:
+
+  https://github.com/CodeBoarding/CodeBoarding
+
+Copyright (c) 2025 CodeBoarding
+
+Licensed under the MIT License.
+
+The adapted portions are limited to local static-analysis, graph, and
+Mermaid-related code paths. LocalWiki does not bundle the full upstream
+CodeBoarding project unless a separate optional integration is installed by the
+user.

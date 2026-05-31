@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
+import { RefreshCw, X, Edit3 } from 'lucide-react';
 // We'll use dynamic import for svg-pan-zoom
 
 // Initialize mermaid with defaults - Japanese aesthetic
@@ -10,13 +11,15 @@ mermaid.initialize({
   suppressErrorRendering: true,
   logLevel: 'error',
   maxTextSize: 100000, // Increase text size limit
-  htmlLabels: true,
+  fontFamily: 'var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  htmlLabels: false,
   flowchart: {
-    htmlLabels: true,
+    htmlLabels: false,
     curve: 'basis',
-    nodeSpacing: 60,
-    rankSpacing: 60,
-    padding: 20,
+    nodeSpacing: 100,
+    rankSpacing: 120,
+    padding: 30,
+    defaultRenderer: 'elk',
   },
   themeCSS: `
     /* Japanese aesthetic styles for all diagrams */
@@ -36,9 +39,11 @@ mermaid.initialize({
         background-color: transparent !important;
       }
     }
-    .label {
+    .label, .nodeLabel, .edgeLabel {
       color: #333333;
+      fill: #333333;
     }
+
     .cluster rect {
       fill: #f8f4e6;
       stroke: #d7c4bb;
@@ -82,8 +87,9 @@ mermaid.initialize({
       background-color: transparent;
       color: #f0f0f0;
     }
-    [data-theme="dark"] .label {
+    [data-theme="dark"] .label, [data-theme="dark"] .nodeLabel, [data-theme="dark"] .edgeLabel {
       color: #f0f0f0;
+      fill: #f0f0f0;
     }
     [data-theme="dark"] .cluster rect {
       fill: #222222;
@@ -165,7 +171,6 @@ mermaid.initialize({
       filter: brightness(0.95);
     }
   `,
-  fontFamily: 'var(--font-geist-sans), var(--font-serif-jp), sans-serif',
   fontSize: 12,
 });
 
@@ -173,14 +178,16 @@ interface MermaidProps {
   chart: string;
   className?: string;
   zoomingEnabled?: boolean;
+  onFixError?: (chart: string, customPrompt?: string) => Promise<void>;
 }
 
 // Full screen modal component for the diagram
 const FullScreenModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
+  onDownload?: () => void;
   children: React.ReactNode;
-}> = ({ isOpen, onClose, children }) => {
+}> = ({ isOpen, onClose, onDownload, children }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
 
@@ -228,19 +235,19 @@ const FullScreenModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div
         ref={modalRef}
-        className="bg-[var(--card-bg)] rounded-lg shadow-custom max-w-5xl max-h-[90vh] w-full overflow-hidden flex flex-col card-japanese"
+        className="bg-card border border-border text-card-foreground rounded-xl shadow-2xl max-w-[96vw] max-h-[96vh] w-[96vw] h-[96vh] overflow-hidden flex flex-col"
       >
         {/* Modal header with controls */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
-          <div className="font-medium text-[var(--foreground)] font-serif">図表表示</div>
+        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
+          <div className="font-medium font-serif">다이어그램 보기</div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
-                className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
+                className="hover:bg-accent hover:text-accent-foreground p-2 rounded-md border border-border transition-colors bg-background"
                 aria-label="Zoom out"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -249,10 +256,10 @@ const FullScreenModal: React.FC<{
                   <line x1="8" y1="11" x2="14" y2="11"></line>
                 </svg>
               </button>
-              <span className="text-sm text-[var(--muted)]">{Math.round(zoom * 100)}%</span>
+              <span className="text-sm text-muted-foreground w-12 text-center">{Math.round(zoom * 100)}%</span>
               <button
-                onClick={() => setZoom(Math.min(2, zoom + 0.1))}
-                className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
+                onClick={() => setZoom(Math.min(3, zoom + 0.1))}
+                className="hover:bg-accent hover:text-accent-foreground p-2 rounded-md border border-border transition-colors bg-background"
                 aria-label="Zoom in"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -264,7 +271,7 @@ const FullScreenModal: React.FC<{
               </button>
               <button
                 onClick={() => setZoom(1)}
-                className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
+                className="hover:bg-accent hover:text-accent-foreground p-2 rounded-md border border-border transition-colors bg-background"
                 aria-label="Reset zoom"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -273,9 +280,24 @@ const FullScreenModal: React.FC<{
                 </svg>
               </button>
             </div>
+            {/* SVG 다운로드 버튼 */}
+            {onDownload && (
+              <button
+                onClick={onDownload}
+                className="hover:bg-accent hover:text-accent-foreground p-2 rounded-md border border-border transition-colors bg-background"
+                aria-label="SVG 다운로드"
+                title="SVG 다운로드"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </button>
+            )}
             <button
               onClick={onClose}
-              className="text-[var(--foreground)] hover:bg-[var(--accent-primary)]/10 p-2 rounded-md border border-[var(--border-color)] transition-colors"
+              className="hover:bg-destructive hover:text-destructive-foreground p-2 rounded-md border border-border transition-colors bg-background"
               aria-label="Close"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -287,12 +309,12 @@ const FullScreenModal: React.FC<{
         </div>
 
         {/* Modal content with zoom */}
-        <div className="overflow-auto p-6 flex-1 flex items-center justify-center bg-[var(--background)]/50">
+        <div className="overflow-auto p-6 flex-1 flex items-center justify-center bg-white dark:bg-gray-100 rounded-b-xl">
           <div
             style={{
               transform: `scale(${zoom})`,
               transformOrigin: 'center center',
-              transition: 'transform 0.3s ease-out'
+              transition: 'transform 0.2s ease-out'
             }}
           >
             {children}
@@ -303,10 +325,26 @@ const FullScreenModal: React.FC<{
   );
 };
 
-const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled = false }) => {
+const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled = false, onFixError }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
+
+  const handleCustomFix = async (promptText: string) => {
+    if (!onFixError) return;
+    try {
+      setIsFixing(true);
+      setShowPromptModal(false);
+      await onFixError(chart, promptText);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFixing(false);
+    }
+  };
   const mermaidRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(`mermaid-${Math.random().toString(36).substring(2, 9)}`);
@@ -412,20 +450,55 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
     }
   };
 
+  const handleDownloadSvg = () => {
+    if (!fullSizeSvg) return;
+    const blob = new Blob([fullSizeSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `diagram-${Date.now()}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFixDiagram = async () => {
+    if (!onFixError) return;
+    try {
+      setIsFixing(true);
+      await onFixError(chart);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   if (error) {
     return (
       <div className={`border border-[var(--highlight)]/30 rounded-md p-4 bg-[var(--highlight)]/5 ${className}`}>
-        <div className="flex items-center mb-3">
+        <div className="flex items-center justify-between mb-3">
           <div className="text-[var(--highlight)] text-xs font-medium flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            図表レンダリングエラー
+            다이어그램 렌더링 에러
           </div>
+          {onFixError && (
+            <button
+              onClick={handleFixDiagram}
+              disabled={isFixing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--divider)] rounded-md text-[var(--text-secondary)] hover:text-[var(--text)] text-xs transition-colors cursor-pointer"
+            >
+              <RefreshCw size={12} className={isFixing ? "animate-spin" : ""} />
+              {isFixing ? "복구 중..." : "다이어그램 고치기"}
+            </button>
+          )}
         </div>
         <div ref={mermaidRef} className="text-xs overflow-auto"></div>
         <div className="mt-3 text-xs text-[var(--muted)] font-serif">
-          図表に構文エラーがあり、レンダリングできません。
+          다이어그램 구문에 오류가 있어 렌더링할 수 없습니다.
         </div>
       </div>
     );
@@ -438,11 +511,16 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
           <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse"></div>
           <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-75"></div>
           <div className="w-2 h-2 bg-[var(--accent-primary)]/70 rounded-full animate-pulse delay-150"></div>
-          <span className="text-[var(--muted)] text-xs ml-2 font-serif">図表を描画中...</span>
+          <span className="text-[var(--muted)] text-xs ml-2 font-serif">다이어그램 렌더링 중...</span>
         </div>
       </div>
     );
   }
+
+  // SVG 문자열에 강제로 width, height를 100%로 주입하여 모달 크기에 맞춰 꽉 차게 렌더링되도록 수정
+  const fullSizeSvg = zoomingEnabled 
+    ? svg.replace(/<svg([^>]*)>/, '<svg$1 style="width: 100%; height: 100%; max-width: none;">')
+    : svg;
 
   return (
     <>
@@ -454,12 +532,54 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
           className={`relative group ${zoomingEnabled ? "h-full rounded-lg border-2 border-black" : ""}`}
         >
           <div
-            className={`flex justify-center overflow-auto text-center my-2 cursor-pointer hover:shadow-md transition-shadow duration-200 rounded-md ${className} ${zoomingEnabled ? "h-full" : ""}`}
-            dangerouslySetInnerHTML={{ __html: svg }}
+            className={`flex justify-center overflow-auto text-center my-2 cursor-pointer hover:shadow-md transition-shadow duration-200 rounded-md ${className} ${zoomingEnabled ? "h-full w-full" : ""}`}
+            dangerouslySetInnerHTML={{ __html: fullSizeSvg }}
             onClick={zoomingEnabled ? undefined : handleDiagramClick}
             title={zoomingEnabled ? undefined : "Click to view fullscreen"}
           />
 
+          {!zoomingEnabled && onFixError && (
+            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-start gap-2 z-10">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowPromptModal(true); }}
+                className="bg-purple-600/90 hover:bg-purple-600 text-white p-1.5 rounded-md flex items-center gap-1.5 text-xs shadow-md transition-colors"
+                disabled={isFixing}
+              >
+                <RefreshCw size={12} className={isFixing ? "animate-spin" : ""} />
+                {isFixing ? "수정 중..." : "다이어그램 수정"}
+              </button>
+            </div>
+          )}
+          {showPromptModal && (
+            <div className="absolute top-10 left-2 w-80 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 z-20 text-left" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1"><Edit3 size={12}/> 다이어그램 변경 요청</h4>
+                <button onClick={() => setShowPromptModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                  <X size={14} />
+                </button>
+              </div>
+              <textarea 
+                value={customPrompt}
+                onChange={e => setCustomPrompt(e.target.value)}
+                placeholder="어떻게 변경할까요? (예: LR 방향으로 바꿔줘)"
+                className="w-full h-20 p-2 text-xs border rounded-md dark:bg-[#2d2d2d] dark:border-gray-600 dark:text-gray-200 mb-2 resize-none"
+              />
+              <div className="flex flex-wrap gap-1 mb-2">
+                <button onClick={() => handleCustomFix("다이어그램의 모든 내용을 한국어로 번역해줘")} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-[10px] rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">🇰🇷 한국어로 번역</button>
+                <button onClick={() => handleCustomFix("다이어그램의 방향을 왼쪽에서 오른쪽(LR)으로 변경해줘")} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-[10px] rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">➡️ 가로(LR) 방향</button>
+                <button onClick={() => handleCustomFix("이 다이어그램을 더 상세하고 구체적으로 확장해서 그려줘")} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-[10px] rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">🔍 더 상세하게</button>
+              </div>
+              <div className="flex justify-end">
+                <button 
+                  onClick={() => handleCustomFix(customPrompt)}
+                  disabled={!customPrompt.trim()}
+                  className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 disabled:opacity-50"
+                >
+                  수정 요청
+                </button>
+              </div>
+            </div>
+          )}
           {!zoomingEnabled && (
             <div className="absolute top-2 right-2 bg-gray-700/70 dark:bg-gray-900/70 text-white p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5 text-xs shadow-md pointer-events-none">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -478,8 +598,12 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
         <FullScreenModal
           isOpen={isFullscreen}
           onClose={() => setIsFullscreen(false)}
+          onDownload={handleDownloadSvg}
         >
-          <div dangerouslySetInnerHTML={{ __html: svg }} />
+          <div 
+            className="w-full h-full flex items-center justify-center"
+            dangerouslySetInnerHTML={{ __html: fullSizeSvg }} 
+          />
         </FullScreenModal>
       )}
     </>

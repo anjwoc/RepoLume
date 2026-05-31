@@ -24,6 +24,7 @@ from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
 from api.rag import RAG
+from api.task_streams import emit_task_event
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -59,6 +60,7 @@ class ChatCompletionRequest(BaseModel):
     excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
     included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
     included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
+    stream_id: Optional[str] = Field(None, description="Optional task log stream id for side-channel progress events")
 
 async def handle_websocket_chat(websocket: WebSocket):
     """
@@ -71,6 +73,13 @@ async def handle_websocket_chat(websocket: WebSocket):
         # Receive and parse the request data
         request_data = await websocket.receive_json()
         request = ChatCompletionRequest(**request_data)
+        await emit_task_event(
+            request.stream_id,
+            "task_status",
+            "WebSocket chat request received",
+            phase="chat",
+            data={"provider": request.provider, "model": request.model, "repo_url": request.repo_url},
+        )
 
         # Check if request contains very large input
         input_too_large = False
@@ -79,8 +88,22 @@ async def handle_websocket_chat(websocket: WebSocket):
             if hasattr(last_message, 'content') and last_message.content:
                 tokens = count_tokens(last_message.content, request.provider == "ollama")
                 logger.info(f"Request size: {tokens} tokens")
+                await emit_task_event(
+                    request.stream_id,
+                    "task_status",
+                    f"Request size: {tokens} tokens",
+                    phase="chat",
+                    data={"tokens": tokens},
+                )
                 if tokens > 8000:
                     logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
+                    await emit_task_event(
+                        request.stream_id,
+                        "task_status",
+                        "Request exceeds recommended token limit",
+                        phase="chat",
+                        data={"tokens": tokens, "recommended_limit": 7500},
+                    )
                     input_too_large = True
 
         # Create a new RAG instance for this request
@@ -106,16 +129,32 @@ async def handle_websocket_chat(websocket: WebSocket):
                 included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
                 logger.info(f"Using custom included files: {included_files}")
 
+            await emit_task_event(
+                request.stream_id,
+                "phase_start",
+                "Preparing retriever",
+                phase="retriever",
+                data={"repo_url": request.repo_url, "repo_type": request.type},
+            )
             request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
+            await emit_task_event(
+                request.stream_id,
+                "phase_complete",
+                "Retriever prepared",
+                phase="retriever",
+                data={"repo_url": request.repo_url},
+            )
         except ValueError as e:
             if "No valid documents with embeddings found" in str(e):
                 logger.error(f"No valid embeddings found: {str(e)}")
+                await emit_task_event(request.stream_id, "error", "No valid document embeddings found", phase="retriever")
                 await websocket.send_text("Error: No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.")
                 await websocket.close()
                 return
             else:
                 logger.error(f"ValueError preparing retriever: {str(e)}")
+                await emit_task_event(request.stream_id, "error", f"Error preparing retriever: {str(e)}", phase="retriever")
                 await websocket.send_text(f"Error preparing retriever: {str(e)}")
                 await websocket.close()
                 return
@@ -123,20 +162,24 @@ async def handle_websocket_chat(websocket: WebSocket):
             logger.error(f"Error preparing retriever: {str(e)}")
             # Check for specific embedding-related errors
             if "All embeddings should be of the same size" in str(e):
+                await emit_task_event(request.stream_id, "error", "Inconsistent embedding sizes detected", phase="retriever")
                 await websocket.send_text("Error: Inconsistent embedding sizes detected. Some documents may have failed to embed properly. Please try again.")
             else:
+                await emit_task_event(request.stream_id, "error", f"Error preparing retriever: {str(e)}", phase="retriever")
                 await websocket.send_text(f"Error preparing retriever: {str(e)}")
             await websocket.close()
             return
 
         # Validate request
         if not request.messages or len(request.messages) == 0:
+            await emit_task_event(request.stream_id, "error", "No messages provided", phase="chat")
             await websocket.send_text("Error: No messages provided")
             await websocket.close()
             return
 
         last_message = request.messages[-1]
         if last_message.role != "user":
+            await emit_task_event(request.stream_id, "error", "Last message must be from the user", phase="chat")
             await websocket.send_text("Error: Last message must be from the user")
             await websocket.close()
             return
@@ -204,6 +247,13 @@ async def handle_websocket_chat(websocket: WebSocket):
 
                 # Try to perform RAG retrieval
                 try:
+                    await emit_task_event(
+                        request.stream_id,
+                        "phase_start",
+                        "Retrieving repository context",
+                        phase="rag",
+                        data={"file_path": request.filePath},
+                    )
                     # This will use the actual RAG implementation
                     retrieved_documents = request_rag(rag_query, language=request.language)
 
@@ -211,6 +261,13 @@ async def handle_websocket_chat(websocket: WebSocket):
                         # Format context for the prompt in a more structured way
                         documents = retrieved_documents[0].documents
                         logger.info(f"Retrieved {len(documents)} documents")
+                        await emit_task_event(
+                            request.stream_id,
+                            "phase_complete",
+                            f"Retrieved {len(documents)} documents",
+                            phase="rag",
+                            data={"document_count": len(documents)},
+                        )
 
                         # Group documents by file path
                         docs_by_file = {}
@@ -234,12 +291,21 @@ async def handle_websocket_chat(websocket: WebSocket):
                         context_text = "\n\n" + "-" * 10 + "\n\n".join(context_parts)
                     else:
                         logger.warning("No documents retrieved from RAG")
+                        await emit_task_event(
+                            request.stream_id,
+                            "phase_complete",
+                            "No documents retrieved from RAG",
+                            phase="rag",
+                            data={"document_count": 0},
+                        )
                 except Exception as e:
                     logger.error(f"Error in RAG retrieval: {str(e)}")
+                    await emit_task_event(request.stream_id, "error", f"Error in RAG retrieval: {str(e)}", phase="rag")
                     # Continue without RAG if there's an error
 
             except Exception as e:
                 logger.error(f"Error retrieving documents: {str(e)}")
+                await emit_task_event(request.stream_id, "error", f"Error retrieving documents: {str(e)}", phase="rag")
                 context_text = ""
 
         # Get repository information
@@ -433,6 +499,7 @@ This file contains...
         else:
             # Add a note that we're skipping RAG due to size constraints or because it's the isolated API
             logger.info("No context available from RAG")
+            await emit_task_event(request.stream_id, "task_status", "Answering without retrieval augmentation", phase="rag")
             prompt += "<note>Answering without retrieval augmentation.</note>\n\n"
 
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
@@ -572,6 +639,13 @@ This file contains...
             )
 
         # Process the response based on the provider
+        await emit_task_event(
+            request.stream_id,
+            "phase_start",
+            f"Calling provider {request.provider}",
+            phase="provider",
+            data={"provider": request.provider, "model": request.model},
+        )
         try:
             if request.provider == "ollama":
                 # Get the response and handle it properly using the previously created api_kwargs
@@ -714,6 +788,7 @@ This file contains...
 
         except Exception as e_outer:
             logger.error(f"Error in streaming response: {str(e_outer)}")
+            await emit_task_event(request.stream_id, "error", f"Error in streaming response: {str(e_outer)}", phase="provider")
             error_message = str(e_outer)
 
             # Check for token limit errors
@@ -903,11 +978,25 @@ This file contains...
                 await websocket.send_text(f"\nError: {error_message}")
                 # Close the WebSocket connection after sending the error message
                 await websocket.close()
+        finally:
+            await emit_task_event(
+                request.stream_id,
+                "complete",
+                "WebSocket chat stream finished",
+                phase="chat",
+                data={"provider": request.provider, "model": request.model},
+            )
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
     except Exception as e:
         logger.error(f"Error in WebSocket handler: {str(e)}")
+        stream_id = None
+        try:
+            stream_id = request.stream_id  # type: ignore[name-defined]
+        except Exception:
+            pass
+        await emit_task_event(stream_id, "error", f"Error in WebSocket handler: {str(e)}", phase="chat")
         try:
             await websocket.send_text(f"Error: {str(e)}")
             await websocket.close()

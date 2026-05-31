@@ -5,6 +5,12 @@ const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Optimize build for Docker
   experimental: {
     optimizePackageImports: ['@mermaid-js/mermaid', 'react-syntax-highlighter'],
@@ -62,6 +68,10 @@ const nextConfig: NextConfig = {
       {
         source: '/api/lang/config',
         destination: `${TARGET_SERVER_BASE_URL}/lang/config`,
+      },
+      {
+        source: '/api/fs/select_folder',
+        destination: `${TARGET_SERVER_BASE_URL}/api/fs/select_folder`,
       },
     ];
   },

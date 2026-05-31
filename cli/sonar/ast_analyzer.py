@@ -1,12 +1,12 @@
 """
 AST Analyzer — tree-sitter 기반 소스 코드 구조 분석.
 
-원본 출처: CodeBoarding/static_analyzer/ (MIT License)
+Portions adapted from CodeBoarding/static_analyzer/ (MIT License)
 Copyright 2025 CodeBoarding Team
 https://github.com/CodeBoarding/CodeBoarding
 
 LSP 없이 tree-sitter만으로 클래스/함수/import를 추출합니다.
-CodeBoarding의 전체 LSP 파이프라인 대신 경량 AST 분석을 제공합니다.
+전체 LSP 파이프라인 대신 경량 AST 분석을 제공합니다.
 
 지원 언어: Python, TypeScript/JavaScript, Go, Java, Rust
 """

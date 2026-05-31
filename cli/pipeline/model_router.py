@@ -18,13 +18,13 @@ class ContextSignals:
     Higher scores → Flash model can handle it well.
     """
     # Code analysis signals
-    has_ast_summary: bool = False        # CodeBoarding AST (+25)
+    has_ast_summary: bool = False        # Local static analysis (+25)
     has_call_graph: bool = False         # codegraph/graphify (+20)
     # MCP signals
     has_db_schema: bool = False          # DBHub MCP (+20)
     has_jira_context: bool = False       # Atlassian MCP (+15)
     has_github_context: bool = False     # GitHub MCP (+10)
-    has_diagram: bool = False            # CodeBoarding Mermaid (+10)
+    has_diagram: bool = False            # Mermaid diagram context (+10)
     # Raw quality signals
     mcp_source_count: int = 0           # total MCP sources active
     diagram_complexity: int = 0         # number of nodes in diagram

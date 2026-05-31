@@ -11,9 +11,10 @@ import 'katex/dist/katex.min.css';
 
 interface MarkdownProps {
   content: string;
+  onFixDiagram?: (chartCode: string, customPrompt?: string) => Promise<void>;
 }
 
-const Markdown: React.FC<MarkdownProps> = ({ content }) => {
+const Markdown: React.FC<MarkdownProps> = ({ content, onFixDiagram }) => {
   // Define markdown components
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
@@ -132,7 +133,8 @@ const Markdown: React.FC<MarkdownProps> = ({ content }) => {
             <Mermaid
               chart={codeContent}
               className="w-full max-w-full"
-              zoomingEnabled={true}
+              zoomingEnabled={false}
+              onFixError={onFixDiagram}
             />
           </div>
         );

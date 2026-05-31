@@ -1,5 +1,10 @@
+import asyncio
+import json
 import logging
 import os
+import subprocess
+import tempfile
+from pathlib import Path
 from typing import List, Optional
 from urllib.parse import unquote
 
@@ -25,6 +30,7 @@ from api.prompts import (
     DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
     SIMPLE_CHAT_SYSTEM_PROMPT
 )
+from api.task_streams import emit_task_event
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -72,11 +78,25 @@ class ChatCompletionRequest(BaseModel):
     excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
     included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
     included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
+    stream_id: Optional[str] = Field(None, description="Optional task log stream id for side-channel progress events")
+    skip_rag: Optional[bool] = Field(False, description="Skip RAG initialization and document retrieval")
+    litellm_base_url: Optional[str] = Field(None, description="If set, route requests to this litellm proxy")
+    api_key: Optional[str] = Field(None, description="API key override (used when mode=api and key provided via UI)")
+    use_cli: Optional[bool] = Field(False, description="If True, use local CLI tool (gemini/codex/claude) instead of direct API call")
+    cli_tool: Optional[str] = Field(None, description="Which CLI tool to use: 'gemini', 'codex', 'claude'")
+    is_wiki_generation: Optional[bool] = Field(False, description="If True, skip chat-specific system prompts")
 
 @app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
     """Stream a chat completion response directly using Google Generative AI"""
     try:
+        await emit_task_event(
+            request.stream_id,
+            "task_status",
+            "Chat completion request received",
+            phase="chat",
+            data={"provider": request.provider, "model": request.model, "repo_url": request.repo_url},
+        )
         # Check if request contains very large input
         input_too_large = False
         if request.messages and len(request.messages) > 0:
@@ -84,49 +104,80 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             if hasattr(last_message, 'content') and last_message.content:
                 tokens = count_tokens(last_message.content, request.provider == "ollama")
                 logger.info(f"Request size: {tokens} tokens")
+                await emit_task_event(
+                    request.stream_id,
+                    "task_status",
+                    f"Request size: {tokens} tokens",
+                    phase="chat",
+                    data={"tokens": tokens},
+                )
                 if tokens > 8000:
                     logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
+                    await emit_task_event(
+                        request.stream_id,
+                        "task_status",
+                        "Request exceeds recommended token limit",
+                        phase="chat",
+                        data={"tokens": tokens, "recommended_limit": 7500},
+                    )
                     input_too_large = True
 
-        # Create a new RAG instance for this request
-        try:
-            request_rag = RAG(provider=request.provider, model=request.model)
+        # Only create RAG if we actually need it
+        if not request.skip_rag:
+            try:
+                request_rag = RAG(provider=request.provider, model=request.model)
 
-            # Extract custom file filter parameters if provided
-            excluded_dirs = None
-            excluded_files = None
-            included_dirs = None
-            included_files = None
+                # Extract custom file filter parameters if provided
+                excluded_dirs = None
+                excluded_files = None
+                included_dirs = None
+                included_files = None
 
-            if request.excluded_dirs:
-                excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split('\n') if dir_path.strip()]
-                logger.info(f"Using custom excluded directories: {excluded_dirs}")
-            if request.excluded_files:
-                excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split('\n') if file_pattern.strip()]
-                logger.info(f"Using custom excluded files: {excluded_files}")
-            if request.included_dirs:
-                included_dirs = [unquote(dir_path) for dir_path in request.included_dirs.split('\n') if dir_path.strip()]
-                logger.info(f"Using custom included directories: {included_dirs}")
-            if request.included_files:
-                included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
-                logger.info(f"Using custom included files: {included_files}")
+                if request.excluded_dirs:
+                    excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split('\n') if dir_path.strip()]
+                    logger.info(f"Using custom excluded directories: {excluded_dirs}")
+                if request.excluded_files:
+                    excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split('\n') if file_pattern.strip()]
+                    logger.info(f"Using custom excluded files: {excluded_files}")
+                if request.included_dirs:
+                    included_dirs = [unquote(dir_path) for dir_path in request.included_dirs.split('\n') if dir_path.strip()]
+                    logger.info(f"Using custom included directories: {included_dirs}")
+                if request.included_files:
+                    included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
+                    logger.info(f"Using custom included files: {included_files}")
 
-            request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
-            logger.info(f"Retriever prepared for {request.repo_url}")
-        except ValueError as e:
-            if "No valid documents with embeddings found" in str(e):
-                logger.error(f"No valid embeddings found: {str(e)}")
-                raise HTTPException(status_code=500, detail="No valid document embeddings found. This may be due to embedding size inconsistencies or API errors during document processing. Please try again or check your repository content.")
-            else:
-                logger.error(f"ValueError preparing retriever: {str(e)}")
+                await emit_task_event(
+                    request.stream_id,
+                    "phase_start",
+                    "Preparing retriever",
+                    phase="retriever",
+                    data={"repo_url": request.repo_url, "repo_type": request.type},
+                )
+                request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
+                logger.info(f"Retriever prepared for {request.repo_url}")
+                await emit_task_event(
+                    request.stream_id,
+                    "phase_complete",
+                    "Retriever prepared",
+                    phase="retriever",
+                    data={"repo_url": request.repo_url},
+                )
+            except ValueError as e:
+                if "No valid documents with embeddings found" in str(e):
+                    logger.error(f"No valid embeddings found: {str(e)}")
+                    await emit_task_event(request.stream_id, "error", "No valid document embeddings found", phase="retriever")
+                    raise HTTPException(status_code=500, detail="No valid document embeddings found.")
+                else:
+                    logger.error(f"ValueError preparing retriever: {str(e)}")
+                    await emit_task_event(request.stream_id, "error", f"Error preparing retriever: {str(e)}", phase="retriever")
+                    raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error preparing retriever: {str(e)}")
+                await emit_task_event(request.stream_id, "error", f"Error preparing retriever: {str(e)}", phase="retriever")
                 raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
-        except Exception as e:
-            logger.error(f"Error preparing retriever: {str(e)}")
-            # Check for specific embedding-related errors
-            if "All embeddings should be of the same size" in str(e):
-                raise HTTPException(status_code=500, detail="Inconsistent embedding sizes detected. Some documents may have failed to embed properly. Please try again.")
-            else:
-                raise HTTPException(status_code=500, detail=f"Error preparing retriever: {str(e)}")
+        else:
+            request_rag = None
+            logger.info("skip_rag=True: skipping RAG initialization entirely")
 
         # Validate request
         if not request.messages or len(request.messages) == 0:
@@ -142,7 +193,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 user_msg = request.messages[i]
                 assistant_msg = request.messages[i + 1]
 
-                if user_msg.role == "user" and assistant_msg.role == "assistant":
+                if user_msg.role == "user" and assistant_msg.role == "assistant" and request_rag is not None:
                     request_rag.memory.add_dialog_turn(
                         user_query=user_msg.content,
                         assistant_response=assistant_msg.content
@@ -188,7 +239,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         context_text = ""
         retrieved_documents = None
 
-        if not input_too_large:
+        if not input_too_large and not request.skip_rag:
             try:
                 # If filePath exists, modify the query for RAG to focus on the file
                 rag_query = query
@@ -199,6 +250,13 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
                 # Try to perform RAG retrieval
                 try:
+                    await emit_task_event(
+                        request.stream_id,
+                        "phase_start",
+                        "Retrieving repository context",
+                        phase="rag",
+                        data={"file_path": request.filePath},
+                    )
                     # This will use the actual RAG implementation
                     retrieved_documents = request_rag(rag_query, language=request.language)
 
@@ -206,6 +264,13 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         # Format context for the prompt in a more structured way
                         documents = retrieved_documents[0].documents
                         logger.info(f"Retrieved {len(documents)} documents")
+                        await emit_task_event(
+                            request.stream_id,
+                            "phase_complete",
+                            f"Retrieved {len(documents)} documents",
+                            phase="rag",
+                            data={"document_count": len(documents)},
+                        )
 
                         # Group documents by file path
                         docs_by_file = {}
@@ -229,12 +294,21 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         context_text = "\n\n" + "-" * 10 + "\n\n".join(context_parts)
                     else:
                         logger.warning("No documents retrieved from RAG")
+                        await emit_task_event(
+                            request.stream_id,
+                            "phase_complete",
+                            "No documents retrieved from RAG",
+                            phase="rag",
+                            data={"document_count": 0},
+                        )
                 except Exception as e:
                     logger.error(f"Error in RAG retrieval: {str(e)}")
+                    await emit_task_event(request.stream_id, "error", f"Error in RAG retrieval: {str(e)}", phase="rag")
                     # Continue without RAG if there's an error
 
             except Exception as e:
                 logger.error(f"Error retrieving documents: {str(e)}")
+                await emit_task_event(request.stream_id, "error", f"Error retrieving documents: {str(e)}", phase="rag")
                 context_text = ""
 
         # Get repository information
@@ -288,6 +362,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 language_name=language_name
             )
 
+        if getattr(request, "is_wiki_generation", False):
+            system_prompt = "" # Skip chat system prompts for wiki generation to prevent contradictory instructions
+
+
         # Fetch file content if provided
         file_content = ""
         if request.filePath:
@@ -300,9 +378,10 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
         # Format conversation history
         conversation_history = ""
-        for turn_id, turn in request_rag.memory().items():
-            if not isinstance(turn_id, int) and hasattr(turn, 'user_query') and hasattr(turn, 'assistant_response'):
-                conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
+        if request_rag is not None:
+            for turn_id, turn in request_rag.memory().items():
+                if not isinstance(turn_id, int) and hasattr(turn, 'user_query') and hasattr(turn, 'assistant_response'):
+                    conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
 
         # Create the prompt with context
         prompt = f"/no_think {system_prompt}\n\n"
@@ -323,9 +402,114 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         else:
             # Add a note that we're skipping RAG due to size constraints or because it's the isolated API
             logger.info("No context available from RAG")
+            await emit_task_event(request.stream_id, "task_status", "Answering without retrieval augmentation", phase="rag")
             prompt += "<note>Answering without retrieval augmentation.</note>\n\n"
 
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
+
+        # ── CLI 모드: Go 바이너리(localwiki-agent)로 라우팅 ──────────────
+        if request.use_cli:
+            agent = request.cli_tool or "codex"
+            model_override = request.model or ""
+            
+            # CLI uses an internal endpoint that doesn't support gemini-3.1-flash
+            if agent == "gemini" and model_override == "gemini-3.1-flash":
+                model_override = "gemini-3.1-pro-preview"
+
+            # 바이너리 경로 (프로젝트 루트 기준)
+            agent_bin = Path(__file__).parent.parent / "localwiki-agent"
+            if not agent_bin.exists():
+                agent_bin = Path("/tmp/localwiki-agent")
+            if not agent_bin.exists():
+                raise HTTPException(status_code=500, detail="localwiki-agent 바이너리를 찾을 수 없습니다. agent/ 디렉토리에서 빌드하세요.")
+
+            # 프롬프트를 임시 파일로 저장 (ARG_MAX 초과 방지)
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as pf:
+                pf.write(prompt)
+                prompt_file = pf.name
+
+            cmd = [
+                str(agent_bin), "run",
+                "--agent", agent,
+                "--prompt-file", prompt_file,
+                "--cwd", request.repo_url if os.path.isdir(request.repo_url) else ".",
+                "--stream-jsonl",
+                "--timeout", "300",
+            ]
+            if model_override:
+                cmd += ["--model", model_override]
+
+            logger.info(f"CLI 모드 실행: {' '.join(cmd)}")
+            await emit_task_event(request.stream_id, "task_status", f"CLI 모드 ({agent}) 실행 중...", phase="generation")
+
+            env = os.environ.copy()
+            # Remove keys that might interfere with gemini CLI's built-in OAuth
+            env.pop("GEMINI_API_KEY", None)
+            env.pop("GOOGLE_API_KEY", None)
+            env.pop("GOOGLE_CLOUD_PROJECT_ID", None)
+            
+            if request.api_key:
+                if request.provider == "openai":
+                    env["OPENAI_API_KEY"] = request.api_key
+                elif request.provider == "anthropic":
+                    env["ANTHROPIC_API_KEY"] = request.api_key
+
+            async def cli_stream_generator():
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=env
+                    )
+                    full_content = []
+                    async for raw_line in proc.stdout:
+                        line = raw_line.decode("utf-8", errors="replace").strip()
+                        if not line:
+                            continue
+                        try:
+                            event = json.loads(line)
+                        except json.JSONDecodeError:
+                            yield line
+                            continue
+
+                        etype = event.get("type", "")
+                        if "error" in event and event["error"]:
+                            err_msg = event.get("error")
+                            logger.error(f"CLI 에이전트 에러: {err_msg}")
+                            yield f"\nCLI Error: {err_msg}"
+                            if request.stream_id:
+                                await emit_task_event(request.stream_id, "error", f"CLI 실패: {err_msg}", phase="generation")
+                        elif etype == "chunk":
+                            chunk_text = event.get("content", "")
+                            full_content.append(chunk_text)
+                            yield chunk_text
+                            if request.stream_id:
+                                await emit_task_event(request.stream_id, "agent_log", chunk_text, phase="generation")
+                        elif etype == "complete":
+                            content = event.get("content", "")
+                            if content and not full_content:
+                                yield content
+                        elif etype == "status":
+                            logger.info(f"CLI status: {event.get('content', '')}")
+
+                    await proc.wait()
+                    stderr_out = await proc.stderr.read()
+                    err_str = stderr_out.decode().strip()
+                    
+                    if proc.returncode != 0 or (not full_content and err_str):
+                        logger.error(f"CLI 에이전트 종료 코드 {proc.returncode}: {err_str}")
+                        if request.stream_id:
+                            await emit_task_event(request.stream_id, "error", f"CLI 실행 실패: {err_str}", phase="generation")
+                        yield f"CLI Error: {err_str}"
+                finally:
+                    try:
+                        os.unlink(prompt_file)
+                    except Exception:
+                        pass
+
+            return StreamingResponse(cli_stream_generator(), media_type="text/plain")
+        # ── CLI 모드 끝 ────────────────────────────────────────────────────
 
         model_config = get_model_config(request.provider, request.model)["model_kwargs"]
 
@@ -371,22 +555,28 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
-        elif request.provider == "openai":
-            logger.info(f"Using Openai protocol with model: {request.model}")
+        elif request.provider == "openai" or request.litellm_base_url:
+            logger.info(f"Using OpenAI protocol with model: {request.model}")
 
-            # Check if an API key is set for Openai
-            if not OPENAI_API_KEY:
-                logger.warning("OPENAI_API_KEY not configured, but continuing with request")
-                # We'll let the OpenAIClient handle this and return an error message
+            if request.litellm_base_url:
+                # Local CLI mode: route through litellm proxy — no real API key needed
+                logger.info(f"Routing to litellm proxy: {request.litellm_base_url}")
+                model = OpenAIClient(
+                    api_key="local",  # litellm doesn't need a real key
+                    base_url=request.litellm_base_url,
+                )
+            else:
+                # API direct mode
+                effective_api_key = request.api_key or OPENAI_API_KEY
+                if not effective_api_key:
+                    raise ValueError("OPENAI_API_KEY is not set. Please add it in Settings or set the environment variable.")
+                model = OpenAIClient(api_key=effective_api_key)
 
-            # Initialize Openai client
-            model = OpenAIClient()
             model_kwargs = {
                 "model": request.model,
                 "stream": True,
-                "temperature": model_config["temperature"]
+                "temperature": model_config.get("temperature", 0.7)
             }
-            # Only add top_p if it exists in the model config
             if "top_p" in model_config:
                 model_kwargs["top_p"] = model_config["top_p"]
 
@@ -463,6 +653,13 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         # Create a streaming response
         async def response_stream():
             try:
+                await emit_task_event(
+                    request.stream_id,
+                    "phase_start",
+                    f"Calling provider {request.provider}",
+                    phase="provider",
+                    data={"provider": request.provider, "model": request.model},
+                )
                 if request.provider == "ollama":
                     # Get the response and handle it properly using the previously created api_kwargs
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
@@ -558,6 +755,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
 
             except Exception as e_outer:
                 logger.error(f"Error in streaming response: {str(e_outer)}")
+                await emit_task_event(request.stream_id, "error", f"Error in streaming response: {str(e_outer)}", phase="provider")
                 error_message = str(e_outer)
 
                 # Check for token limit errors
@@ -734,6 +932,14 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 else:
                     # For other errors, return the error message
                     yield f"\nError: {error_message}"
+            finally:
+                await emit_task_event(
+                    request.stream_id,
+                    "complete",
+                    "Chat completion stream finished",
+                    phase="chat",
+                    data={"provider": request.provider, "model": request.model},
+                )
 
         # Return streaming response
         return StreamingResponse(response_stream(), media_type="text/event-stream")

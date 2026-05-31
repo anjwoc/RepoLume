@@ -18,6 +18,7 @@ func NewRegistry(geminiModel, codexModel, claudeModel string) *Registry {
 	r.Register(NewGeminiRunner(geminiModel))
 	r.Register(NewCodexRunner(codexModel, ""))
 	r.Register(NewClaudeRunner(claudeModel))
+	r.Register(NewAntigravityRunner())
 	return r
 }
 
@@ -38,10 +39,12 @@ func (r *Registry) Get(name string) (Runner, error) {
 		name = "claude"
 	case "google", "gemini-cli":
 		name = "gemini"
+	case "antigravity", "agy":
+		name = "antigravity"
 	}
 	runner, ok := r.runners[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown agent %q (valid: gemini, codex, claude)", name)
+		return nil, fmt.Errorf("unknown agent %q (valid: gemini, codex, claude, antigravity)", name)
 	}
 	return runner, nil
 }

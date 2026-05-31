@@ -7,6 +7,7 @@ package runner
 import (
 	"context"
 	"os/exec"
+	"strings"
 
 	"github.com/localwiki/agent/internal/stream"
 )
@@ -22,9 +23,9 @@ func NewGeminiRunner(model string) *GeminiRunner {
 }
 
 func (r *GeminiRunner) Name() string        { return "gemini" }
-func (r *GeminiRunner) DefaultModel() string { return "gemini-2.5-flash" }
-func (r *GeminiRunner) FlashModel() string   { return "gemini-2.5-flash" }
-func (r *GeminiRunner) ProModel() string     { return "gemini-2.5-pro" }
+func (r *GeminiRunner) DefaultModel() string { return "gemini-3.1-flash" }
+func (r *GeminiRunner) FlashModel() string   { return "gemini-3.1-flash" }
+func (r *GeminiRunner) ProModel() string     { return "gemini-3.1-pro" }
 
 // Available checks whether the `gemini` binary is on PATH.
 func (r *GeminiRunner) Available() bool {
@@ -36,14 +37,15 @@ func (r *GeminiRunner) Available() bool {
 //
 //	gemini -p "PROMPT" [-m MODEL]
 func (r *GeminiRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
-	args := []string{"-p", req.Prompt}
+	args := []string{"--prompt", ""}
 	model := r.resolveModel(req)
 	if model != "" {
-		args = append(args, "-m", model)
+		args = append(args, "--model", model)
 	}
 
 	cmd := exec.CommandContext(ctx, "gemini", args...)
 	cmd.Dir = req.Cwd
+	cmd.Stdin = strings.NewReader(req.Prompt)
 
 	lines, err := stream.PipeCmd(cmd)
 	if err != nil {
@@ -54,14 +56,15 @@ func (r *GeminiRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, e
 
 // RunCollect executes the prompt synchronously and collects full output.
 func (r *GeminiRunner) RunCollect(ctx context.Context, req RunRequest) (RunResult, error) {
-	args := []string{"-p", req.Prompt}
+	args := []string{"--prompt", ""}
 	model := r.resolveModel(req)
 	if model != "" {
-		args = append(args, "-m", model)
+		args = append(args, "--model", model)
 	}
 
 	cmd := exec.CommandContext(ctx, "gemini", args...)
 	cmd.Dir = req.Cwd
+	cmd.Stdin = strings.NewReader(req.Prompt)
 
 	out, err := stream.CollectOutput(cmd)
 	if err != nil {

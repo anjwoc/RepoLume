@@ -24,8 +24,8 @@ func NewCodexRunner(model, sandboxPerms string) *CodexRunner {
 }
 
 func (r *CodexRunner) Name() string        { return "codex" }
-func (r *CodexRunner) DefaultModel() string { return "gpt-5.5" }
-func (r *CodexRunner) FlashModel() string   { return "gpt-5.5" }
+func (r *CodexRunner) DefaultModel() string { return "gpt-5.5-mini" }
+func (r *CodexRunner) FlashModel() string   { return "gpt-5.5-mini" }
 func (r *CodexRunner) ProModel() string     { return "gpt-5.5" }
 
 // Available checks whether the `codex` binary is on PATH.

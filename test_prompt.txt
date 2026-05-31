@@ -1,0 +1,8 @@
+The following Mermaid diagram has a syntax error.
+Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Output ONLY the corrected diagram inside a ```mermaid ... ``` block. Do not add any conversational text.
+
+Original Diagram:
+```mermaid
+graph TD
+A --> B
+```

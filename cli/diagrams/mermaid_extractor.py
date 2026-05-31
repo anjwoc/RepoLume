@@ -1,9 +1,8 @@
 """
 Mermaid diagram extractor.
 
-Scans .md files (e.g. from CodeBoarding's .codeboarding/ directory,
-or any other source) and extracts all Mermaid fenced code blocks
-alongside their surrounding context.
+Scans Markdown files and extracts all Mermaid fenced code blocks alongside
+their surrounding context.
 """
 from __future__ import annotations
 
@@ -143,7 +142,7 @@ def extract_from_directory(directory: Path) -> DiagramCollection:
     """
     Recursively scan a directory for .md files and extract all Mermaid diagrams.
 
-    Typical use: extract_from_directory(repo_path / ".codeboarding")
+    Typical use: extract_from_directory(repo_path / "docs")
     """
     if not directory.is_dir():
         logger.warning(f"Not a directory (no diagrams): {directory}")

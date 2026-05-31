@@ -9,6 +9,7 @@ interface ApiProcessedProject {
   repo_type: string;
   submittedAt: number;
   language: string;
+  model?: string;
 }
 // Payload for deleting a project cache
 interface DeleteProjectCachePayload {

@@ -1,1 +1,1 @@
-"""Diagram generation modules — CodeBoarding integration."""
+"""Diagram extraction and injection modules for LocalWiki."""
