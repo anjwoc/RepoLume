@@ -23,9 +23,9 @@ downloads/
 eggs/
 api/logs/
 .eggs/
-lib/
-lib64/
-parts/
+/lib/
+/lib64/
+/parts/
 sdist/
 var/
 wheels/
@@ -60,8 +60,6 @@ yarn-error.log*
 !.env.example
 !docker-compose-litellm.env.example
 secrets/
-wiki-out/
-
 # vercel
 .vercel
 
@@ -73,3 +71,4 @@ next-env.d.ts
 
 # ignore adding self-signed certs
 certs/
+.env*.local
