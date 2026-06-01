@@ -19,17 +19,23 @@ interface ProjectData {
   language: string;
   languages?: string[];
   model?: string;
+  id?: string;
 }
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
 
 function loadAppSettings(): AppSettings {
   if (typeof window === "undefined") return DEFAULT_APP_SETTINGS;
+  let settings = DEFAULT_APP_SETTINGS;
   try {
     const raw = localStorage.getItem(APP_SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_APP_SETTINGS, ...JSON.parse(raw) };
+    if (raw) settings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(raw) };
   } catch {}
-  return DEFAULT_APP_SETTINGS;
+  
+  if (process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true') {
+    settings.setupComplete = true;
+  }
+  return settings;
 }
 
 export default function Page() {
@@ -58,6 +64,7 @@ export default function Page() {
         const repo = params.get("repo");
         if (repo) {
           setProjectData({
+            id: params.get("id") || undefined,
             owner: params.get("owner") || "local",
             repo: repo,
             repo_type: params.get("repo_type") || "local",
@@ -87,6 +94,9 @@ export default function Page() {
       }
       if (projectData.model) {
         url.searchParams.set("model", projectData.model);
+      }
+      if (projectData.id) {
+        url.searchParams.set("id", projectData.id);
       }
     } else {
       url.search = "";
@@ -128,8 +138,8 @@ export default function Page() {
     setScreen("analyzing");
   };
 
-  const handleOpenWiki = (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string) => {
-    setProjectData({ owner, repo, repo_type, language, languages: languages || [language], model });
+  const handleOpenWiki = (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string, id?: string) => {
+    setProjectData({ owner, repo, repo_type, language, languages: languages || [language], model, id });
     setScreen("wiki");
   };
 

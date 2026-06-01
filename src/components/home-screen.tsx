@@ -21,7 +21,7 @@ interface HomeScreenProps {
   isDark: boolean;
   onToggleTheme: () => void;
   onSelectProject: (path: string, testMode: boolean) => void;
-  onOpenWiki: (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string) => void;
+  onOpenWiki: (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string, id?: string) => void;
   onOpenSettings?: () => void;
   onOpenAdmin?: () => void;
   appSettings?: { model: string; language: string; setupComplete: boolean };
@@ -40,7 +40,9 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
   useEffect(() => {
     async function fetchProjects() {
       try {
-        const response = await fetch('/api/wiki/projects');
+        const isShowcase = process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true';
+        const url = isShowcase ? '/showcase-data/projects.json' : '/api/wiki/projects';
+        const response = await fetch(url);
         if (response.ok) {
           const data: ApiProcessedProject[] = await response.json();
           // Group by owner + repo + model
@@ -181,7 +183,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
             ⚙️ 설정 필요
           </button>
         )}
-        {onOpenSettings && (
+        {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && onOpenSettings && (
           <button
             onClick={onOpenSettings}
             style={{
@@ -204,7 +206,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
             <Settings size={18} />
           </button>
         )}
-        {onOpenAdmin && (
+        {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && onOpenAdmin && (
           <button
             onClick={onOpenAdmin}
             style={{
@@ -285,6 +287,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
       </motion.div>
 
       {/* Drop zone */}
+      {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && (
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -444,6 +447,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           위키 생성 시작
         </button>
       </motion.div>
+      )}
 
       {/* Recent projects */}
       <motion.div
@@ -472,7 +476,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         ) : recentProjects.map((proj) => (
           <div
             key={proj.id}
-            onClick={() => onOpenWiki(proj.owner, proj.repo, proj.repo_type, proj.languages?.[0] || proj.language, proj.languages, proj.model)}
+            onClick={() => onOpenWiki(proj.owner, proj.repo, proj.repo_type, proj.languages?.[0] || proj.language, proj.languages, proj.model, proj.id)}
             onMouseEnter={() => setHoveredProject(proj.id)}
             onMouseLeave={() => setHoveredProject(null)}
             style={{
@@ -542,7 +546,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <span style={{ color: t.textMuted, fontSize: 12 }}>{formatTime(proj.submittedAt)}</span>
-              {hoveredProject === proj.id ? (
+              {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && hoveredProject === proj.id ? (
                 <button
                   onClick={(e) => handleDeleteProject(e, proj)}
                   style={{

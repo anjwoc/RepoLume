@@ -102,7 +102,13 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         if (projectData.model) {
           params.append("model", projectData.model);
         }
-        const response = await fetch(`/api/wiki_cache?${params.toString()}`);
+        const isShowcase = process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true';
+        let fetchUrl = `/api/wiki_cache?${params.toString()}`;
+        if (isShowcase && projectData.id) {
+          fetchUrl = `/showcase-data/wiki_${projectData.id}.json`;
+        }
+
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
           throw new Error("위키 데이터를 불러오는데 실패했습니다.");
         }
@@ -701,6 +707,7 @@ ${chartCode}
                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#f87171" }}>오류: {error}</div>
               ) : currentPage ? (
                 <article style={{ color: t.text, lineHeight: 1.7, position: "relative" }}>
+                  {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && (
                   <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
                     <button
                       onClick={() => setShowRegenModal(true)}
@@ -712,6 +719,7 @@ ${chartCode}
                       페이지 재생성 (Review)
                     </button>
                   </div>
+                  )}
                   {isRegenerating ? (
                     <div style={{ textAlign: "center", padding: "60px 20px", color: t.primary }}>
                       <RefreshCw size={24} className="animate-spin" style={{ margin: "0 auto 12px auto" }} />
@@ -720,7 +728,7 @@ ${chartCode}
                   ) : (
                     <Markdown 
                       content={currentPage.content} 
-                      onFixDiagram={(chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)} 
+                      onFixDiagram={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)} 
                     />
                   )}
                 </article>

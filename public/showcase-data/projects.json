@@ -1,0 +1,22 @@
+[
+  {
+    "id": "localwiki_cache_local_local_local-deepwiki_en_agy-gemini-3.5-flash-high.json",
+    "owner": "local",
+    "repo": "local-deepwiki",
+    "name": "local/local-deepwiki",
+    "repo_type": "local",
+    "submittedAt": 1780327788314,
+    "language": "en",
+    "model": "agy-gemini-3.5-flash-high"
+  },
+  {
+    "id": "localwiki_cache_local_local_local-deepwiki_ko.json",
+    "owner": "local",
+    "repo": "local-deepwiki",
+    "name": "local/local-deepwiki",
+    "repo_type": "local",
+    "submittedAt": 1780245062263,
+    "language": "ko",
+    "model": "gemini-3.1-flash"
+  }
+]
