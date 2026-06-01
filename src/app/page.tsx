@@ -79,6 +79,7 @@ export default function Page() {
       repo_type: "local",
       language: (appSettings.languages || [appSettings.language])[0] || "ko",
       languages: appSettings.languages || [appSettings.language],
+      model: appSettings.model,
     });
     setScreen("analyzing");
   };

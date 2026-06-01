@@ -817,6 +817,7 @@ async def get_processed_projects():
     Projects are identified by files named like: localwiki_cache_{repo_type}_{owner}_{repo}_{language}.json
     """
     project_entries: List[ProcessedProjectEntry] = []
+    existing_keys = set()
     # WIKI_CACHE_DIR is already defined globally in the file
 
     try:
@@ -870,6 +871,10 @@ async def get_processed_projects():
                                 model=model
                             )
                         )
+                        # 추적: wiki-out 순회 시 중복 방지
+                        existing_keys.add((repo, language or "ko"))
+                        if model:
+                            existing_keys.add((f"{repo}_{model}", language or "ko"))
                 except Exception as e:
                     logger.error(f"Error processing file {file_path}: {e}")
                     continue
@@ -884,6 +889,8 @@ async def get_processed_projects():
                     if os.path.isdir(repo_path) and not repo_dirname.startswith("."):
                         lang_dirs = await asyncio.to_thread(os.listdir, repo_path)
                         for lang_dirname in lang_dirs:
+                            if (repo_dirname, lang_dirname) in existing_keys:
+                                continue
                             lang_path = os.path.join(repo_path, lang_dirname)
                             if os.path.isdir(lang_path) and not lang_dirname.startswith("."):
                                 try:
