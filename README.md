@@ -44,30 +44,19 @@ Generated repositories, embeddings, and logs are persisted through Docker volume
 
 ## Local Development
 
-Install frontend dependencies:
+Install dependencies for both frontend and backend:
 
 ```bash
-pnpm install
+pnpm run setup
 ```
 
-Install backend dependencies:
+Run the frontend, backend API, and local Go agent concurrently:
 
 ```bash
-python3 -m pip install poetry==2.0.1
-poetry install -C api
+pnpm run dev:all
 ```
 
-Run the backend:
-
-```bash
-python3 -m api.main
-```
-
-Run the frontend:
-
-```bash
-pnpm dev
-```
+> **Note:** The Go agent binary is compiled automatically during `dev:all` and is saved to `bin/localwiki-agent`.
 
 Open `http://localhost:3000`.
 

@@ -35,18 +35,19 @@ docker compose up --build
 
 ## 로컬 개발
 
-```bash
-pnpm install
-python3 -m pip install poetry==2.0.1
-poetry install -C api
-python3 -m api.main
-```
-
-다른 터미널에서:
+새로 클론을 받은 후, 아래 명령어로 모든 의존성(프론트엔드 및 파이썬 API 서버)을 한 번에 설치할 수 있습니다:
 
 ```bash
-pnpm dev
+pnpm run setup
 ```
+
+설치가 완료되면 아래 명령어 하나로 **프론트엔드, API 서버, 에이전트**를 모두 한 번에 실행합니다:
+
+```bash
+pnpm run dev:all
+```
+
+> **참고:** Go 에이전트는 `dev:all` 실행 시 자동으로 컴파일되어 `bin/localwiki-agent` 위치에 생성됩니다.
 
 ## CLI 사용
 

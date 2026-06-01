@@ -38,6 +38,10 @@ wheels/
 # testing
 /coverage
 
+# agent binaries
+bin/
+localwiki-agent
+
 # next.js
 /.next/
 /out/
