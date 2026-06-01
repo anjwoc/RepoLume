@@ -5,9 +5,7 @@ const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -39,6 +37,7 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  turbopack: {},
   async rewrites() {
     return [
       {
