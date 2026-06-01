@@ -26,8 +26,8 @@ Persistent paths:
 ## LiteLLM Compose
 
 ```bash
-cp docker-compose-litellm.env.example docker-compose-litellm.env
-docker compose -f docker-compose-litellm.yml up --build
+cp docker/docker-compose-litellm.env.example docker/docker-compose-litellm.env
+docker compose -f docker/docker-compose-litellm.yml up --build
 ```
 
 Services:
@@ -36,7 +36,7 @@ Services:
 - `litellm`: OpenAI-compatible model gateway.
 - `localwiki`: LocalWiki configured to use the LiteLLM gateway.
 
-The default `litellm-config.yml` points to host Ollama:
+The default `docker/litellm-config.yml` points to host Ollama:
 
 ```yaml
 api_base: http://host.docker.internal:11434
@@ -53,7 +53,7 @@ ollama pull nomic-embed-text
 
 The Dockerfiles use `pnpm-lock.yaml` for frontend dependency installation and Poetry for backend dependencies.
 
-The standard image expects model providers to be reachable through environment variables. `Dockerfile-ollama-local` bundles Ollama and default models into the image, which makes builds significantly larger and slower.
+The standard image expects model providers to be reachable through environment variables. `docker/Dockerfile-ollama-local` bundles Ollama and default models into the image, which makes builds significantly larger and slower.
 
 ## Troubleshooting
 

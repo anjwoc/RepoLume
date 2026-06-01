@@ -126,8 +126,8 @@ Model and embedding defaults live in:
 ## Docker Variants
 
 - `docker-compose.yml`: standard LocalWiki stack, using external model APIs or host services configured through `.env`.
-- `docker-compose-litellm.yml`: adds LiteLLM and Postgres, useful when routing local Ollama or multiple providers through a single OpenAI-compatible endpoint.
-- `Dockerfile-ollama-local`: bundles Ollama and pulls default local models during image build. This image is large and build-time model pulls can be slow.
+- `docker/docker-compose-litellm.yml`: adds LiteLLM and Postgres, useful when routing local Ollama or multiple providers through a single OpenAI-compatible endpoint.
+- `docker/Dockerfile-ollama-local`: bundles Ollama and pulls default local models during image build. This image is large and build-time model pulls can be slow.
 
 See [docs/docker.md](docs/docker.md) for more operational notes.
 
