@@ -47,8 +47,52 @@ export default function Page() {
     setAppSettings(saved);
     if (!saved.setupComplete) {
       setScreen("setup");
+      return;
+    }
+    
+    // Check URL for deep linking
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlScreen = params.get("screen");
+      if (urlScreen === "wiki") {
+        const repo = params.get("repo");
+        if (repo) {
+          setProjectData({
+            owner: params.get("owner") || "local",
+            repo: repo,
+            repo_type: params.get("repo_type") || "local",
+            language: params.get("language") || "ko",
+            languages: params.get("languages")?.split(",") || [params.get("language") || "ko"],
+            model: params.get("model") || undefined,
+          });
+          setScreen("wiki");
+          return;
+        }
+      }
     }
   }, []);
+
+  // Sync state to URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (screen === "wiki" && projectData) {
+      url.searchParams.set("screen", "wiki");
+      url.searchParams.set("owner", projectData.owner);
+      url.searchParams.set("repo", projectData.repo);
+      url.searchParams.set("repo_type", projectData.repo_type);
+      url.searchParams.set("language", projectData.language);
+      if (projectData.languages) {
+        url.searchParams.set("languages", projectData.languages.join(","));
+      }
+      if (projectData.model) {
+        url.searchParams.set("model", projectData.model);
+      }
+    } else {
+      url.search = "";
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, [screen, projectData]);
 
   const handleSetupComplete = (settings: AppSettings) => {
     setAppSettings(settings);
