@@ -1,0 +1,11 @@
+# Ignore python backend and go agent from Vercel deployment
+api/
+agent/
+cli/
+.localwiki-cache/
+wiki-out/
+tests/
+tests_backup/
+bin/
+docs/
+secrets/
