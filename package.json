@@ -6,16 +6,17 @@
   "scripts": {
     "setup": "pnpm install && pnpm run setup:api",
     "setup:api": "cd api && poetry install",
-    "build:agent": "cd agent && go build -o ../bin/localwiki-agent ./cmd/agent",
+    "build:agent": "cd agent && go build -o ../bin/localwiki-agent ./cmd/localwiki-agent",
     "dev": "pnpm run dev:all",
     "dev:web": "next dev --port 3000",
-    "dev:api": "cd api && poetry run uvicorn main:app --reload --port 8001",
-    "dev:agent": "pnpm run build:agent && ./bin/localwiki-agent",
+    "dev:api": "cd api && PYTHONPATH=.. poetry run uvicorn api.main:app --reload --port 8001",
+    "dev:agent": "pnpm run build:agent",
     "dev:all": "concurrently \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm dev:agent\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "export-showcase": "node scripts/export-showcase.js"
+    "export-showcase": "node scripts/export-showcase.js",
+    "deploy:vercel": "NEXT_PUBLIC_SHOWCASE_MODE=true next build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
