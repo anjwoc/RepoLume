@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { CheckCircle, ChevronRight, ChevronLeft, Rocket, Monitor, Globe, Key, Terminal } from "lucide-react";
+import { CheckCircle, ChevronRight, ChevronLeft, Rocket, Monitor, Globe, Key, Terminal, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 
 export interface AppSettings {
@@ -31,8 +31,8 @@ const MODELS = [
     { value: "gpt-5.5", label: "gpt-5.5", desc: "고성능", provider: "openai" },
   ]},
   { group: "Gemini", items: [
-    { value: "gemini-3.1-flash", label: "gemini-3.1-flash", desc: "빠름 (기본)", provider: "google" },
-    { value: "gemini-3.1-pro", label: "gemini-3.1-pro", desc: "고성능", provider: "google" },
+    { value: "gemini-2.5-flash", label: "gemini-2.5-flash", desc: "빠름 (기본)", provider: "google" },
+    { value: "gemini-2.5-pro", label: "gemini-2.5-pro", desc: "고성능", provider: "google" },
   ]},
   { group: "Claude", items: [
     { value: "claude-haiku-3-5", label: "claude-haiku-3-5", desc: "빠름 (기본)", provider: "anthropic" },
@@ -65,6 +65,74 @@ export function SetupWizard({ isDark, onComplete }: SetupWizardProps) {
   const [selectedModel, setSelectedModel] = useState("gpt-5.5");
   const [selectedProvider, setSelectedProvider] = useState("openai");
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["ko"]);
+
+  // Antigravity CLI Auth States
+  const [agyAuthStatus, setAgyAuthStatus] = useState<"idle" | "checking" | "needs_auth" | "authenticating" | "success" | "error">("idle");
+  const [agyAuthUrl, setAgyAuthUrl] = useState("");
+  const [agyAuthCode, setAgyAuthCode] = useState("");
+  const [agyAuthError, setAgyAuthError] = useState("");
+
+  useEffect(() => {
+    if (selectedProvider === "antigravity" && mode === "cli") {
+      checkAgyAuthStatus();
+    } else {
+      setAgyAuthStatus("idle");
+    }
+  }, [selectedProvider, mode]);
+
+  const checkAgyAuthStatus = async () => {
+    setAgyAuthStatus("checking");
+    try {
+      const res = await fetch("http://localhost:8001/agent/auth/status");
+      const data = await res.json();
+      if (data.authenticated) {
+        setAgyAuthStatus("success");
+      } else {
+        setAgyAuthStatus("needs_auth");
+      }
+    } catch (e) {
+      console.error(e);
+      setAgyAuthStatus("needs_auth");
+    }
+  };
+
+  const startAgyAuth = async () => {
+    setAgyAuthStatus("authenticating");
+    setAgyAuthError("");
+    try {
+      const res = await fetch("http://localhost:8001/agent/auth/start", { method: "POST" });
+      const data = await res.json();
+      if (data.success && data.url) {
+        setAgyAuthUrl(data.url);
+        window.open(data.url, "_blank");
+      } else {
+        setAgyAuthStatus("error");
+        setAgyAuthError(data.error || "인증 시작 실패");
+      }
+    } catch (e) {
+      setAgyAuthStatus("error");
+      setAgyAuthError(String(e));
+    }
+  };
+
+  const submitAgyAuthCode = async () => {
+    if (!agyAuthCode.trim()) return;
+    try {
+      const res = await fetch("http://localhost:8001/agent/auth/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: agyAuthCode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAgyAuthStatus("success");
+      } else {
+        setAgyAuthError(data.detail || data.error || "인증 실패. 코드를 다시 확인해주세요.");
+      }
+    } catch (e) {
+      setAgyAuthError(String(e));
+    }
+  };
 
   const totalSteps = 3;
   const steps = [
@@ -115,6 +183,7 @@ export function SetupWizard({ isDark, onComplete }: SetupWizardProps) {
   const card = {
     background: t.surface, borderRadius: 24, padding: "40px 48px",
     width: 520, boxShadow: t.floatingShadow,
+    maxHeight: "85vh", overflowY: "auto",
   } as const;
 
   const nextBtn = (onClick: () => void, label = "다음", disabled = false) => (
@@ -271,14 +340,72 @@ export function SetupWizard({ isDark, onComplete }: SetupWizardProps) {
 
             <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
               {prevBtn(() => setStep(1))}
-              <button onClick={handleComplete} style={{
+              <button onClick={handleComplete} disabled={selectedProvider === "antigravity" && agyAuthStatus !== "success"} style={{
                 flex: 2, padding: "13px", borderRadius: 12, border: "none",
-                background: t.primary, color: "#fff", fontSize: 15, fontWeight: 700,
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: (selectedProvider === "antigravity" && agyAuthStatus !== "success") ? t.divider : t.primary,
+                color: (selectedProvider === "antigravity" && agyAuthStatus !== "success") ? t.textMuted : "#fff",
+                fontSize: 15, fontWeight: 700,
+                cursor: (selectedProvider === "antigravity" && agyAuthStatus !== "success") ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}>
                 <Rocket size={18} /> 시작하기!
               </button>
             </div>
+
+            {/* Antigravity CLI Auth UI */}
+            {selectedProvider === "antigravity" && mode === "cli" && (
+              <div style={{ marginTop: 24, padding: 16, background: t.bg, borderRadius: 12, border: `1px solid ${t.divider}` }}>
+                <p style={{ color: t.text, fontSize: 13, fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Terminal size={14} /> Antigravity CLI 인증
+                </p>
+
+                {agyAuthStatus === "checking" && <p style={{ color: t.textSecondary, fontSize: 12, margin: 0 }}><RefreshCw size={12} style={{ animation: "spin 1s linear infinite", marginRight: 4 }} /> 인증 상태 확인 중...</p>}
+
+                {agyAuthStatus === "success" && <p style={{ color: t.success || "#10b981", fontSize: 13, margin: 0, fontWeight: 600 }}>✅ 인증이 완료되었습니다. 시작할 수 있습니다!</p>}
+
+                {(agyAuthStatus === "needs_auth" || agyAuthStatus === "error") && (
+                  <div>
+                    <p style={{ color: t.textSecondary, fontSize: 12, margin: "0 0 12px", lineHeight: 1.5 }}>
+                      Antigravity CLI를 사용하려면 Google 계정 로그인이 필요합니다.
+                    </p>
+                    <button onClick={startAgyAuth} style={{
+                      padding: "8px 14px", borderRadius: 8, border: `1px solid ${t.primary}`, background: "transparent",
+                      color: t.primary, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6
+                    }}>
+                      <ExternalLink size={14} /> 브라우저에서 로그인하기
+                    </button>
+                    {agyAuthError && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}><AlertCircle size={12} /> {agyAuthError}</p>}
+                  </div>
+                )}
+
+                {agyAuthStatus === "authenticating" && (
+                  <div style={{ marginTop: 4 }}>
+                    <p style={{ color: t.textSecondary, fontSize: 12, margin: "0 0 8px" }}>
+                      열린 브라우저에서 로그인 후 발급된 <b>권한 부여 코드</b>를 아래에 붙여넣어주세요.
+                    </p>
+                    {agyAuthUrl && (
+                      <p style={{ fontSize: 11, color: t.textMuted, margin: "0 0 8px", wordBreak: "break-all" }}>
+                        (창이 열리지 않았다면 <a href={agyAuthUrl} target="_blank" rel="noreferrer" style={{ color: t.primary }}>여기</a>를 클릭)
+                      </p>
+                    )}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="text"
+                        value={agyAuthCode}
+                        onChange={(e) => setAgyAuthCode(e.target.value)}
+                        placeholder="4/0AeoWu..."
+                        style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1px solid ${t.divider}`, background: t.surface, color: t.text, fontSize: 12 }}
+                      />
+                      <button onClick={submitAgyAuthCode} style={{
+                        padding: "8px 16px", borderRadius: 8, border: "none", background: t.primary, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer"
+                      }}>제출</button>
+                    </div>
+                    {agyAuthError && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}><AlertCircle size={12} /> {agyAuthError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+
           </motion.div>
         )}
 

@@ -12,9 +12,10 @@ import 'katex/dist/katex.min.css';
 interface MarkdownProps {
   content: string;
   onFixDiagram?: (chartCode: string, customPrompt?: string) => Promise<void>;
+  onCodeChange?: (oldCode: string, newCode: string) => void;
 }
 
-const Markdown: React.FC<MarkdownProps> = ({ content, onFixDiagram }) => {
+const Markdown: React.FC<MarkdownProps> = ({ content, onFixDiagram, onCodeChange }) => {
   // Define markdown components
   const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     p({ children, ...props }: { children?: React.ReactNode }) {
@@ -135,6 +136,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content, onFixDiagram }) => {
               className="w-full max-w-full"
               zoomingEnabled={false}
               onFixError={onFixDiagram}
+              onCodeChange={onCodeChange}
             />
           </div>
         );

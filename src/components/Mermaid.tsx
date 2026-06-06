@@ -179,6 +179,7 @@ interface MermaidProps {
   className?: string;
   zoomingEnabled?: boolean;
   onFixError?: (chart: string, customPrompt?: string) => Promise<void>;
+  onCodeChange?: (oldCode: string, newCode: string) => void;
 }
 
 // Full screen modal component for the diagram
@@ -325,13 +326,33 @@ const FullScreenModal: React.FC<{
   );
 };
 
-const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled = false, onFixError }) => {
+const Mermaid: React.FC<MermaidProps> = ({ chart: initialChart, className = '', zoomingEnabled = false, onFixError, onCodeChange }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mermaidRef = useRef<HTMLDivElement>(null);
+  
+  const [chart, setChart] = useState(initialChart);
+  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [editCode, setEditCode] = useState(initialChart);
+  
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
+  
+  // Sync if prop changes externally
+  useEffect(() => {
+    setChart(initialChart);
+    setEditCode(initialChart);
+  }, [initialChart]);
+
+  const handleApplyEdit = () => {
+    setChart(editCode);
+    if (onCodeChange) {
+      onCodeChange(initialChart, editCode);
+    }
+  };
 
   const handleCustomFix = async (promptText: string) => {
     if (!onFixError) return;
@@ -345,8 +366,7 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
       setIsFixing(false);
     }
   };
-  const mermaidRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+
   const idRef = useRef(`mermaid-${Math.random().toString(36).substring(2, 9)}`);
   const isDarkModeRef = useRef(
     typeof window !== 'undefined' &&
@@ -580,15 +600,55 @@ const Mermaid: React.FC<MermaidProps> = ({ chart, className = '', zoomingEnabled
               </div>
             </div>
           )}
+
+          {/* Manual Edit Modal */}
+          {isEditingCode && (
+            <div className="absolute top-0 left-0 w-full h-full bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 z-30 flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1"><Edit3 size={12}/> 실시간 코드 편집</h4>
+                <button onClick={() => setIsEditingCode(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                  <X size={14} />
+                </button>
+              </div>
+              <textarea 
+                value={editCode}
+                onChange={e => setEditCode(e.target.value)}
+                className="w-full flex-1 p-2 text-xs font-mono border rounded-md dark:bg-[#2d2d2d] dark:border-gray-600 dark:text-gray-200 mb-2 resize-none"
+              />
+              <div className="flex justify-end gap-2">
+                <button 
+                  onClick={() => setIsEditingCode(false)}
+                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  취소
+                </button>
+                <button 
+                  onClick={handleApplyEdit}
+                  className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                >
+                  적용 (미리보기)
+                </button>
+              </div>
+            </div>
+          )}
           {!zoomingEnabled && (
-            <div className="absolute top-2 right-2 bg-gray-700/70 dark:bg-gray-900/70 text-white p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5 text-xs shadow-md pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                <line x1="11" y1="8" x2="11" y2="14"></line>
-                <line x1="8" y1="11" x2="14" y2="11"></line>
-              </svg>
-              <span>Click to zoom</span>
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIsEditingCode(true); setEditCode(chart); }}
+                className="bg-gray-700/80 hover:bg-gray-800 text-white p-1.5 rounded-md flex items-center gap-1.5 text-xs shadow-md transition-colors cursor-pointer"
+              >
+                <Edit3 size={12} />
+                <span>코드 수정</span>
+              </button>
+              <div className="bg-gray-700/70 dark:bg-gray-900/70 text-white p-1.5 rounded-md flex items-center gap-1.5 text-xs shadow-md pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  <line x1="11" y1="8" x2="11" y2="14"></line>
+                  <line x1="8" y1="11" x2="14" y2="11"></line>
+                </svg>
+                <span>Click to zoom</span>
+              </div>
             </div>
           )}
         </div>

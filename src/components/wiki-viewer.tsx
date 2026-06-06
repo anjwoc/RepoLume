@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Search, Moon, Sun, ChevronRight,
   FileText, Folder, FolderOpen, X, Home,
-  AlignCenter, AlignJustify, RefreshCw,
+  AlignCenter, AlignJustify, RefreshCw, Share,
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
@@ -20,6 +20,7 @@ interface ProjectData {
   language: string;
   languages?: string[];
   model?: string;
+  id?: string;
 }
 
 interface WikiViewerProps {
@@ -68,7 +69,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [activeSection, setActiveSection] = useState("");
   const [readingMode, setReadingMode] = useState(true); // 기본값: 읽기 모드 (노션처럼)
   const searchRef = useRef<HTMLInputElement>(null);
-  
+
   const [currentLang, setCurrentLang] = useState(projectData?.language || "ko");
 
   // Dynamic state from backend
@@ -86,6 +87,14 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [isBatchFixing, setIsBatchFixing] = useState(false);
   const [batchFixProgress, setBatchFixProgress] = useState({ current: 0, total: 0 });
   const regenPromptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Export state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportTarget, setExportTarget] = useState<"notion" | "obsidian" | "markdown">("notion");
+  const [exportKey, setExportKey] = useState("");
+  const [exportParentId, setExportParentId] = useState("");
+  const [exportVault, setExportVault] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     async function loadWiki() {
@@ -112,7 +121,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         if (!response.ok) {
           throw new Error("위키 데이터를 불러오는데 실패했습니다.");
         }
-        
+
         const cachedData = await response.json();
         if (cachedData && cachedData.wiki_structure && cachedData.generated_pages) {
           const structure: WikiStructure = {
@@ -121,7 +130,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             rootSections: cachedData.wiki_structure.rootSections || [],
             pages: cachedData.wiki_structure.pages || []
           };
-          
+
           setWikiStructure(structure);
           setGeneratedPages(cachedData.generated_pages);
 
@@ -158,16 +167,16 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             const section = structure.sections.find(s => s.id === sectionId);
             if (!section) return null;
             newExpanded.add(section.id);
-            
+
             const children: TreeItem[] = [];
-            
+
             if (section.subsections) {
               for (const subId of section.subsections) {
                 const subNode = buildSection(subId);
                 if (subNode) children.push(subNode);
               }
             }
-            
+
             if (section.pages) {
               for (const pageId of section.pages) {
                 const page = structure.pages.find(p => p.id === pageId);
@@ -178,7 +187,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
                 }
               }
             }
-            
+
             return {
               id: section.id,
               title: section.title,
@@ -219,12 +228,12 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
     setIsRegenerating(true);
     setShowRegenModal(false);
-    
+
     try {
       let apiKey = "";
       let mode = "api";
       let provider = "google";
-      let model = "gemini-3.1-flash";
+      let model = "gemini-2.5-flash";
       if (typeof window !== "undefined") {
         const raw = localStorage.getItem(APP_SETTINGS_KEY);
         if (raw) {
@@ -233,7 +242,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             apiKey = settings.apiKey || "";
             mode = (settings.useCli ?? true) ? "cli" : "api";
             provider = settings.provider || "google";
-            model = settings.model || "gemini-3.1-flash";
+            model = settings.model || "gemini-2.5-flash";
           } catch (e) {}
         }
       }
@@ -307,7 +316,7 @@ ${chartCode}
       let useCli = true;
       let cliTool = "gemini";
       let provider = "google";
-      let model = "gemini-3.1-flash";
+      let model = "gemini-2.5-flash";
       if (typeof window !== "undefined") {
         const raw = localStorage.getItem(APP_SETTINGS_KEY);
         if (raw) {
@@ -317,7 +326,7 @@ ${chartCode}
             useCli = settings.useCli ?? true;
             cliTool = settings.provider === "google" ? "gemini" : settings.provider === "anthropic" ? "claude" : settings.provider === "antigravity" ? "antigravity" : "codex";
             provider = settings.provider || "google";
-            model = settings.model || "gemini-3.1-flash";
+            model = settings.model || "gemini-2.5-flash";
           } catch (e) {}
         }
       }
@@ -332,7 +341,7 @@ ${chartCode}
         language: currentLang,
         skip_rag: true,
         is_wiki_generation: true,
-        use_cli: useCli, 
+        use_cli: useCli,
         cli_tool: cliTool,
         ...(apiKey ? { api_key: apiKey } : {})
       };
@@ -389,6 +398,42 @@ ${chartCode}
       alert(`다이어그램 복구 실패: ${e.message}`);
       throw e;
     }
+  };
+
+  const handleManualCodeChange = async (oldCode: string, newCode: string, targetPageId: string) => {
+    if (!projectData || !wikiStructure || !generatedPages[targetPageId]) return;
+
+    try {
+      const currentPageData = generatedPages[targetPageId];
+      const newPageContent = currentPageData.content.replace(oldCode, newCode);
+
+      const newGeneratedPages = {
+        ...generatedPages,
+        [targetPageId]: {
+          ...currentPageData,
+          content: newPageContent
+        }
+      };
+
+      setGeneratedPages(newGeneratedPages);
+
+      // Save cache
+      await fetch('/api/wiki_cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: { owner: projectData.owner, repo: projectData.repo, type: projectData.repo_type },
+          language: currentLang,
+          wiki_structure: wikiStructure,
+          generated_pages: newGeneratedPages,
+          provider: "google",
+          model: "local"
+        })
+      });
+    } catch (e) {
+      console.error("Failed to save manual edit", e);
+    }
+  };
 
   const handleFixAllDiagrams = async () => {
     if (brokenDiagrams.length === 0 || !projectData || !wikiStructure) return;
@@ -397,8 +442,8 @@ ${chartCode}
 
     try {
       let currentGeneratedPages = { ...generatedPages };
-      
-      let apiKey = ""; let useCli = true; let cliTool = "gemini"; let provider = "google"; let model = "gemini-3.1-flash";
+
+      let apiKey = ""; let useCli = true; let cliTool = "gemini"; let provider = "google"; let model = "gemini-2.5-flash";
       if (typeof window !== "undefined") {
         const raw = localStorage.getItem(APP_SETTINGS_KEY);
         if (raw) {
@@ -408,7 +453,7 @@ ${chartCode}
             useCli = settings.useCli ?? true;
             cliTool = settings.provider === "google" ? "gemini" : settings.provider === "anthropic" ? "claude" : settings.provider === "antigravity" ? "antigravity" : "codex";
             provider = settings.provider || "google";
-            model = settings.model || "gemini-3.1-flash";
+            model = settings.model || "gemini-2.5-flash";
           } catch (e) {}
         }
       }
@@ -416,7 +461,7 @@ ${chartCode}
       for (let i = 0; i < brokenDiagrams.length; i++) {
         const { pageId, chartCode } = brokenDiagrams[i];
         setBatchFixProgress({ current: i + 1, total: brokenDiagrams.length });
-        
+
         const fixPrompt = `The following Mermaid diagram has a syntax error.
 Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Output ONLY the corrected diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.
 
@@ -483,6 +528,66 @@ ${chartCode}
       setIsBatchFixing(false);
     }
   };
+  const handleExport = async () => {
+    if (!projectData || !wikiStructure) return;
+    setIsExporting(true);
+
+    try {
+      const exportData = {
+        repo_url: `${projectData.owner}/${projectData.repo}`,
+        pages: Object.fromEntries(
+          Object.entries(generatedPages).map(([k, v]) => [k, (v as WikiPage).content])
+        ),
+        format: exportTarget
+      };
+
+      if (exportTarget === "notion") {
+        if (!exportKey || !exportParentId) throw new Error("Notion API Key와 Parent Page ID가 필요합니다.");
+        const res = await fetch(`/api/export/notion?api_key=${exportKey}&parent_page_id=${exportParentId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(exportData)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Notion 내보내기 실패");
+        alert(`✅ 성공적으로 ${data.exported_count}개의 페이지를 Notion으로 내보냈습니다.`);
+      }
+      else if (exportTarget === "obsidian") {
+        if (!exportVault) throw new Error("Obsidian Vault 경로가 필요합니다.");
+        const res = await fetch(`/api/export/obsidian?vault_path=${encodeURIComponent(exportVault)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(exportData)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Obsidian 내보내기 실패");
+        alert(`✅ 성공적으로 ${data.exported_count}개의 페이지를 Obsidian(${data.output_path})으로 내보냈습니다.`);
+      }
+      else {
+        // Markdown/JSON 다운로드
+        const res = await fetch('/api/export/wiki', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(exportData)
+        });
+        if (!res.ok) throw new Error('Export failed');
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const filename = res.headers.get('Content-Disposition')?.split('filename=')[1] || `wiki_export_${Date.now()}.md`;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+      setShowExportModal(false);
+    } catch (e: any) {
+      alert(`내보내기 실패: ${e.message}`);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   useEffect(() => {
@@ -621,6 +726,15 @@ ${chartCode}
         {/* Right */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
 
+          <button
+            onClick={() => setShowExportModal(true)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.primaryLight, border: "none", cursor: "pointer", color: t.primary, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+          >
+            <Share size={14} />
+            <span>내보내기</span>
+          </button>
 
           <button
             onClick={() => { setShowSearch(true); setTimeout(() => searchRef.current?.focus(), 40); }}
@@ -726,9 +840,10 @@ ${chartCode}
                       <p>AI가 피드백을 반영하여 페이지를 재생성 중입니다...</p>
                     </div>
                   ) : (
-                    <Markdown 
-                      content={currentPage.content} 
-                      onFixDiagram={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)} 
+                    <Markdown
+                      content={currentPage.content}
+                      onFixDiagram={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)}
+                      onCodeChange={(oldCode, newCode) => handleManualCodeChange(oldCode, newCode, selectedPage)}
                     />
                   )}
                 </article>
@@ -860,10 +975,94 @@ ${chartCode}
                   취소
                 </button>
                 <button
-                  onClick={handleRegenerate}
+                  onClick={() => handleRegenerate()}
                   style={{ padding: "8px 16px", background: t.primary, border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}
                 >
                   <RefreshCw size={14} /> 재생성 시작
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Modal */}
+      <AnimatePresence>
+        {showExportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              style={{ width: 450, background: t.bg, borderRadius: 16, padding: 24, boxShadow: t.floatingShadow }}
+            >
+              <h3 style={{ margin: "0 0 16px 0", color: t.text, fontSize: 18 }}>위키 내보내기</h3>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 13, color: t.textSecondary, marginBottom: 8 }}>대상 플랫폼</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["notion", "obsidian", "markdown"].map((tType) => (
+                    <button
+                      key={tType}
+                      onClick={() => setExportTarget(tType as any)}
+                      style={{
+                        flex: 1, padding: "10px", borderRadius: 8, cursor: "pointer",
+                        background: exportTarget === tType ? t.primaryLight : "transparent",
+                        border: `1px solid ${exportTarget === tType ? t.primary : t.divider}`,
+                        color: exportTarget === tType ? t.primary : t.text,
+                        fontWeight: exportTarget === tType ? 600 : 400,
+                        textTransform: "capitalize"
+                      }}
+                    >
+                      {tType}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {exportTarget === "notion" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, color: t.textSecondary, marginBottom: 4 }}>Notion API Key</label>
+                    <input type="password" value={exportKey} onChange={e => setExportKey(e.target.value)} placeholder="secret_..." style={{ width: "100%", padding: "10px", borderRadius: 6, border: `1px solid ${t.divider}`, background: t.surface, color: t.text }} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, color: t.textSecondary, marginBottom: 4 }}>Parent Page ID</label>
+                    <input type="text" value={exportParentId} onChange={e => setExportParentId(e.target.value)} placeholder="e.g. 1234567890abcdef..." style={{ width: "100%", padding: "10px", borderRadius: 6, border: `1px solid ${t.divider}`, background: t.surface, color: t.text }} />
+                  </div>
+                </div>
+              )}
+
+              {exportTarget === "obsidian" && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 12, color: t.textSecondary, marginBottom: 4 }}>Vault 경로 (로컬 절대 경로)</label>
+                  <input type="text" value={exportVault} onChange={e => setExportVault(e.target.value)} placeholder="~/Documents/MyVault/ProjectWiki" style={{ width: "100%", padding: "10px", borderRadius: 6, border: `1px solid ${t.divider}`, background: t.surface, color: t.text }} />
+                </div>
+              )}
+
+              {exportTarget === "markdown" && (
+                <p style={{ color: t.textSecondary, fontSize: 13, marginBottom: 20 }}>전체 위키가 하나의 Markdown 파일로 병합되어 다운로드됩니다.</p>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  style={{ padding: "8px 16px", background: "transparent", border: `1px solid ${t.divider}`, borderRadius: 8, color: t.text, cursor: "pointer" }}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  style={{ padding: "8px 16px", background: t.primary, border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 6, opacity: isExporting ? 0.7 : 1 }}
+                >
+                  {isExporting ? "내보내는 중..." : "내보내기"}
                 </button>
               </div>
             </motion.div>

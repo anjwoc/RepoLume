@@ -42,9 +42,11 @@ export default function Page() {
   const [screen, setScreen] = useState<Screen>("home");
   const [isDark, setIsDark] = useState(false);
   const [projectPath, setProjectPath] = useState("");
+  const [businessProjectPaths, setBusinessProjectPaths] = useState<string[]>([]);
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [mcpSettings, setMcpSettings] = useState<MCPSettings>(DEFAULT_MCP_SETTINGS);
   const [testMode, setTestMode] = useState<boolean>(false);
+  const [enableBusiness, setEnableBusiness] = useState<boolean>(false);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
 
   // On mount, load saved settings and determine initial screen
@@ -124,12 +126,16 @@ export default function Page() {
       || "project";
   };
 
-  const handleSelectProject = (path: string, testMode: boolean) => {
-    setProjectPath(path);
+  const handleSelectProject = (path: string, testMode: boolean, enableBusiness: boolean, paths?: string[]) => {
+    const analysisPaths = paths && paths.length > 0 ? paths : [path];
+    const primaryPath = analysisPaths[0] || path;
+    setProjectPath(primaryPath);
+    setBusinessProjectPaths(analysisPaths);
     setTestMode(testMode);
+    setEnableBusiness(enableBusiness);
     setProjectData({
       owner: "local",
-      repo: sanitizeRepoName(path),
+      repo: sanitizeRepoName(primaryPath),
       repo_type: "local",
       language: (appSettings.languages || [appSettings.language])[0] || "ko",
       languages: appSettings.languages || [appSettings.language],
@@ -181,9 +187,11 @@ export default function Page() {
             key="analyzing"
             isDark={isDark}
             projectPath={projectPath}
+            businessProjectPaths={businessProjectPaths}
             language={appSettings.language}
             languages={appSettings.languages || [appSettings.language]}
             testMode={testMode}
+            enableBusiness={enableBusiness}
             provider={appSettings.provider}
             model={appSettings.model}
             mode={appSettings.mode as "cli" | "api"}

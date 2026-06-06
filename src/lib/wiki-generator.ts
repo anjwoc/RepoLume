@@ -30,7 +30,7 @@ export async function runWikiGeneration(
   outputLanguage: string = "ko",
   testMode: boolean = false,
   provider: string = "google",
-  model: string = "gemini-3.1-flash",
+  model: string = "gemini-2.5-flash",
   apiKey?: string,
   mode: "cli" | "api" = "cli",
   cliTool?: string,
@@ -112,7 +112,7 @@ ${languageInstruction}
 2. ${language === 'ko' ? 'Write section and page titles entirely in Korean (한국어). Do not mix English and Korean in titles.' : 'Write section and page titles entirely in English.'}
 3. Make the structure clean, readable, and professional.
 
-Create a structured wiki with the following main sections:
+Create a structured Table of Contents (wiki structure) with the following main sections:
 - Overview (general information about the project)
 - System Architecture (how the system is designed)
 - Core Features (key functionality)
@@ -121,7 +121,8 @@ Create a structured wiki with the following main sections:
 - Backend Systems (server-side components)
 - Deployment/Infrastructure (how to deploy)
 
-Output MUST be a valid JSON object matching this structure:
+CRITICAL INSTRUCTION: DO NOT write the actual wiki page content! You are ONLY generating the Table of Contents structure.
+Your entire output MUST be a single, valid JSON object matching this exact structure (do not include markdown formatting or backticks around the JSON):
 {
   "title": "Project Wiki",
   "description": "...",
@@ -309,10 +310,10 @@ ${languageInstruction}`;
               } catch (parseError: any) {
                 const errMsg = parseError.message || String(parseError);
                 await emitStep(streamId, 'agent_log', 'generation', `⚠️ 다이어그램 구문 오류 감지, 자가 수정 시도 중...`);
-                
+
                 const fixPrompt = `The following Mermaid diagram has a syntax error:\n\n${errMsg}\n\nOriginal Diagram:\n\`\`\`mermaid\n${diagramCode}\n\`\`\`\n\nFix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Output ONLY the corrected diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.`;
                 const fixReqBody = { ...pageReqBody, messages: [{ role: 'user', content: fixPrompt }] };
-                
+
                 try {
                   const fixResp = await fetch(`/api/chat/stream`, {
                     method: 'POST',
@@ -453,7 +454,7 @@ export async function translateWikiGeneration(
   baseLanguage: string,
   targetLanguage: string,
   provider: string = "google",
-  model: string = "gemini-3.1-flash",
+  model: string = "gemini-2.5-flash",
   apiKey?: string,
   mode: "cli" | "api" = "cli",
   cliTool?: string,
@@ -473,7 +474,7 @@ export async function translateWikiGeneration(
     // 1. 캐시 불러오기
     await emitStep(streamId, 'phase_start', 'scan', `📂 기준 언어(${baseLanguage}) 캐시 로드 중...`);
     const cacheRes = await fetch(`/api/wiki_cache?owner=${owner}&repo=${repo}&repo_type=${repo_type}&language=${baseLanguage}`);
-    
+
     if (!cacheRes.ok) {
       throw new Error(`기준 캐시 로드 실패: ${cacheRes.statusText}`);
     }
@@ -487,7 +488,7 @@ export async function translateWikiGeneration(
     // 2. 구조 번역
     const t2 = Date.now();
     await emitStep(streamId, 'phase_start', 'structure', `🧠 구조를 ${targetLanguage}로 번역 중...`);
-    
+
     const structurePrompt = `Translate the following JSON wiki structure into ${targetLanguage}.
 Keep the JSON structure, keys, IDs, and filePaths exactly the same.
 Only translate the "title" and "description" fields.
@@ -539,8 +540,8 @@ ${JSON.stringify(cacheData.wiki_structure, null, 2)}
         let parsed = JSON.parse(match[0]);
         // OpenAI chunk format 인지 확인
         if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
-             const innerMatch = parsed.choices[0].delta.content.match(/\{[\s\S]*\}/);
-             if (innerMatch) parsed = JSON.parse(innerMatch[0]);
+          const innerMatch = parsed.choices[0].delta.content.match(/\{[\s\S]*\}/);
+          if (innerMatch) parsed = JSON.parse(innerMatch[0]);
         }
         if (parsed.title) {
           translatedStructure = parsed;
@@ -567,9 +568,9 @@ ${JSON.stringify(cacheData.wiki_structure, null, 2)}
 
       const originalPage = cacheData.generated_pages[page.id];
       if (!originalPage) {
-         translatedPages[page.id] = { ...page, content: "Content not found." };
-         failPages++;
-         continue;
+        translatedPages[page.id] = { ...page, content: "Content not found." };
+        failPages++;
+        continue;
       }
 
       const pagePrompt = `Translate the following technical wiki document into ${targetLanguage}.
@@ -608,15 +609,15 @@ ${originalPage.content}
         let finalContent = pageContent;
         // Parse SSE chunk format if needed
         try {
-            const match = pageContent.match(/\{[\s\S]*\}/);
-            if (match) {
-                const parsed = JSON.parse(match[0]);
-                if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
-                    finalContent = parsed.choices[0].delta.content;
-                }
+          const match = pageContent.match(/\{[\s\S]*\}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]);
+            if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+              finalContent = parsed.choices[0].delta.content;
             }
-        } catch(e) {}
-        
+          }
+        } catch (e) { }
+
         // Clean markdown wrapper
         finalContent = finalContent.replace(/^```(markdown|md)\n/i, "").replace(/```$/i, "").trim();
         if (finalContent.length < 10) throw new Error("번역된 내용이 너무 짧음");
@@ -736,7 +737,7 @@ ${languageInstruction}`;
 
   let pageContent = '';
   const decoder = new TextDecoder();
-  
+
   try {
     const pageResp = await fetch(`/api/chat/stream`, {
       method: 'POST',
@@ -773,10 +774,10 @@ ${languageInstruction}`;
           } catch (parseError: any) {
             const errMsg = parseError.message || String(parseError);
             await emitStep(streamId, 'agent_log', 'generation', `⚠️ 다이어그램 구문 오류 감지, 자가 수정 시도 중...`);
-            
+
             const fixPrompt = `The following Mermaid diagram has a syntax error:\n\n${errMsg}\n\nOriginal Diagram:\n\`\`\`mermaid\n${diagramCode}\n\`\`\`\n\nFix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Output ONLY the corrected diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.`;
             const fixReqBody = { ...pageReqBody, messages: [{ role: 'user', content: fixPrompt }] };
-            
+
             try {
               const fixResp = await fetch(`/api/chat/stream`, {
                 method: 'POST',
@@ -817,4 +818,3 @@ ${languageInstruction}`;
     throw error;
   }
 }
-

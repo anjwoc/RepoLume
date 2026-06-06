@@ -20,11 +20,11 @@ interface ApiProcessedProject {
 interface HomeScreenProps {
   isDark: boolean;
   onToggleTheme: () => void;
-  onSelectProject: (path: string, testMode: boolean) => void;
+  onSelectProject: (path: string, testMode: boolean, enableBusiness: boolean, paths?: string[]) => void;
   onOpenWiki: (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string, id?: string) => void;
   onOpenSettings?: () => void;
   onOpenAdmin?: () => void;
-  appSettings?: { model: string; language: string; setupComplete: boolean };
+  appSettings?: { model: string; language: string; setupComplete: boolean; provider?: string; mode?: string };
 }
 
 export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki, onOpenSettings, onOpenAdmin, appSettings }: HomeScreenProps) {
@@ -32,10 +32,30 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
   const [testMode, setTestMode] = useState<boolean>(false);
+  const [enableBusiness, setEnableBusiness] = useState(false);
   const [projectPath, setProjectPath] = useState<string>("");
   
   const [recentProjects, setRecentProjects] = useState<ApiProcessedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAgyAuthed, setIsAgyAuthed] = useState<boolean>(true);
+
+  const parseProjectPaths = (value: string) => (
+    value
+      .split(/[\n,;]+/)
+      .map((path) => path.trim())
+      .filter(Boolean)
+  );
+
+  useEffect(() => {
+    if (appSettings?.provider === "antigravity" && (!appSettings.mode || appSettings.mode === "cli")) {
+      fetch('http://localhost:8001/agent/auth/status')
+        .then(r => r.json())
+        .then(d => setIsAgyAuthed(d.authenticated))
+        .catch(() => setIsAgyAuthed(false));
+    } else {
+      setIsAgyAuthed(true);
+    }
+  }, [appSettings?.provider, appSettings?.mode]);
 
   useEffect(() => {
     async function fetchProjects() {
@@ -297,7 +317,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         onDrop={(e) => {
           e.preventDefault();
           setIsDragging(false);
-          onSelectProject("~/Projects/dropped-project", testMode);
+          onSelectProject("~/Projects/dropped-project", testMode, enableBusiness);
         }}
         style={{
           width: 480,
@@ -340,19 +360,21 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
             프로젝트 폴더 절대 경로
           </label>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="text"
+            <textarea
               value={projectPath}
               onChange={(e) => setProjectPath(e.target.value)}
-              placeholder="예: /path/to/my-project"
+              placeholder={"예: /path/to/my-project\n복수 레포는 줄바꿈, 쉼표, 세미콜론으로 구분"}
               style={{
                 flex: 1,
                 padding: '12px 16px',
+                minHeight: 46,
+                resize: 'vertical',
                 borderRadius: '12px',
                 border: `1px solid ${t.divider}`,
                 background: isDark ? "rgba(0,0,0,0.2)" : "#fff",
                 color: t.text,
                 fontSize: 14,
+                fontFamily: 'inherit',
                 outline: 'none',
                 transition: 'border-color 0.2s',
               }}
@@ -392,60 +414,64 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           </div>
         </div>
 
-        <label style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "24px",
-          cursor: "pointer",
-          color: t.textSecondary,
-          fontSize: 13,
-        }}>
-          <input 
-            type="checkbox" 
-            checked={testMode} 
-            onChange={(e) => setTestMode(e.target.checked)} 
-            style={{ cursor: "pointer", accentColor: t.primary }}
-          />
-          빠른 테스트 모드 (1개 페이지만 샘플로 생성)
-        </label>
+        <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: t.textSecondary, fontSize: 13 }}>
+            <input type="checkbox" checked={testMode} onChange={(e) => setTestMode(e.target.checked)} style={{ cursor: "pointer", accentColor: t.primary }} />
+            빠른 테스트 모드
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: t.textSecondary, fontSize: 13 }}>
+            <input type="checkbox" checked={enableBusiness} onChange={(e) => setEnableBusiness(e.target.checked)} style={{ cursor: "pointer", accentColor: t.primary }} />
+            비즈니스 분석
+          </label>
+        </div>
 
         <button
           onClick={() => {
-            if (projectPath.trim()) {
-              onSelectProject(projectPath.trim(), testMode);
+            if (!isAgyAuthed) return;
+            const paths = parseProjectPaths(projectPath);
+            if (paths.length > 0) {
+              onSelectProject(paths[0], testMode, enableBusiness, paths);
             } else {
               alert("프로젝트 경로를 입력해주세요.");
             }
           }}
+          disabled={!isAgyAuthed}
           style={{
-            background: t.primary,
-            color: "white",
+            background: isAgyAuthed ? t.primary : t.divider,
+            color: isAgyAuthed ? "white" : t.textMuted,
             padding: "13px 28px",
             borderRadius: 14,
             fontSize: 15,
             fontWeight: 600,
             border: "none",
-            cursor: "pointer",
+            cursor: isAgyAuthed ? "pointer" : "not-allowed",
             display: "flex",
             alignItems: "center",
             gap: 8,
-            boxShadow: `0 4px 20px ${isDark ? "rgba(77,156,246,0.35)" : "rgba(49,130,246,0.3)"}`,
+            boxShadow: isAgyAuthed ? `0 4px 20px ${isDark ? "rgba(77,156,246,0.35)" : "rgba(49,130,246,0.3)"}` : "none",
             transition: "transform 0.15s ease, box-shadow 0.15s ease",
             fontFamily: "inherit",
           }}
           onMouseEnter={(e) => {
+            if (!isAgyAuthed) return;
             e.currentTarget.style.transform = "translateY(-1px)";
             e.currentTarget.style.boxShadow = `0 8px 28px ${isDark ? "rgba(77,156,246,0.45)" : "rgba(49,130,246,0.4)"}`;
           }}
           onMouseLeave={(e) => {
+            if (!isAgyAuthed) return;
             e.currentTarget.style.transform = "translateY(0)";
             e.currentTarget.style.boxShadow = `0 4px 20px ${isDark ? "rgba(77,156,246,0.35)" : "rgba(49,130,246,0.3)"}`;
           }}
+          title={!isAgyAuthed ? "설정(우측 상단 톱니바퀴)에서 구글 로그인을 먼저 진행해주세요" : ""}
         >
           <FolderOpen size={18} />
           위키 생성 시작
         </button>
+        {!isAgyAuthed && (
+          <p style={{ color: "#ef4444", fontSize: 13, marginTop: 12, fontWeight: 500 }}>
+            ⚠️ Antigravity CLI 인증이 필요합니다. 우측 상단의 설정(⚙️)을 눌러 로그인해주세요.
+          </p>
+        )}
       </motion.div>
       )}
 

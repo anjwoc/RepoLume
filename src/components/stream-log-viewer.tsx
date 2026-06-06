@@ -4,13 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bot, ChevronDown, CheckCircle } from "lucide-react";
 import { getTheme } from "@/lib/theme";
-import { 
-  StreamLog, LogType, AnalysisPhase, 
-  ANALYSIS_PHASES, SIMULATION_CONVERSATIONS 
+import {
+  StreamLog, LogType, AnalysisPhase,
+  ANALYSIS_PHASES, SIMULATION_CONVERSATIONS
 } from "@/lib/stream-types";
-import { 
-  getLogIcon, getLogColor, getLogLabel, 
-  formatTimestamp, Clock 
+import {
+  getLogIcon, getLogColor, getLogLabel,
+  formatTimestamp, Clock
 } from "@/lib/log-utils";
 import {
   getPhaseStatusIcon, calculateTotalProgress,
@@ -23,6 +23,7 @@ const ADMIN_LOGS_KEY = "localwiki_admin_logs";
 interface StreamLogViewerProps {
   isDark: boolean;
   projectPath: string;
+  businessProjectPaths?: string[];
   language: string;
   languages?: string[];   // 다국어 동시 생성 목록
   testMode: boolean;
@@ -31,6 +32,7 @@ interface StreamLogViewerProps {
   apiKey?: string;
   mode?: "cli" | "api";
   cliTool?: string;
+  enableBusiness?: boolean;
   onComplete: () => void;
   onCancel: () => void;
 }
@@ -53,7 +55,7 @@ function maskPrompt(text: string): string {
   return masked;
 }
 
-export function StreamLogViewer({ isDark, projectPath, language, languages, testMode, provider, model, apiKey, mode = "cli", cliTool, onComplete, onCancel }: StreamLogViewerProps) {
+export function StreamLogViewer({ isDark, projectPath, businessProjectPaths, language, languages, testMode, provider, model, apiKey, mode = "cli", cliTool, enableBusiness, onComplete, onCancel }: StreamLogViewerProps) {
   const t = getTheme(isDark);
   const [phases, setPhases] = useState<AnalysisPhase[]>(() =>
     ANALYSIS_PHASES.map((p) => ({
@@ -64,13 +66,22 @@ export function StreamLogViewer({ isDark, projectPath, language, languages, test
     }))
   );
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
-  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(() => 
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(() =>
     new Set(mode === "cli" ? ANALYSIS_PHASES.map(p => p.id) : [ANALYSIS_PHASES[0].id])
   );
   const [isComplete, setIsComplete] = useState(false);
   const [hasError, setHasError] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const projectName = projectPath?.split("/").filter(Boolean).pop() || "my-project";
+
+  const sanitizeRepoName = (path: string) => {
+    const raw = path.replace(/\/+$/, "").replace(/\\/g, "/").split("/").pop() || "project";
+    return raw
+      .replace(/[^a-zA-Z0-9가-힣\-_.]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^[_.\-]+|[_.\-]+$/g, "")
+      || "project";
+  };
 
   // 스트리밍 로그 버퍼: agent_log 타입 연속 이벤트를 하나의 로그에 이어붙임
   // { logId, phaseIndex } 를 기억해뒀다가 같은 로그를 append
@@ -217,12 +228,125 @@ export function StreamLogViewer({ isDark, projectPath, language, languages, test
         }
       });
 
-      // 2. Trigger generation — 'ko' 전용 실행
+      // 2. Trigger generation
       try {
         if (!isCancelled) {
-          await runWikiGeneration(projectPath, streamId, "ko", testMode, provider, model, apiKey, mode, cliTool);
+          await runWikiGeneration(projectPath, streamId, language, testMode, provider, model, apiKey, mode, cliTool);
+
+          if (enableBusiness && !isCancelled) {
+            addLogImmediate(0, {
+              id: generateId(),
+              type: 'info',
+              timestamp: new Date(),
+              content: '💼 비즈니스 분석 실행 중 (Data Flow, Workflow, Impact)...',
+              metadata: {}
+            }, 0);
+
+            try {
+              const repoUrls = businessProjectPaths && businessProjectPaths.length > 0
+                ? businessProjectPaths
+                : [projectPath];
+              const bizRes = await fetch('/api/analyze_business', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  repo_url: projectPath,
+                  repo_urls: repoUrls,
+                  language,
+                  provider,
+                  model,
+                  mode,
+                  cli_tool: cliTool,
+                  ...(apiKey ? { api_key: apiKey } : {}),
+                })
+              });
+
+              if (bizRes.ok) {
+                const bizData = await bizRes.json();
+
+                const repoName = sanitizeRepoName(projectPath);
+                const cacheUrl = `/api/wiki_cache?owner=local&repo=${encodeURIComponent(repoName)}&repo_type=local&language=${encodeURIComponent(language)}&model=${encodeURIComponent(model)}`;
+                let cacheRes = await fetch(cacheUrl);
+                let cacheData = cacheRes.ok ? await cacheRes.json() : null;
+                if (!cacheData) {
+                  const fallbackRes = await fetch(`/api/wiki_cache?owner=local&repo=${encodeURIComponent(repoName)}&repo_type=local&language=${encodeURIComponent(language)}`);
+                  cacheData = fallbackRes.ok ? await fallbackRes.json() : null;
+                }
+
+                if (cacheData) {
+                  const businessPageIds = ["__business_overview__", "__business_dataflow__", "__business_workflow__", "__business_impact__"];
+                  const isMultiRepo = Boolean(bizData.is_multi_repo);
+
+                  const bizSection = {
+                    id: "__section_business__",
+                    title: isMultiRepo ? "Cross-Repository Business Analysis" : (language !== "ko" ? "Business Analysis" : "비즈니스 분석"),
+                    pages: businessPageIds
+                  };
+
+                  if (!cacheData.wiki_structure.sections) cacheData.wiki_structure.sections = [];
+                  cacheData.wiki_structure.sections = cacheData.wiki_structure.sections
+                    .filter((section: any) => section.id !== "__section_business__");
+                  cacheData.wiki_structure.sections.push(bizSection);
+                  if (!cacheData.wiki_structure.rootSections) cacheData.wiki_structure.rootSections = [];
+                  cacheData.wiki_structure.rootSections = [
+                    ...cacheData.wiki_structure.rootSections.filter((id: string) => id !== "__section_business__"),
+                    "__section_business__",
+                  ];
+
+                  const bizPages = [
+                    { id: "__business_overview__", title: isMultiRepo ? "Cross-Repository Business Overview" : "Business Overview", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages.__business_overview__ || "" },
+                    { id: "__business_dataflow__", title: isMultiRepo ? "Cross-Repository Data Flow" : "Data Flow", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages.__business_dataflow__ || "" },
+                    { id: "__business_workflow__", title: isMultiRepo ? "Cross-Repository Workflows" : "Workflows", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages.__business_workflow__ || "" },
+                    { id: "__business_impact__", title: isMultiRepo ? "Cross-Repository Impact Analysis" : "Impact Analysis", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages.__business_impact__ || "" }
+                  ];
+
+                  if (!cacheData.wiki_structure.pages) cacheData.wiki_structure.pages = [];
+                  cacheData.wiki_structure.pages = cacheData.wiki_structure.pages
+                    .filter((page: any) => !businessPageIds.includes(page.id));
+                  cacheData.wiki_structure.pages.push(...bizPages);
+
+                  const newGeneratedPages = { ...cacheData.generated_pages };
+                  for (const p of bizPages) {
+                    newGeneratedPages[p.id] = p;
+                  }
+
+                  const saveBizRes = await fetch('/api/wiki_cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...cacheData, generated_pages: newGeneratedPages })
+                  });
+                  if (!saveBizRes.ok) {
+                    const errText = await saveBizRes.text().catch(() => "");
+                    throw new Error(`비즈니스 분석 캐시 저장 실패: ${saveBizRes.status} ${errText}`);
+                  }
+
+                  addLogImmediate(0, {
+                    id: generateId(),
+                    type: 'tool_result',
+                    timestamp: new Date(),
+                    content: bizData.warnings?.length
+                      ? `✅ 비즈니스 분석 완료! (${bizData.warnings.length}개 경고)`
+                      : '✅ 비즈니스 분석 완료!',
+                    metadata: {}
+                  }, 0);
+                } else {
+                  throw new Error("기존 위키 캐시를 찾지 못해 비즈니스 분석 페이지를 병합할 수 없습니다.");
+                }
+              } else {
+                throw new Error("API response not OK");
+              }
+            } catch (err: any) {
+              addLogImmediate(0, {
+                id: generateId(),
+                type: 'error',
+                timestamp: new Date(),
+                content: `⚠️ 비즈니스 분석 실패 (건너뜀): ${err.message}`,
+                metadata: {}
+              }, 0);
+            }
+          }
         }
-        
+
         // 정상 종료 시에만 화면 전환
         if (!isCancelled) {
           finalizeStreamingLog();
@@ -235,7 +359,7 @@ export function StreamLogViewer({ isDark, projectPath, language, languages, test
         console.error("Wiki generation error:", err);
         setHasError(true);
       }
-      
+
       return () => {
         stream.close();
       };
@@ -263,7 +387,7 @@ export function StreamLogViewer({ isDark, projectPath, language, languages, test
         const raw = localStorage.getItem(ADMIN_LOGS_KEY) || "[]";
         let logs = JSON.parse(raw);
         if (!Array.isArray(logs)) logs = [];
-        
+
         // 중복 저장 방지 (같은 데이터)
         const currentId = projectName + "-" + (phases[0]?.logs[0]?.timestamp?.getTime() || Date.now());
         if (logs.some((l: any) => l._tempId === currentId)) return;
@@ -277,10 +401,10 @@ export function StreamLogViewer({ isDark, projectPath, language, languages, test
           status: hasError ? "error" : "success",
           phases: phases,
         });
-        
+
         // 최대 20개만 유지 (용량 제한)
         if (logs.length > 20) logs = logs.slice(0, 20);
-        
+
         localStorage.setItem(ADMIN_LOGS_KEY, JSON.stringify(logs));
       } catch (e) {
         console.error("Failed to save admin log", e);
