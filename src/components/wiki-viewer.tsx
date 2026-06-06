@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Search, Moon, Sun, ChevronRight,
   FileText, Folder, FolderOpen, X, Home,
-  AlignCenter, AlignJustify, RefreshCw, Share,
+  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles,
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
 import { regenerateWikiPage } from "@/lib/wiki-generator";
+import { WikiAskPanel } from "./WikiAskPanel";
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
 
@@ -68,6 +69,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [query, setQuery] = useState("");
   const [activeSection, setActiveSection] = useState("");
   const [readingMode, setReadingMode] = useState(true); // 기본값: 읽기 모드 (노션처럼)
+  const [showAsk, setShowAsk] = useState(false); // "위키에 질문하기" 우측 패널
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [currentLang, setCurrentLang] = useState(projectData?.language || "ko");
@@ -727,6 +729,17 @@ ${chartCode}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
 
           <button
+            onClick={() => setShowAsk((v) => !v)}
+            title="위키 문서에 질문하기"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: showAsk ? t.ai : t.aiLight, border: "none", cursor: "pointer", color: showAsk ? "#fff" : t.ai, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+          >
+            <Sparkles size={14} />
+            <span>질문</span>
+          </button>
+
+          <button
             onClick={() => setShowExportModal(true)}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.primaryLight, border: "none", cursor: "pointer", color: t.primary, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -857,6 +870,28 @@ ${chartCode}
             </motion.div>
           </AnimatePresence>
         </div>
+
+        <WikiAskPanel
+          open={showAsk}
+          onClose={() => setShowAsk(false)}
+          isDark={isDark}
+          wikiTitle={wikiStructure?.title || projectName}
+          pages={
+            wikiStructure?.pages && wikiStructure.pages.length
+              ? wikiStructure.pages.map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                  content: generatedPages[p.id]?.content || p.content || "",
+                }))
+              : Object.values(generatedPages).map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                  content: p.content || "",
+                }))
+          }
+          projectData={projectData}
+          onCitationClick={(id) => { setSelectedPage(id); setShowSearch(false); }}
+        />
 
       </div>
 

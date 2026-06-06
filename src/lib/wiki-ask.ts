@@ -1,0 +1,194 @@
+// "Ask the Wiki" — DeepWiki-style Q&A grounded in the generated wiki documents.
+// v1 strategy (grounding A): inject the full wiki markdown as context and reuse the
+// existing /api/chat/stream endpoint with skip_rag=true + is_wiki_generation=true so the
+// backend blanks its own system prompt and we fully control grounding from the client.
+// No backend changes required.
+
+const APP_SETTINGS_KEY = "localwiki_app_settings";
+
+export interface AskTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface WikiPageLite {
+  id: string;
+  title: string;
+  content: string;
+}
+
+interface AppSettings {
+  provider: string;
+  model: string;
+  mode: "cli" | "api";
+  apiKey?: string;
+  language?: string;
+}
+
+/** Provider name → CLI agent name (mirrors wiki-generator). */
+function providerToCli(provider: string): string {
+  if (provider === "google") return "gemini";
+  if (provider === "anthropic") return "claude";
+  if (provider === "antigravity") return "antigravity";
+  return "codex"; // openai and others
+}
+
+/** Read the same app settings the wiki generator uses (localStorage). */
+function readSettings(): AppSettings {
+  try {
+    const raw = localStorage.getItem(APP_SETTINGS_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      return {
+        provider: s.provider || "google",
+        model: s.model || "gemini-2.5-flash",
+        mode: (s.mode as "cli" | "api") || "cli",
+        apiKey: s.apiKey,
+        language: s.language,
+      };
+    }
+  } catch {
+    /* ignore malformed settings */
+  }
+  return { provider: "google", model: "gemini-2.5-flash", mode: "cli" };
+}
+
+/** Concatenate the wiki pages into a single grounding context, in the given order. */
+export function buildWikiContext(pages: WikiPageLite[]): string {
+  return pages
+    .filter((p) => p.content && p.content.trim())
+    .map((p) => `# ${p.title}\n\n${p.content}`)
+    .join("\n\n---\n\n");
+}
+
+function composePrompt(
+  wikiTitle: string,
+  wikiContext: string,
+  history: AskTurn[],
+  question: string,
+  language: string,
+): string {
+  const langLine =
+    language === "en"
+      ? "Answer in English."
+      : "Answer in Korean (한국어); keep technical terms, identifiers, and headings in English.";
+
+  const hist = history.length
+    ? "\n## Previous conversation\n" +
+      history
+        .map((t) => `${t.role === "user" ? "User" : "Assistant"}: ${t.content}`)
+        .join("\n") +
+      "\n"
+    : "";
+
+  return [
+    `You are a documentation assistant for the wiki titled "${wikiTitle}".`,
+    `Answer the question using ONLY the wiki content provided below.`,
+    `If the answer is not contained in the wiki, clearly say you could not find it in the documentation — never invent facts or rely on outside knowledge.`,
+    `When you reference a wiki page, cite it inline as [[Exact Page Title]] using the page titles exactly as they appear in the wiki.`,
+    langLine,
+    `\n## Wiki content\n${wikiContext}`,
+    hist,
+    `\n## Question\n${question}`,
+  ].join("\n");
+}
+
+export interface AskParams {
+  projectData: { owner?: string; repo?: string; repo_type?: string } | null;
+  wikiTitle: string;
+  pages: WikiPageLite[];
+  history: AskTurn[];
+  question: string;
+  onToken: (delta: string) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Stream an answer grounded in the wiki. Calls onToken for each streamed chunk and
+ * resolves with the full answer text. Throws on HTTP or CLI errors.
+ */
+export async function askWiki(p: AskParams): Promise<string> {
+  const settings = readSettings();
+  const language = settings.language || "ko";
+  const wikiContext = buildWikiContext(p.pages);
+  const content = composePrompt(p.wikiTitle, wikiContext, p.history, p.question, language);
+
+  const requestBody: Record<string, unknown> = {
+    repo_url: p.projectData?.repo || p.wikiTitle || "wiki",
+    type: p.projectData?.repo_type || "local",
+    messages: [{ role: "user", content }],
+    model: settings.model,
+    provider: settings.provider,
+    language,
+    skip_rag: true,
+    is_wiki_generation: true, // blanks backend system prompt → client controls grounding
+    ...(settings.mode === "cli"
+      ? { use_cli: true, cli_tool: providerToCli(settings.provider) }
+      : {}),
+    ...(settings.apiKey ? { api_key: settings.apiKey } : {}),
+  };
+
+  const response = await fetch(`/api/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+    signal: p.signal,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "(응답 없음)");
+    throw new Error(`질의 실패 (HTTP ${response.status}): ${errText}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let full = "";
+
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      full += chunk;
+      p.onToken(chunk);
+    }
+    full += decoder.decode();
+  }
+
+  if (full.includes("CLI Error:")) {
+    const msg = full.split("CLI Error:").pop()?.trim() || "CLI 오류";
+    throw new Error(msg);
+  }
+
+  return full;
+}
+
+/** Extract [[Page Title]] citations and resolve each to an existing wiki page id. */
+export function extractCitations(
+  text: string,
+  pages: WikiPageLite[],
+): { title: string; id: string }[] {
+  const titles = new Set<string>();
+  const re = /\[\[([^\]]+)\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) titles.add(m[1].trim());
+
+  const seen = new Set<string>();
+  const out: { title: string; id: string }[] = [];
+  for (const title of titles) {
+    const lower = title.toLowerCase();
+    const page =
+      pages.find((p) => p.title.toLowerCase() === lower) ||
+      pages.find((p) => p.title.toLowerCase().includes(lower));
+    if (page && !seen.has(page.id)) {
+      seen.add(page.id);
+      out.push({ title: page.title, id: page.id });
+    }
+  }
+  return out;
+}
+
+/** Replace inline [[Title]] citation markers with the plain title for display. */
+export function stripCitationMarkers(text: string): string {
+  return text.replace(/\[\[([^\]]+)\]\]/g, "$1");
+}
