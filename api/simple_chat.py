@@ -10,8 +10,7 @@ from urllib.parse import unquote
 import google.generativeai as genai
 from adalflow.components.model_client.ollama_client import OllamaClient
 from adalflow.core.types import ModelType
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -38,20 +37,9 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="Simple Chat API",
-    description="Simplified API for streaming chat completions"
-)
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
+# NOTE: This module is NOT a standalone FastAPI app. The real app lives in
+# api/server.py, which mounts chat_completions_stream via add_api_route and
+# configures CORS there. This file only provides the request model + handler.
 
 # Models for the API
 class ChatMessage(BaseModel):
@@ -85,7 +73,6 @@ class ChatCompletionRequest(BaseModel):
     cli_tool: Optional[str] = Field(None, description="Which CLI tool to use: 'gemini', 'codex', 'claude'")
     is_wiki_generation: Optional[bool] = Field(False, description="If True, skip chat-specific system prompts")
 
-@app.post("/chat/completions/stream")
 async def chat_completions_stream(request: ChatCompletionRequest):
     """Stream a chat completion response directly using Google Generative AI"""
     try:
@@ -949,8 +936,3 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         error_msg = f"Error in streaming chat completion: {str(e_handler)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
-
-@app.get("/")
-async def root():
-    """Root endpoint to check if the API is running"""
-    return {"status": "API is running", "message": "Navigate to /docs for API documentation"}
