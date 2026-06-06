@@ -8,6 +8,7 @@ import Markdown from "./Markdown";
 import {
   askWiki,
   askWikiSemantic,
+  checkWikiRagHealth,
   selectWikiContext,
   extractCitations,
   stripCitationMarkers,
@@ -48,6 +49,7 @@ export function WikiAskPanel({
   const [liveAnswer, setLiveAnswer] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [semantic, setSemantic] = useState(false); // P3: 의미 검색(임베딩) 모드
+  const [ragAlert, setRagAlert] = useState(false); // Ollama 미설치 안내 표시
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -129,6 +131,24 @@ export function WikiAskPanel({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  }
+
+  // Toggle semantic mode, but verify Ollama is available before enabling it.
+  async function toggleSemantic() {
+    if (streaming) return;
+    if (semantic) {
+      setSemantic(false);
+      setRagAlert(false);
+      return;
+    }
+    const health = await checkWikiRagHealth();
+    if (health.available) {
+      setSemantic(true);
+      setRagAlert(false);
+    } else {
+      setSemantic(false);
+      setRagAlert(true); // show install guidance
     }
   }
 
@@ -322,9 +342,43 @@ export function WikiAskPanel({
 
           {/* Input */}
           <div style={{ padding: "12px 14px", borderTop: `1px solid ${t.divider}`, flexShrink: 0 }}>
+            {ragAlert && (
+              <div
+                style={{
+                  background: t.warningLight,
+                  color: t.warning,
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  fontSize: 11.5,
+                  lineHeight: 1.6,
+                  marginBottom: 8,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <strong>정밀 검색에는 로컬 Ollama가 필요합니다</strong>
+                  <button
+                    onClick={() => setRagAlert(false)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: t.warning, padding: 0, lineHeight: 1 }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                <div style={{ marginTop: 4, color: t.textSecondary }}>
+                  의미 기반(임베딩) RAG는 Ollama가 있어야 동작합니다. 설치 후 다시 켜주세요:
+                  <div style={{ marginTop: 4, fontFamily: "monospace", color: t.text }}>
+                    brew install ollama
+                    <br />
+                    ollama serve
+                    <br />
+                    ollama pull nomic-embed-text
+                  </div>
+                  <div style={{ marginTop: 4 }}>설치 전에는 기본(키워드) 검색으로 계속 질문할 수 있습니다.</div>
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 8 }}>
               <button
-                onClick={() => setSemantic((v) => !v)}
+                onClick={toggleSemantic}
                 disabled={streaming}
                 title="로컬 임베딩(Ollama)으로 의미 기반 검색 — 큰 위키에 유리"
                 style={{

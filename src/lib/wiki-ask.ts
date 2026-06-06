@@ -247,6 +247,23 @@ export async function askWiki(p: AskParams): Promise<string> {
   return full;
 }
 
+export interface WikiRagHealth {
+  available: boolean;
+  model: string;
+}
+
+/** Check whether semantic search (local Ollama embeddings) is usable. Never throws. */
+export async function checkWikiRagHealth(): Promise<WikiRagHealth> {
+  try {
+    const res = await fetch(`/api/wiki/rag/health`);
+    if (!res.ok) return { available: false, model: "nomic-embed-text" };
+    const data = await res.json();
+    return { available: !!data.available, model: data.model || "nomic-embed-text" };
+  } catch {
+    return { available: false, model: "nomic-embed-text" };
+  }
+}
+
 export interface AskSemanticParams {
   wikiTitle: string;
   pages: WikiPageLite[];

@@ -764,6 +764,25 @@ async def wiki_ask_stream(request: WikiAskRequest):
     )
     return await chat_completions_stream(chat_req)
 
+
+@app.get("/wiki/rag/health")
+async def wiki_rag_health():
+    """Report whether semantic wiki search (Ollama embeddings) is usable, for the UI guard."""
+    from api.config import configs
+
+    model = (
+        configs.get("embedder_ollama", {})
+        .get("model_kwargs", {})
+        .get("model", "nomic-embed-text")
+    )
+    available = False
+    try:
+        from api.ollama_patch import check_ollama_model_exists
+        available = bool(check_ollama_model_exists(model))
+    except Exception as e:
+        logger.info(f"Wiki RAG health: Ollama unavailable ({e})")
+    return {"available": available, "model": model, "embedder": "ollama"}
+
 # --- Wiki Cache Helper Functions ---
 
 WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
