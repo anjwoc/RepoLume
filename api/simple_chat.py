@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import List, Optional
@@ -411,7 +410,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if request.use_cli:
             agent = request.cli_tool or "codex"
             model_override = request.model or ""
-            
+
             # CLI uses an internal endpoint that doesn't support gemini-3.1-flash
             if agent == "gemini" and model_override == "gemini-3.1-flash":
                 model_override = "gemini-3.1-pro-preview"
@@ -447,7 +446,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
             env.pop("GEMINI_API_KEY", None)
             env.pop("GOOGLE_API_KEY", None)
             env.pop("GOOGLE_CLOUD_PROJECT_ID", None)
-            
+
             if request.api_key:
                 if request.provider == "openai":
                     env["OPENAI_API_KEY"] = request.api_key
@@ -496,7 +495,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     await proc.wait()
                     stderr_out = await proc.stderr.read()
                     err_str = stderr_out.decode().strip()
-                    
+
                     if proc.returncode != 0 or (not full_content and err_str):
                         logger.error(f"CLI 에이전트 종료 코드 {proc.returncode}: {err_str}")
                         if request.stream_id:

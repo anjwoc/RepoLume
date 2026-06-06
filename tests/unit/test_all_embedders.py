@@ -149,10 +149,16 @@ class TestEmbedderFactory:
     def test_get_embedder_with_explicit_type(self):
         """Test get_embedder with explicit embedder_type parameter."""
         from api.tools.embedder import get_embedder
-        
+
+        env = {
+            "GOOGLE_API_KEY": "test-google-key",
+            "OPENAI_API_KEY": "test-openai-key",
+        }
+
         # Test Google embedder
-        google_embedder = get_embedder(embedder_type='google')
-        assert google_embedder is not None, "Google embedder should be created"
+        with patch.dict(os.environ, env, clear=False):
+            google_embedder = get_embedder(embedder_type='google')
+            assert google_embedder is not None, "Google embedder should be created"
 
         # Test Bedrock embedder (mock boto3 to avoid hitting AWS credential providers)
         with patch("api.bedrock_client.boto3.Session") as mock_session_cls:
@@ -163,8 +169,9 @@ class TestEmbedderFactory:
             assert bedrock_embedder is not None, "Bedrock embedder should be created"
         
         # Test OpenAI embedder
-        openai_embedder = get_embedder(embedder_type='openai')
-        assert openai_embedder is not None, "OpenAI embedder should be created"
+        with patch.dict(os.environ, env, clear=False):
+            openai_embedder = get_embedder(embedder_type='openai')
+            assert openai_embedder is not None, "OpenAI embedder should be created"
         
         # Test Ollama embedder (may fail if Ollama not available, but should not crash)
         try:
@@ -176,10 +183,16 @@ class TestEmbedderFactory:
     def test_get_embedder_with_legacy_params(self):
         """Test get_embedder with legacy boolean parameters."""
         from api.tools.embedder import get_embedder
-        
+
+        env = {
+            "GOOGLE_API_KEY": "test-google-key",
+            "OPENAI_API_KEY": "test-openai-key",
+        }
+
         # Test with use_google_embedder=True
-        google_embedder = get_embedder(use_google_embedder=True)
-        assert google_embedder is not None, "Google embedder should be created with use_google_embedder=True"
+        with patch.dict(os.environ, env, clear=False):
+            google_embedder = get_embedder(use_google_embedder=True)
+            assert google_embedder is not None, "Google embedder should be created with use_google_embedder=True"
         
         # Test with is_local_ollama=True
         try:
@@ -191,10 +204,16 @@ class TestEmbedderFactory:
     def test_get_embedder_auto_detection(self):
         """Test get_embedder with automatic type detection."""
         from api.tools.embedder import get_embedder
-        
+
+        env = {
+            "GOOGLE_API_KEY": "test-google-key",
+            "OPENAI_API_KEY": "test-openai-key",
+        }
+
         # Test auto-detection (should use current configuration)
-        embedder = get_embedder()
-        assert embedder is not None, "Auto-detected embedder should be created"
+        with patch.dict(os.environ, env, clear=False):
+            embedder = get_embedder()
+            assert embedder is not None, "Auto-detected embedder should be created"
 
 
 class TestEmbedderClients:

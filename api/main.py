@@ -3,6 +3,9 @@ import sys
 import logging
 from dotenv import load_dotenv
 
+# Add the root directory to sys.path before any local imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -15,9 +18,6 @@ logger = logging.getLogger(__name__)
 # Configure watchfiles logger to show file paths
 watchfiles_logger = logging.getLogger("watchfiles.main")
 watchfiles_logger.setLevel(logging.DEBUG)  # Enable DEBUG to see file paths
-
-# Add the current directory to the path so we can import the api package
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Apply watchfiles monkey patch BEFORE uvicorn import
 is_development = os.environ.get("NODE_ENV") != "production"
@@ -64,13 +64,13 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
 
     # Import the app here to ensure environment variables are set first
-    from api.api import app
+    from api.server import app
 
     logger.info(f"Starting Streaming API on port {port}")
 
     # Run the FastAPI app with uvicorn
     uvicorn.run(
-        "api.api:app",
+        "api.server:app",
         host="0.0.0.0",
         port=port,
         reload=is_development,

@@ -1,6 +1,15 @@
 import requests
 import json
 import sys
+import os
+
+import pytest
+
+if os.environ.get("RUN_LIVE_API_TESTS") != "1":
+    pytest.skip(
+        "Live streaming endpoint script requires RUN_LIVE_API_TESTS=1 and a running API server.",
+        allow_module_level=True,
+    )
 
 def test_streaming_endpoint(repo_url, query, file_path=None):
     """

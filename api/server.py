@@ -150,8 +150,56 @@ class AuthorizationConfig(BaseModel):
 
 from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 from api.task_streams import router as task_stream_router
+from api.agent_runner import AgentRegistry
+from api.auth_pty import check_auth_status, start_auth_session, submit_auth_code
+
+class AuthCodeSubmit(BaseModel):
+    code: str
 
 app.include_router(task_stream_router)
+
+# --- Agent Endpoints (replaces localwiki-agent Go binary) ---
+
+@app.get("/agent/list")
+async def agent_list():
+    """List all CLI agents and their availability status."""
+    registry = AgentRegistry()
+    return {"agents": registry.status(), "available": registry.available()}
+
+
+@app.get("/agent/check/{agent_name}")
+async def agent_check(agent_name: str):
+    """Check if a specific CLI agent is installed and available."""
+    registry = AgentRegistry()
+    try:
+        runner = registry.get(agent_name)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    available = runner.available()
+    return {
+        "agent": agent_name,
+        "available": available,
+        "default_model": runner.default_model,
+    }
+
+@app.get("/agent/auth/status")
+async def agent_auth_status():
+    is_authed = await check_auth_status()
+    return {"authenticated": is_authed}
+
+@app.post("/agent/auth/start")
+async def agent_auth_start():
+    result = await start_auth_session()
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
+
+@app.post("/agent/auth/submit")
+async def agent_auth_submit(data: AuthCodeSubmit):
+    result = await submit_auth_code(data.code)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
 
 @app.get("/api/fs/select_folder")
 async def select_folder():
@@ -318,6 +366,183 @@ async def export_wiki(request: WikiExportRequest):
         error_msg = f"Error exporting wiki: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+@app.post("/export/notion")
+async def export_notion(request: WikiExportRequest, api_key: str = Query(...), parent_page_id: str = Query(...)):
+    """Export wiki pages to a Notion database."""
+    try:
+        from cli.exporters.notion_exporter import NotionExporter
+        exporter = NotionExporter(api_key=api_key, parent_page_id=parent_page_id)
+        
+        repo_parts = request.repo_url.rstrip('/').split('/')
+        repo_name = repo_parts[-1] if len(repo_parts) > 0 else "wiki"
+        
+        result = exporter.export(request.pages, wiki_title=f"{repo_name} Wiki")
+        
+        if result.failed:
+            raise HTTPException(status_code=500, detail="\\n".join(result.errors))
+            
+        return {"success": True, "exported_count": result.exported_count, "urls": result.urls}
+    except Exception as e:
+        logger.error(f"Notion export error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/export/obsidian")
+async def export_obsidian(request: WikiExportRequest, vault_path: str = Query(...)):
+    """Export wiki pages to a local Obsidian vault."""
+    try:
+        from cli.exporters.obsidian_exporter import ObsidianExporter
+        exporter = ObsidianExporter(vault_path=vault_path)
+        
+        repo_parts = request.repo_url.rstrip('/').split('/')
+        repo_name = repo_parts[-1] if len(repo_parts) > 0 else "wiki"
+        
+        result = exporter.export(request.pages, wiki_title=f"{repo_name} Wiki")
+        
+        if result.failed:
+            raise HTTPException(status_code=500, detail="\\n".join(result.errors))
+            
+        return {"success": True, "exported_count": result.exported_count, "output_path": result.output_path}
+    except Exception as e:
+        logger.error(f"Obsidian export error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AnalyzeBusinessRequest(BaseModel):
+    repo_url: Optional[str] = None
+    repo_urls: Optional[List[str]] = None
+    language: str = "en"
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    mode: Optional[Literal["cli", "api"]] = "cli"
+    cli_tool: Optional[str] = None
+    api_key: Optional[str] = None
+
+
+class MultiRepoBusinessContext:
+    """Minimal repo adapter that lets BusinessAnalyzer read multiple repos as one system."""
+
+    def __init__(self, repos: List[Any]):
+        self.repos = repos
+        self.path = repos[0].path
+
+    def file_tree(self, max_depth: int = 6) -> str:
+        parts = []
+        for repo in self.repos:
+            parts.append(f"## Repository: {repo.path.name}\nRoot: {repo.path}\n{repo.file_tree(max_depth=max_depth)}")
+        return "\n\n".join(parts)
+
+    def readme(self) -> str:
+        parts = []
+        for repo in self.repos:
+            readme = repo.readme() or "(no README found)"
+            parts.append(f"## Repository: {repo.path.name}\nRoot: {repo.path}\n\n{readme}")
+        return "\n\n---\n\n".join(parts)
+
+    def read_file(self, relative_path: str) -> str:
+        for repo in self.repos:
+            content = repo.read_file(relative_path)
+            if content:
+                return content
+        return ""
+
+
+def _business_repo_paths(request: AnalyzeBusinessRequest) -> List[str]:
+    raw_paths = request.repo_urls if request.repo_urls else ([request.repo_url] if request.repo_url else [])
+    seen = set()
+    paths = []
+    for raw in raw_paths:
+        if not raw:
+            continue
+        path = raw.strip()
+        if path and path not in seen:
+            seen.add(path)
+            paths.append(path)
+    return paths
+
+
+def _business_provider_name(request: AnalyzeBusinessRequest) -> str:
+    provider = (request.provider or "google").lower().strip()
+    cli_tool = (request.cli_tool or "").lower().strip()
+    mode = request.mode or "cli"
+
+    if mode == "cli":
+        agent = cli_tool or {
+            "google": "gemini",
+            "gemini": "gemini",
+            "anthropic": "claude",
+            "claude": "claude",
+            "openai": "codex",
+            "codex": "codex",
+            "antigravity": "antigravity",
+        }.get(provider, "codex")
+        return f"{agent}-cli"
+
+    return {
+        "google": "gemini",
+        "anthropic": "claude",
+        "openai": "openai",
+        "codex": "openai",
+        "gemini": "gemini",
+        "claude": "claude",
+    }.get(provider, provider)
+
+@app.post("/analyze_business")
+async def analyze_business(request: AnalyzeBusinessRequest):
+    """Run business analysis (data flow, workflow, impact) and return markdown pages."""
+    try:
+        from cli.pipeline.local_repo import LocalRepo
+        from cli.providers import get_provider
+        from cli.business import BusinessAnalyzer
+
+        requested_paths = _business_repo_paths(request)
+        if not requested_paths:
+            raise HTTPException(status_code=400, detail="repo_url or repo_urls is required")
+
+        repos = []
+        warnings = []
+        for repo_path in requested_paths:
+            try:
+                repos.append(LocalRepo(repo_path))
+            except Exception as exc:
+                warnings.append(f"{repo_path}: {exc}")
+
+        if not repos:
+            raise HTTPException(status_code=404, detail={"message": "No valid repositories found", "warnings": warnings})
+
+        provider_kwargs: Dict[str, Any] = {}
+        if request.api_key and (request.mode or "cli") != "cli":
+            provider_kwargs["api_key"] = request.api_key
+
+        provider = get_provider(
+            _business_provider_name(request),
+            model=request.model or None,
+            cwd=str(repos[0].path),
+            **provider_kwargs,
+        )
+
+        repo = repos[0] if len(repos) == 1 else MultiRepoBusinessContext(repos)
+        repo_name = repos[0].path.name if len(repos) == 1 else f"{repos[0].path.name} and {len(repos) - 1} related repos"
+
+        analyzer = BusinessAnalyzer(provider, repo, repo_name=repo_name)
+        analysis = await asyncio.to_thread(analyzer.analyze, lang=request.language)
+
+        return {
+            "success": True,
+            "repo_count": len(repos),
+            "is_multi_repo": len(repos) > 1,
+            "warnings": warnings,
+            "pages": {
+                "__business_overview__": analysis.business_summary_md,
+                "__business_dataflow__": analysis.data_flow_summary_md,
+                "__business_workflow__": analysis.workflow_summary_md,
+                "__business_impact__": analysis.impact_summary_md,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Business analysis error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/local_repo/structure")
 async def get_local_repo_structure(path: str = Query(None, description="Path to local repository")):
