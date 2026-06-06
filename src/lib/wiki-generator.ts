@@ -133,73 +133,104 @@ Your entire output MUST be a single, valid JSON object matching this exact struc
   "pages": [
     { "id": "page1", "title": "...", "filePaths": ["src/index.ts"] }
   ]
-}`;
+}
+
+OUTPUT RULES (STRICT): Respond with ONLY the JSON object — nothing else.
+- Your FIRST character MUST be "{" and your LAST character MUST be "}".
+- No preamble, no explanation, no headings (e.g. "## Overview"), no prose before or after the JSON.
+- No markdown code fences (no \`\`\`).
+- Do NOT write any wiki page content — output ONLY the table-of-contents structure.`;
 
     await emitStep(streamId, 'agent_log', 'structure', 'AI에게 위키 구조 생성을 요청합니다...');
 
-    const requestBody = {
+    // is_wiki_generation=true: blank the backend chat-persona system prompt so the agent
+    // returns ONLY the JSON structure instead of narrating wiki content.
+    const buildRequestBody = (content: string) => ({
       repo_url: projectPath,
       type: repo_type,
       stream_id: streamId,
-      messages: [{ role: 'user', content: structurePrompt }],
+      messages: [{ role: 'user', content }],
       model,
       provider,
       language,
       skip_rag: true,
+      is_wiki_generation: true,
       ...(mode === "cli" ? { use_cli: true, cli_tool: cliTool || providerToCli(provider) } : {}),
       ...(apiKey ? { api_key: apiKey } : {}),
-    };
+    });
 
-    let structureContent = '';
-    try {
+    const streamStructure = async (content: string): Promise<string> => {
       const response = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(buildRequestBody(content)),
       });
-
       if (!response.ok) {
         const errText = await response.text().catch(() => '(응답 없음)');
         throw new Error(`AI 구조 생성 실패 (HTTP ${response.status}): ${errText}`);
       }
-
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-
+      let out = '';
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          structureContent += decoder.decode(value, { stream: true });
+          out += decoder.decode(value, { stream: true });
         }
-        structureContent += decoder.decode();
+        out += decoder.decode();
       }
-    } catch (err) {
-      await emitStep(streamId, 'error', 'structure',
-        `❌ AI 구조 분석 실패: ${err instanceof Error ? err.message : String(err)}`
-      );
-      throw err;
+      if (out.includes("CLI Error:")) {
+        throw new Error(out.split("CLI Error:").pop()!.trim());
+      }
+      return out;
+    };
+
+    // Tolerant JSON-object extraction: strips ```json fences and any leading/trailing prose
+    // by taking the outermost { ... } span.
+    const extractJsonObject = (text: string): string | null => {
+      const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      const body = fence ? fence[1] : text;
+      const first = body.indexOf('{');
+      const last = body.lastIndexOf('}');
+      if (first === -1 || last === -1 || last <= first) return null;
+      return body.slice(first, last + 1);
+    };
+
+    const STRICT_SUFFIX = '\n\nREMINDER: Output ONLY the JSON object. Your FIRST character must be "{" and your LAST "}". No prose, no headings, no markdown fences, no wiki content.';
+
+    let wikiStructure: any = null;
+    let lastErr = '';
+    for (let attempt = 0; attempt < 2 && !wikiStructure; attempt++) {
+      let structureContent = '';
+      try {
+        structureContent = await streamStructure(attempt === 0 ? structurePrompt : structurePrompt + STRICT_SUFFIX);
+      } catch (err) {
+        await emitStep(streamId, 'error', 'structure',
+          `❌ AI 구조 분석 실패: ${err instanceof Error ? err.message : String(err)}`);
+        throw err;
+      }
+      const jsonStr = extractJsonObject(structureContent);
+      if (jsonStr) {
+        try {
+          wikiStructure = JSON.parse(jsonStr);
+          if (!wikiStructure.id) wikiStructure.id = "wiki";
+          if (!wikiStructure.description) wikiStructure.description = `${repo} wiki`;
+        } catch (e) {
+          lastErr = `JSON 파싱 오류: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      } else {
+        lastErr = `AI 응답에서 JSON을 찾을 수 없음. 응답 미리보기: ${structureContent.slice(0, 200)}`;
+      }
+      if (!wikiStructure && attempt === 0) {
+        await emitStep(streamId, 'agent_log', 'structure',
+          '⚠️ JSON 추출 실패 — 더 엄격한 지시로 1회 재시도합니다...');
+      }
     }
 
-    if (structureContent.includes("CLI Error:")) {
-      const parts = structureContent.split("CLI Error:");
-      const errMsg = parts[parts.length - 1].trim();
-      await emitStep(streamId, 'error', 'structure', `❌ CLI 에러: ${errMsg}`);
-      throw new Error(errMsg);
-    }
-
-    let wikiStructure: any;
-    try {
-      const match = structureContent.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error(`AI 응답에서 JSON을 찾을 수 없음. 응답 미리보기: ${structureContent.slice(0, 200)}`);
-      wikiStructure = JSON.parse(match[0]);
-      if (!wikiStructure.id) wikiStructure.id = "wiki";
-      if (!wikiStructure.description) wikiStructure.description = `${repo} wiki`;
-    } catch (e) {
-      await emitStep(streamId, 'error', 'structure',
-        `❌ 위키 구조 JSON 파싱 실패: ${e instanceof Error ? e.message : String(e)}`
-      );
-      throw new Error(`위키 구조 파싱 실패: ${e}`);
+    if (!wikiStructure) {
+      await emitStep(streamId, 'error', 'structure', `❌ 위키 구조 JSON 파싱 실패: ${lastErr}`);
+      throw new Error(`위키 구조 파싱 실패: ${lastErr}`);
     }
 
     const pageCount = (wikiStructure.pages || []).length;
