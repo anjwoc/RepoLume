@@ -11,6 +11,8 @@ FAISSRetriever) to stay consistent with the rest of the codebase.
 
 import hashlib
 import logging
+import os
+import pickle
 from typing import List, Optional, Tuple
 
 from adalflow.core.types import Document
@@ -28,6 +30,11 @@ WIKI_EMBEDDER_TYPE = "ollama"
 
 # content-hash -> transformed documents (with .vector). Survives within the server process.
 _doc_cache: dict = {}
+
+# Disk cache for embedded wiki docs (survives server restarts). repo_root/.localwiki-cache/wiki_rag/
+_CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".localwiki-cache", "wiki_rag"
+)
 
 
 def _wiki_hash(pages: List[dict]) -> str:
@@ -75,11 +82,35 @@ def _embed_wiki_docs(pages: List[dict]) -> List:
 
 def _get_wiki_docs(pages: List[dict]) -> List:
     key = _wiki_hash(pages)
+
     cached = _doc_cache.get(key)
-    if cached is not None:
+    if cached:
         return cached
+
+    # Disk cache (survives server restarts).
+    path = os.path.join(_CACHE_DIR, f"{key}.pkl")
+    if os.path.exists(path):
+        try:
+            with open(path, "rb") as f:
+                docs = pickle.load(f)
+            if docs:
+                _doc_cache[key] = docs
+                logger.info(f"Wiki RAG: loaded {len(docs)} cached chunks from disk (hash {key[:8]})")
+                return docs
+        except Exception as e:
+            logger.warning(f"Wiki RAG: failed to read disk cache {key[:8]}: {e}")
+
     docs = _embed_wiki_docs(pages)
-    _doc_cache[key] = docs
+    # Only cache successful (non-empty) embeddings, so a transient embedder outage
+    # (e.g. Ollama down) is retried next time instead of being cached as empty.
+    if docs:
+        _doc_cache[key] = docs
+        try:
+            os.makedirs(_CACHE_DIR, exist_ok=True)
+            with open(path, "wb") as f:
+                pickle.dump(docs, f)
+        except Exception as e:
+            logger.warning(f"Wiki RAG: failed to write disk cache {key[:8]}: {e}")
     logger.info(f"Wiki RAG: embedded {len(docs)} chunks (hash {key[:8]})")
     return docs
 
