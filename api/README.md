@@ -62,9 +62,8 @@ LocalWiki supports multiple LLM providers. The environment variables above are r
 
 - **Google Gemini**: Requires `GOOGLE_API_KEY`
 - **OpenAI**: Requires `OPENAI_API_KEY`
-- **OpenRouter**: Requires `OPENROUTER_API_KEY`
-- **AWS Bedrock**: Requires `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-- **Ollama**: No API key required (runs locally)
+- **OpenRouter**: Requires `OPENROUTER_API_KEY` (also serves Anthropic Claude models, e.g. `anthropic/claude-3.7-sonnet`)
+- **Ollama** (RAG embeddings only, optional): No API key required (runs locally)
 
 ##### Custom OpenAI API Endpoints
 The `OPENAI_BASE_URL` variable allows you to specify a custom endpoint for the OpenAI API. This is useful for:
@@ -83,7 +82,7 @@ LocalWiki now uses JSON configuration files to manage various system components 
 
 1. **`generator.json`**: Configuration for text generation models
    - Located in `api/config/` by default
-   - Defines available model providers (Google, OpenAI, OpenRouter, AWS Bedrock, Ollama)
+   - Defines available model providers (Google, OpenAI, OpenRouter)
    - Specifies default and available models for each provider
    - Contains model-specific parameters like temperature and top_p
 
