@@ -8,15 +8,5 @@
     "submittedAt": 1780369866892,
     "language": "en",
     "model": null
-  },
-  {
-    "id": "wiki-out-local-deepwiki-ko",
-    "owner": "local",
-    "repo": "local-deepwiki",
-    "name": "local/local-deepwiki",
-    "repo_type": "local",
-    "submittedAt": 1780369866885,
-    "language": "ko",
-    "model": null
   }
 ]
