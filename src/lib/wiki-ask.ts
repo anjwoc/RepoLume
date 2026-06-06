@@ -61,6 +61,90 @@ export function buildWikiContext(pages: WikiPageLite[]): string {
     .join("\n\n---\n\n");
 }
 
+// ── P2: token guard + page-level retrieval for large wikis ──────────────────
+// Budget is in characters (~4 chars/token, matching the backend's rough estimate).
+// ~60k chars ≈ 15k tokens of context — bounded for cost/latency, ample for most wikis.
+const DEFAULT_BUDGET_CHARS = 60000;
+
+const STOPWORDS = new Set([
+  "the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "or", "how",
+  "what", "why", "does", "do", "this", "that", "with", "about", "어떻게", "무엇", "왜",
+  "하나요", "인가요", "대해", "에서", "으로", "이런", "그리고",
+]);
+
+function pageSize(p: WikiPageLite): number {
+  return p.title.length + (p.content?.length || 0) + 12;
+}
+
+function questionTerms(q: string): string[] {
+  return q
+    .toLowerCase()
+    .split(/[^a-z0-9가-힣]+/)
+    .filter((w) => w.length >= 2 && !STOPWORDS.has(w));
+}
+
+function scorePage(p: WikiPageLite, terms: string[]): number {
+  const title = p.title.toLowerCase();
+  const content = (p.content || "").toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (title.includes(term)) score += 5; // title match weighted high
+    let idx = 0;
+    let count = 0;
+    while ((idx = content.indexOf(term, idx)) !== -1 && count < 8) {
+      count++;
+      idx += term.length;
+    }
+    score += count;
+  }
+  return score;
+}
+
+export interface GroundingResult {
+  /** Pages selected to ground the answer. */
+  pages: WikiPageLite[];
+  /** "full" = whole wiki fit the budget; "retrieved" = relevance-selected subset. */
+  strategy: "full" | "retrieved";
+  /** Total number of non-empty wiki pages. */
+  totalPages: number;
+}
+
+/**
+ * Choose which wiki pages to send as context. If the whole wiki fits the budget, use it all
+ * (strategy "full"). Otherwise pick the most relevant pages to the question within the budget
+ * (strategy "retrieved") — the caller surfaces this to the user so truncation is never silent.
+ */
+export function selectWikiContext(
+  allPages: WikiPageLite[],
+  question: string,
+  budgetChars: number = DEFAULT_BUDGET_CHARS,
+): GroundingResult {
+  const withContent = allPages.filter((p) => p.content && p.content.trim());
+  const totalPages = withContent.length;
+
+  const totalChars = withContent.reduce((n, p) => n + pageSize(p), 0);
+  if (totalChars <= budgetChars) {
+    return { pages: withContent, strategy: "full", totalPages };
+  }
+
+  const terms = questionTerms(question);
+  const scored = withContent
+    .map((p) => ({ p, score: terms.length ? scorePage(p, terms) : 0 }))
+    .sort((a, b) => b.score - a.score);
+
+  const picked: WikiPageLite[] = [];
+  let used = 0;
+  for (const { p } of scored) {
+    const size = pageSize(p);
+    if (picked.length > 0 && used + size > budgetChars) continue; // always keep at least one
+    picked.push(p);
+    used += size;
+    if (used >= budgetChars) break;
+  }
+
+  return { pages: picked, strategy: "retrieved", totalPages };
+}
+
 function composePrompt(
   wikiTitle: string,
   wikiContext: string,

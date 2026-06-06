@@ -7,10 +7,12 @@ import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
 import {
   askWiki,
+  selectWikiContext,
   extractCitations,
   stripCitationMarkers,
   type AskTurn,
   type WikiPageLite,
+  type GroundingResult,
 } from "@/lib/wiki-ask";
 
 interface WikiAskPanelProps {
@@ -25,6 +27,7 @@ interface WikiAskPanelProps {
 
 interface Message extends AskTurn {
   citations?: { title: string; id: string }[];
+  grounding?: GroundingResult;
 }
 
 export function WikiAskPanel({
@@ -70,11 +73,14 @@ export function WikiAskPanel({
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // P2: token guard — send the whole wiki if it fits, else the most relevant pages.
+    const grounding = selectWikiContext(pages, question);
+
     try {
       const answer = await askWiki({
         projectData,
         wikiTitle,
-        pages,
+        pages: grounding.pages,
         history,
         question,
         signal: controller.signal,
@@ -82,7 +88,12 @@ export function WikiAskPanel({
       });
       setMessages([
         ...nextMessages,
-        { role: "assistant", content: answer, citations: extractCitations(answer, pages) },
+        {
+          role: "assistant",
+          content: answer,
+          citations: extractCitations(answer, grounding.pages),
+          grounding,
+        },
       ]);
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
@@ -205,6 +216,11 @@ export function WikiAskPanel({
                 </div>
               ) : (
                 <div key={i} style={{ marginBottom: 18 }}>
+                  {m.grounding?.strategy === "retrieved" && (
+                    <div style={{ color: t.textMuted, fontSize: 11, marginBottom: 6 }}>
+                      🔍 위키가 커서 전체 {m.grounding.totalPages}개 중 관련 {m.grounding.pages.length}개 문서를 골라 답변했습니다
+                    </div>
+                  )}
                   <div style={{ fontSize: 13.5, lineHeight: 1.65, color: t.text }}>
                     <Markdown content={stripCitationMarkers(m.content)} />
                   </div>
