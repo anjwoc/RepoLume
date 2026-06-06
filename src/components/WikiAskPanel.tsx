@@ -8,6 +8,7 @@ import Markdown from "./Markdown";
 import {
   askWiki,
   askWikiSemantic,
+  askSource,
   checkWikiRagHealth,
   selectWikiContext,
   extractCitations,
@@ -17,6 +18,8 @@ import {
   type GroundingResult,
 } from "@/lib/wiki-ask";
 
+type AskMode = "wiki" | "semantic" | "source";
+
 interface WikiAskPanelProps {
   open: boolean;
   onClose: () => void;
@@ -24,13 +27,15 @@ interface WikiAskPanelProps {
   wikiTitle: string;
   pages: WikiPageLite[];
   projectData: { owner?: string; repo?: string; repo_type?: string } | null;
+  repoPath?: string;
+  repoType?: string;
   onCitationClick: (pageId: string) => void;
 }
 
 interface Message extends AskTurn {
   citations?: { title: string; id: string }[];
   grounding?: GroundingResult;
-  semantic?: boolean;
+  answerMode?: AskMode;
 }
 
 export function WikiAskPanel({
@@ -40,6 +45,8 @@ export function WikiAskPanel({
   wikiTitle,
   pages,
   projectData,
+  repoPath,
+  repoType,
   onCitationClick,
 }: WikiAskPanelProps) {
   const t = getTheme(isDark);
@@ -48,12 +55,14 @@ export function WikiAskPanel({
   const [streaming, setStreaming] = useState(false);
   const [liveAnswer, setLiveAnswer] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [semantic, setSemantic] = useState(false); // P3: 의미 검색(임베딩) 모드
+  const [mode, setMode] = useState<AskMode>("wiki"); // 위키 / 위키정밀(P3) / 소스(P4)
   const [ragAlert, setRagAlert] = useState(false); // Ollama 미설치 안내 표시
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const hasWiki = pages.some((p) => p.content && p.content.trim());
+  const hasSource = !!repoPath; // 소스 기반 질의 가능 여부 (원본 경로 필요)
+  const ready = mode === "source" ? hasSource : hasWiki; // 현재 모드로 질문 가능 여부
 
   // Auto-scroll to bottom as content streams in.
   useEffect(() => {
@@ -65,7 +74,8 @@ export function WikiAskPanel({
 
   async function handleSend() {
     const question = input.trim();
-    if (!question || streaming || !hasWiki) return;
+    const ready = mode === "source" ? hasSource : hasWiki;
+    if (!question || streaming || !ready) return;
 
     setErrorMsg(null);
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
@@ -78,9 +88,22 @@ export function WikiAskPanel({
     const controller = new AbortController();
     abortRef.current = controller;
 
+    const onToken = (delta: string) => setLiveAnswer((prev) => prev + delta);
+
     try {
       let assistantMsg: Message;
-      if (semantic) {
+      if (mode === "source") {
+        // P4: DeepWiki-style — answer from the repository SOURCE via the existing source RAG.
+        const answer = await askSource({
+          repoPath: repoPath || "",
+          repoType,
+          history,
+          question,
+          signal: controller.signal,
+          onToken,
+        });
+        assistantMsg = { role: "assistant", content: answer, answerMode: "source" };
+      } else if (mode === "semantic") {
         // P3: backend embeds the whole wiki (Ollama) and retrieves the relevant chunks.
         const answer = await askWikiSemantic({
           wikiTitle,
@@ -88,13 +111,13 @@ export function WikiAskPanel({
           history,
           question,
           signal: controller.signal,
-          onToken: (delta) => setLiveAnswer((prev) => prev + delta),
+          onToken,
         });
         assistantMsg = {
           role: "assistant",
           content: answer,
           citations: extractCitations(answer, pages),
-          semantic: true,
+          answerMode: "semantic",
         };
       } else {
         // P2: token guard — whole wiki if it fits, else the most relevant pages (client-side).
@@ -106,13 +129,14 @@ export function WikiAskPanel({
           history,
           question,
           signal: controller.signal,
-          onToken: (delta) => setLiveAnswer((prev) => prev + delta),
+          onToken,
         });
         assistantMsg = {
           role: "assistant",
           content: answer,
           citations: extractCitations(answer, grounding.pages),
           grounding,
+          answerMode: "wiki",
         };
       }
       setMessages([...nextMessages, assistantMsg]);
@@ -134,22 +158,20 @@ export function WikiAskPanel({
     }
   }
 
-  // Toggle semantic mode, but verify Ollama is available before enabling it.
-  async function toggleSemantic() {
-    if (streaming) return;
-    if (semantic) {
-      setSemantic(false);
-      setRagAlert(false);
+  // Switch answer mode. Semantic needs Ollama (prechecked); source needs a repo path.
+  async function selectMode(target: AskMode) {
+    if (streaming || target === mode) return;
+    setRagAlert(false);
+    if (target === "semantic") {
+      const health = await checkWikiRagHealth();
+      if (health.available) {
+        setMode("semantic");
+      } else {
+        setRagAlert(true); // show Ollama install guidance, keep current mode
+      }
       return;
     }
-    const health = await checkWikiRagHealth();
-    if (health.available) {
-      setSemantic(true);
-      setRagAlert(false);
-    } else {
-      setSemantic(false);
-      setRagAlert(true); // show install guidance
-    }
+    setMode(target); // "wiki" always available; "source" gated by hasSource in the UI
   }
 
   return (
@@ -255,9 +277,14 @@ export function WikiAskPanel({
                 </div>
               ) : (
                 <div key={i} style={{ marginBottom: 18 }}>
-                  {m.semantic && (
+                  {m.answerMode === "source" && (
                     <div style={{ color: t.textMuted, fontSize: 11, marginBottom: 6 }}>
-                      🧠 의미 검색(로컬 임베딩)으로 관련 문서를 찾아 답변했습니다
+                      📦 레포 소스 코드를 검색해 답변했습니다
+                    </div>
+                  )}
+                  {m.answerMode === "semantic" && (
+                    <div style={{ color: t.textMuted, fontSize: 11, marginBottom: 6 }}>
+                      🧠 의미 검색(로컬 임베딩)으로 관련 위키 문서를 찾아 답변했습니다
                     </div>
                   )}
                   {m.grounding?.strategy === "retrieved" && (
@@ -317,7 +344,11 @@ export function WikiAskPanel({
                 ) : (
                   <div style={{ display: "flex", alignItems: "center", gap: 7, color: t.textSecondary, fontSize: 13 }}>
                     <Loader2 size={14} className="animate-spin" />
-                    위키를 읽고 답변을 작성 중…
+                    {mode === "source"
+                      ? "레포 소스를 검색해 답변 작성 중…"
+                      : mode === "semantic"
+                        ? "위키를 임베딩·검색 중…"
+                        : "위키를 읽고 답변 작성 중…"}
                   </div>
                 )}
               </div>
@@ -376,29 +407,48 @@ export function WikiAskPanel({
                 </div>
               </div>
             )}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 8 }}>
-              <button
-                onClick={toggleSemantic}
-                disabled={streaming}
-                title="로컬 임베딩(Ollama)으로 의미 기반 검색 — 큰 위키에 유리"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "4px 9px",
-                  borderRadius: 8,
-                  border: `1px solid ${semantic ? t.ai : t.divider}`,
-                  background: semantic ? t.aiLight : "transparent",
-                  color: semantic ? t.ai : t.textSecondary,
-                  cursor: streaming ? "not-allowed" : "pointer",
-                  fontSize: 11.5,
-                  fontFamily: "inherit",
-                  transition: "all 0.15s",
-                }}
-              >
-                <Sparkles size={12} />
-                정밀 검색 {semantic ? "ON" : "OFF"}
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              {(
+                [
+                  { key: "wiki", label: "위키", title: "생성된 위키 문서 기반", enabled: true },
+                  { key: "semantic", label: "위키 정밀", title: "로컬 임베딩(Ollama) 의미 검색 — 큰 위키에 유리", enabled: true },
+                  {
+                    key: "source",
+                    label: "소스",
+                    title: hasSource ? "레포 소스 코드 기반 (DeepWiki식)" : "원본 레포 경로가 없어 사용 불가",
+                    enabled: hasSource,
+                  },
+                ] as { key: AskMode; label: string; title: string; enabled: boolean }[]
+              ).map((opt) => {
+                const active = mode === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => opt.enabled && selectMode(opt.key)}
+                    disabled={streaming || !opt.enabled}
+                    title={opt.title}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 10px",
+                      borderRadius: 8,
+                      border: `1px solid ${active ? t.ai : t.divider}`,
+                      background: active ? t.aiLight : "transparent",
+                      color: !opt.enabled ? t.textMuted : active ? t.ai : t.textSecondary,
+                      cursor: streaming || !opt.enabled ? "not-allowed" : "pointer",
+                      opacity: !opt.enabled ? 0.5 : 1,
+                      fontSize: 11.5,
+                      fontWeight: active ? 600 : 400,
+                      fontFamily: "inherit",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {opt.key === "semantic" && <Sparkles size={11} />}
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
             <div
               style={{
@@ -415,8 +465,16 @@ export function WikiAskPanel({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={!hasWiki || streaming}
-                placeholder={hasWiki ? "위키 내용에 대해 질문하세요…" : "위키 생성 후 이용 가능"}
+                disabled={!ready || streaming}
+                placeholder={
+                  ready
+                    ? mode === "source"
+                      ? "레포 소스에 대해 질문하세요…"
+                      : "위키 내용에 대해 질문하세요…"
+                    : mode === "source"
+                      ? "원본 레포 경로가 없어 소스 질의 불가"
+                      : "위키 생성 후 이용 가능"
+                }
                 rows={1}
                 style={{
                   flex: 1,
@@ -434,7 +492,7 @@ export function WikiAskPanel({
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || streaming || !hasWiki}
+                disabled={!input.trim() || streaming || !ready}
                 title="보내기 (Enter)"
                 style={{
                   width: 32,
@@ -442,9 +500,9 @@ export function WikiAskPanel({
                   borderRadius: 9,
                   border: "none",
                   flexShrink: 0,
-                  cursor: input.trim() && !streaming && hasWiki ? "pointer" : "not-allowed",
-                  background: input.trim() && !streaming && hasWiki ? t.primary : t.surfaceHover,
-                  color: input.trim() && !streaming && hasWiki ? "#fff" : t.textMuted,
+                  cursor: input.trim() && !streaming && ready ? "pointer" : "not-allowed",
+                  background: input.trim() && !streaming && ready ? t.primary : t.surfaceHover,
+                  color: input.trim() && !streaming && ready ? "#fff" : t.textMuted,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

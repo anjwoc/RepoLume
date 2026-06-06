@@ -70,6 +70,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [activeSection, setActiveSection] = useState("");
   const [readingMode, setReadingMode] = useState(true); // 기본값: 읽기 모드 (노션처럼)
   const [showAsk, setShowAsk] = useState(false); // "위키에 질문하기" 우측 패널
+  const [repoPath, setRepoPath] = useState(""); // 원본 레포 로컬 경로 (소스 기반 질의용)
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [currentLang, setCurrentLang] = useState(projectData?.language || "ko");
@@ -135,6 +136,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
           setWikiStructure(structure);
           setGeneratedPages(cachedData.generated_pages);
+          // 소스 기반 질의(P4)에 쓰일 원본 레포 경로 (생성 시 캐시에 저장됨)
+          setRepoPath(cachedData.repo?.localPath || cachedData.repo?.repoUrl || "");
 
           setTimeout(async () => {
             try {
@@ -890,6 +893,8 @@ ${chartCode}
                 }))
           }
           projectData={projectData}
+          repoPath={repoPath}
+          repoType={projectData?.repo_type}
           onCitationClick={(id) => { setSelectedPage(id); setShowSearch(false); }}
         />
 

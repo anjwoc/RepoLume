@@ -325,6 +325,75 @@ export async function askWikiSemantic(p: AskSemanticParams): Promise<string> {
   return full;
 }
 
+export interface AskSourceParams {
+  repoPath: string;
+  repoType?: string;
+  history: AskTurn[];
+  question: string;
+  onToken: (delta: string) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * P4: DeepWiki-style source-grounded Q&A. Reuses the existing chat endpoint with skip_rag=false
+ * so the backend indexes & retrieves over the actual repository source (no new backend).
+ * Requires the original repo path (read from the wiki cache) and a working embedder.
+ */
+export async function askSource(p: AskSourceParams): Promise<string> {
+  const settings = readSettings();
+  const messages = [
+    ...p.history.map((h) => ({ role: h.role, content: h.content })),
+    { role: "user", content: p.question },
+  ];
+
+  const requestBody: Record<string, unknown> = {
+    repo_url: p.repoPath,
+    type: p.repoType || "local",
+    messages,
+    model: settings.model,
+    provider: settings.provider,
+    language: settings.language || "ko",
+    skip_rag: false, // index + retrieve over the repository source
+    ...(settings.mode === "cli"
+      ? { use_cli: true, cli_tool: providerToCli(settings.provider) }
+      : {}),
+    ...(settings.apiKey ? { api_key: settings.apiKey } : {}),
+  };
+
+  const response = await fetch(`/api/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+    signal: p.signal,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "(응답 없음)");
+    throw new Error(`소스 기반 질의 실패 (HTTP ${response.status}): ${errText}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let full = "";
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      full += chunk;
+      p.onToken(chunk);
+    }
+    full += decoder.decode();
+  }
+
+  if (full.includes("CLI Error:")) {
+    const msg = full.split("CLI Error:").pop()?.trim() || "CLI 오류";
+    throw new Error(msg);
+  }
+
+  return full;
+}
+
 /** Extract [[Page Title]] citations and resolve each to an existing wiki page id. */
 export function extractCitations(
   text: string,
