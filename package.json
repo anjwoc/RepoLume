@@ -2,21 +2,42 @@
   "name": "localwiki",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "packageManager": "pnpm@10.15.1",
   "scripts": {
     "setup": "pnpm install && pnpm run setup:api",
-    "setup:api": "cd api && poetry install",
-    "build:agent": "cd agent && go build -o ../bin/localwiki-agent ./cmd/localwiki-agent",
+    "setup:api": "cd api && /opt/homebrew/bin/python3.11 -m poetry install",
     "dev": "pnpm run dev:all",
     "dev:web": "next dev --port 3000",
-    "dev:api": "cd api && PYTHONPATH=.. poetry run uvicorn api.main:app --reload --port 8001",
-    "dev:agent": "pnpm run build:agent",
-    "dev:all": "concurrently \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm dev:agent\"",
+    "dev:api": "/opt/homebrew/bin/python3.11 -m poetry -C api run python main.py",
+    "dev:all": "concurrently \"pnpm dev:web\" \"pnpm dev:api\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "export-showcase": "node scripts/export-showcase.js",
-    "deploy:vercel": "NEXT_PUBLIC_SHOWCASE_MODE=true next build"
+    "deploy:vercel": "NEXT_PUBLIC_SHOWCASE_MODE=true next build",
+    "desktop": "NODE_ENV=development electron .",
+    "desktop:build": "next build && electron-builder build --mac --win"
+  },
+  "build": {
+    "appId": "com.localwiki.desktop",
+    "productName": "LocalWiki",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/main.js",
+      "package.json",
+      "api/**/*",
+      ".next/**/*",
+      "public/**/*"
+    ],
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -89,9 +110,12 @@
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
     "concurrently": "^10.0.1",
+    "electron": "^42.3.2",
+    "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.10"
   }
 }

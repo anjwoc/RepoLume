@@ -53,6 +53,10 @@ const nextConfig: NextConfig = {
         destination: `${TARGET_SERVER_BASE_URL}/api/wiki_cache`,
       },
       {
+        source: '/api/analyze_business',
+        destination: `${TARGET_SERVER_BASE_URL}/analyze_business`,
+      },
+      {
         source: '/local_repo/structure',
         destination: `${TARGET_SERVER_BASE_URL}/local_repo/structure`,
       },
