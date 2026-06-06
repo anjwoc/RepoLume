@@ -663,7 +663,7 @@ def generate_json_export(repo_url: str, pages: List[WikiPage]) -> str:
     return json.dumps(export_data, indent=2)
 
 # Import the simplified chat implementation
-from api.simple_chat import chat_completions_stream
+from api.simple_chat import chat_completions_stream, ChatCompletionRequest
 from api.websocket_wiki import handle_websocket_chat
 
 # Add the chat_completions_stream endpoint to the main app
@@ -671,6 +671,98 @@ app.add_api_route("/chat/completions/stream", chat_completions_stream, methods=[
 
 # Add the WebSocket endpoint
 app.add_websocket_route("/ws/chat", handle_websocket_chat)
+
+
+# --- Wiki RAG (P3): semantic Q&A grounded in the generated wiki documents ---
+
+class WikiAskPageInput(BaseModel):
+    id: str
+    title: str
+    content: str = ""
+
+
+class WikiAskRequest(BaseModel):
+    wiki_pages: List[WikiAskPageInput] = Field(..., description="Generated wiki pages to ground on")
+    question: str = Field(..., description="User question")
+    wiki_title: Optional[str] = Field("Wiki", description="Wiki title for the system prompt")
+    history: Optional[List[Dict[str, str]]] = Field(None, description="Prior {role, content} turns")
+    provider: str = Field("google", description="Model provider (google, openai, openrouter)")
+    model: Optional[str] = Field(None, description="Model name")
+    language: Optional[str] = Field("ko", description="Answer language")
+    mode: Optional[str] = Field("cli", description="'cli' or 'api'")
+    api_key: Optional[str] = Field(None, description="Optional API key override")
+    stream_id: Optional[str] = Field(None, description="Optional task stream id")
+    top_k: Optional[int] = Field(None, description="Retrieval top-k override")
+
+
+def _provider_to_cli(provider: str) -> str:
+    if provider == "google":
+        return "gemini"
+    if provider == "anthropic":
+        return "claude"
+    if provider == "antigravity":
+        return "antigravity"
+    return "codex"
+
+
+@app.post("/wiki/ask/stream")
+async def wiki_ask_stream(request: WikiAskRequest):
+    """Semantic retrieval over the wiki, then delegate generation to the chat stream path."""
+    from api.wiki_rag import retrieve_wiki_context
+
+    pages = [p.model_dump() for p in request.wiki_pages]
+    try:
+        context, _cited = retrieve_wiki_context(pages, request.question, request.top_k)
+    except Exception as e:
+        logger.error(f"Wiki RAG retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"위키 임베딩/검색 실패: {e}")
+
+    lang_line = (
+        "Answer in English."
+        if request.language == "en"
+        else "Answer in Korean (한국어); keep technical terms and identifiers in English."
+    )
+    hist = ""
+    if request.history:
+        hist = (
+            "\n## Previous conversation\n"
+            + "\n".join(f"{h.get('role', 'user')}: {h.get('content', '')}" for h in request.history)
+            + "\n"
+        )
+
+    if not context:
+        prompt = (
+            f"There is no indexable wiki content to answer from. Tell the user you could not find "
+            f"relevant documentation. {lang_line}\n\n## Question\n{request.question}"
+        )
+    else:
+        prompt = (
+            f'You are a documentation assistant for the wiki titled "{request.wiki_title}".\n'
+            f"Answer the question using ONLY the wiki excerpts below. If the answer is not present, "
+            f"clearly say you could not find it in the documentation — never invent facts.\n"
+            f"When you reference a wiki page, cite it inline as [[Exact Page Title]].\n"
+            f"{lang_line}\n"
+            f"\n## Relevant wiki excerpts\n{context}\n{hist}\n## Question\n{request.question}"
+        )
+
+    chat_req = ChatCompletionRequest(
+        repo_url=request.wiki_title or "wiki",
+        type="local",
+        messages=[{"role": "user", "content": prompt}],
+        model=request.model,
+        provider=request.provider,
+        language=request.language or "ko",
+        skip_rag=True,
+        is_wiki_generation=True,  # blank backend system prompt → grounding fully controlled here
+        stream_id=request.stream_id,
+        **(
+            {"use_cli": True, "cli_tool": _provider_to_cli(request.provider)}
+            if (request.mode or "cli") == "cli"
+            else {}
+        ),
+        **({"api_key": request.api_key} if request.api_key else {}),
+    )
+    return await chat_completions_stream(chat_req)
 
 # --- Wiki Cache Helper Functions ---
 

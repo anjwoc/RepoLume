@@ -247,6 +247,67 @@ export async function askWiki(p: AskParams): Promise<string> {
   return full;
 }
 
+export interface AskSemanticParams {
+  wikiTitle: string;
+  pages: WikiPageLite[];
+  history: AskTurn[];
+  question: string;
+  onToken: (delta: string) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * P3: semantic (embedding) retrieval. Sends ALL wiki pages to the backend, which embeds them
+ * with the local Ollama embedder, retrieves the most relevant chunks, and streams the answer.
+ */
+export async function askWikiSemantic(p: AskSemanticParams): Promise<string> {
+  const settings = readSettings();
+  const requestBody: Record<string, unknown> = {
+    wiki_pages: p.pages.map((pg) => ({ id: pg.id, title: pg.title, content: pg.content || "" })),
+    question: p.question,
+    wiki_title: p.wikiTitle,
+    history: p.history,
+    provider: settings.provider,
+    model: settings.model,
+    language: settings.language || "ko",
+    mode: settings.mode,
+    ...(settings.apiKey ? { api_key: settings.apiKey } : {}),
+  };
+
+  const response = await fetch(`/api/wiki/ask/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+    signal: p.signal,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "(응답 없음)");
+    throw new Error(`의미 검색 질의 실패 (HTTP ${response.status}): ${errText}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let full = "";
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      full += chunk;
+      p.onToken(chunk);
+    }
+    full += decoder.decode();
+  }
+
+  if (full.includes("CLI Error:")) {
+    const msg = full.split("CLI Error:").pop()?.trim() || "CLI 오류";
+    throw new Error(msg);
+  }
+
+  return full;
+}
+
 /** Extract [[Page Title]] citations and resolve each to an existing wiki page id. */
 export function extractCitations(
   text: string,

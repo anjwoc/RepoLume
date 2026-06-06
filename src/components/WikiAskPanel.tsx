@@ -7,6 +7,7 @@ import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
 import {
   askWiki,
+  askWikiSemantic,
   selectWikiContext,
   extractCitations,
   stripCitationMarkers,
@@ -28,6 +29,7 @@ interface WikiAskPanelProps {
 interface Message extends AskTurn {
   citations?: { title: string; id: string }[];
   grounding?: GroundingResult;
+  semantic?: boolean;
 }
 
 export function WikiAskPanel({
@@ -45,6 +47,7 @@ export function WikiAskPanel({
   const [streaming, setStreaming] = useState(false);
   const [liveAnswer, setLiveAnswer] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [semantic, setSemantic] = useState(false); // P3: 의미 검색(임베딩) 모드
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -73,28 +76,44 @@ export function WikiAskPanel({
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // P2: token guard — send the whole wiki if it fits, else the most relevant pages.
-    const grounding = selectWikiContext(pages, question);
-
     try {
-      const answer = await askWiki({
-        projectData,
-        wikiTitle,
-        pages: grounding.pages,
-        history,
-        question,
-        signal: controller.signal,
-        onToken: (delta) => setLiveAnswer((prev) => prev + delta),
-      });
-      setMessages([
-        ...nextMessages,
-        {
+      let assistantMsg: Message;
+      if (semantic) {
+        // P3: backend embeds the whole wiki (Ollama) and retrieves the relevant chunks.
+        const answer = await askWikiSemantic({
+          wikiTitle,
+          pages,
+          history,
+          question,
+          signal: controller.signal,
+          onToken: (delta) => setLiveAnswer((prev) => prev + delta),
+        });
+        assistantMsg = {
+          role: "assistant",
+          content: answer,
+          citations: extractCitations(answer, pages),
+          semantic: true,
+        };
+      } else {
+        // P2: token guard — whole wiki if it fits, else the most relevant pages (client-side).
+        const grounding = selectWikiContext(pages, question);
+        const answer = await askWiki({
+          projectData,
+          wikiTitle,
+          pages: grounding.pages,
+          history,
+          question,
+          signal: controller.signal,
+          onToken: (delta) => setLiveAnswer((prev) => prev + delta),
+        });
+        assistantMsg = {
           role: "assistant",
           content: answer,
           citations: extractCitations(answer, grounding.pages),
           grounding,
-        },
-      ]);
+        };
+      }
+      setMessages([...nextMessages, assistantMsg]);
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         setErrorMsg(e instanceof Error ? e.message : String(e));
@@ -216,6 +235,11 @@ export function WikiAskPanel({
                 </div>
               ) : (
                 <div key={i} style={{ marginBottom: 18 }}>
+                  {m.semantic && (
+                    <div style={{ color: t.textMuted, fontSize: 11, marginBottom: 6 }}>
+                      🧠 의미 검색(로컬 임베딩)으로 관련 문서를 찾아 답변했습니다
+                    </div>
+                  )}
                   {m.grounding?.strategy === "retrieved" && (
                     <div style={{ color: t.textMuted, fontSize: 11, marginBottom: 6 }}>
                       🔍 위키가 커서 전체 {m.grounding.totalPages}개 중 관련 {m.grounding.pages.length}개 문서를 골라 답변했습니다
@@ -298,6 +322,30 @@ export function WikiAskPanel({
 
           {/* Input */}
           <div style={{ padding: "12px 14px", borderTop: `1px solid ${t.divider}`, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 8 }}>
+              <button
+                onClick={() => setSemantic((v) => !v)}
+                disabled={streaming}
+                title="로컬 임베딩(Ollama)으로 의미 기반 검색 — 큰 위키에 유리"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 9px",
+                  borderRadius: 8,
+                  border: `1px solid ${semantic ? t.ai : t.divider}`,
+                  background: semantic ? t.aiLight : "transparent",
+                  color: semantic ? t.ai : t.textSecondary,
+                  cursor: streaming ? "not-allowed" : "pointer",
+                  fontSize: 11.5,
+                  fontFamily: "inherit",
+                  transition: "all 0.15s",
+                }}
+              >
+                <Sparkles size={12} />
+                정밀 검색 {semantic ? "ON" : "OFF"}
+              </button>
+            </div>
             <div
               style={{
                 display: "flex",
