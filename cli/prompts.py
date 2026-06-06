@@ -142,3 +142,216 @@ IMPORTANT:
 - Do NOT wrap your entire answer in ```markdown fences.
 - Start directly with the `<details>` block.
 """
+
+
+# ─────────────────────────────────────────────
+# Business Analysis Prompts
+# ─────────────────────────────────────────────
+
+BUSINESS_OVERVIEW_PROMPT = """\
+You are a senior business analyst and software architect.
+
+Analyze the repository "{repo_name}" to extract its business domain.
+
+File tree:
+<file_tree>
+{file_tree}
+</file_tree>
+
+README:
+<readme>
+{readme}
+</readme>
+
+Return a JSON object (no markdown fences) describing the business domain:
+
+{{
+  "name": "<business domain name>",
+  "description": "<2-3 sentence description of what this system does for the business>",
+  "core_purpose": "<the single most important business problem this solves>",
+  "target_users": ["<user type 1>", "<user type 2>"],
+  "key_value_propositions": ["<value prop 1>", "<value prop 2>", "<value prop 3>"]
+}}
+
+Write all content in {language_name}. Return ONLY the JSON.
+"""
+
+BUSINESS_ENTITIES_PROMPT = """\
+You are a senior business analyst and domain expert.
+
+Analyze the repository "{repo_name}" and identify its core BUSINESS ENTITIES
+(not technical classes — think in terms of business concepts like Customer, Order, Invoice, Product).
+
+File tree:
+<file_tree>
+{file_tree}
+</file_tree>
+
+README:
+<readme>
+{readme}
+</readme>
+
+Return a JSON array of business entities (no markdown fences):
+
+[
+  {{
+    "name": "<entity name>",
+    "description": "<what this entity represents in the business domain>",
+    "source_files": ["<file1.py>", "<file2.ts>"],
+    "related_entities": ["<related entity name>"],
+    "business_criticality": "high"
+  }}
+]
+
+business_criticality must be one of: "high", "medium", "low"
+Identify 5–15 key business entities.
+Write all descriptions in {language_name}. Return ONLY the JSON array.
+"""
+
+DATA_FLOW_PROMPT = """\
+You are a senior data architect and business analyst.
+
+Analyze this repository and identify the key DATA FLOWS — how business data
+enters, is processed, stored, and exits the system.
+
+File tree:
+<file_tree>
+{file_tree}
+</file_tree>
+
+README:
+<readme>
+{readme}
+</readme>
+
+Focus on BUSINESS DATA FLOWS (not just technical ones):
+- How does user data flow through registration/authentication?
+- How do orders/transactions flow through processing?
+- How does content/data get ingested and transformed?
+- What external systems does data flow to/from?
+
+Return a JSON array of data flow graphs (no markdown fences):
+
+[
+  {{
+    "name": "<flow name, e.g. 'User Registration Flow'>",
+    "description": "<what business process this flow enables>",
+    "nodes": [
+      {{
+        "id": "n1",
+        "label": "<short label>",
+        "type": "entry",
+        "source_file": "<file.py>",
+        "description": "<what happens here>"
+      }}
+    ],
+    "edges": [
+      {{
+        "from": "n1",
+        "to": "n2",
+        "label": "<data being passed>",
+        "data_type": "JSON"
+      }}
+    ]
+  }}
+]
+
+node types: "entry" | "process" | "storage" | "exit" | "external"
+Identify 2–5 major data flows.
+Write all content in {language_name}. Return ONLY the JSON array.
+"""
+
+WORKFLOW_PROMPT = """\
+You are a senior business analyst specializing in software process analysis.
+
+Analyze this repository and map its KEY BUSINESS WORKFLOWS — the step-by-step
+processes that deliver business value.
+
+File tree:
+<file_tree>
+{file_tree}
+</file_tree>
+
+README:
+<readme>
+{readme}
+</readme>
+
+Key business entities found: {entity_names}
+
+Identify workflows like:
+- User onboarding / authentication
+- Core feature usage flows
+- Data processing / batch workflows
+- Integration / sync workflows
+- Error handling / recovery workflows
+
+Return a JSON array of workflows (no markdown fences):
+
+[
+  {{
+    "name": "<workflow name>",
+    "description": "<what business goal this workflow achieves>",
+    "type": "user",
+    "business_importance": "high",
+    "steps": [
+      {{
+        "id": "s1",
+        "label": "<step action>",
+        "actor": "user",
+        "source_file": "<file.py>",
+        "description": "<what happens in this step>"
+      }}
+    ]
+  }}
+]
+
+workflow type: "user" | "system" | "integration" | "error"
+business_importance: "high" | "medium" | "low"
+actor: "user" | "system" | "external"
+Identify 3–7 key workflows.
+Write all content in {language_name}. Return ONLY the JSON array.
+"""
+
+IMPACT_ANALYSIS_PROMPT = """\
+You are a senior reliability engineer and business analyst.
+
+Analyze this repository to identify the BUSINESS IMPACT of its key components.
+For each critical component, determine what breaks if it fails and how severe that is.
+
+File tree:
+<file_tree>
+{file_tree}
+</file_tree>
+
+Key business entities: {entity_names}
+Key business workflows: {workflow_names}
+
+For each critical component, assess:
+- What business capability it enables
+- What happens if it fails (customer impact, revenue impact)
+- Its impact level
+- Recommended monitoring priority
+
+Return a JSON array (no markdown fences):
+
+[
+  {{
+    "component": "<component/module name>",
+    "source_files": ["<file1.py>"],
+    "business_capability": "<what business function this enables>",
+    "failure_impact": "<what breaks and how bad it is for users/business>",
+    "impact_level": "critical",
+    "downstream_components": ["<component that depends on this>"],
+    "monitoring_priority": "high",
+    "recommended_slo": "<e.g. 99.9% availability, p99 < 200ms>"
+  }}
+]
+
+impact_level: "critical" | "high" | "medium" | "low"
+monitoring_priority: "critical" | "high" | "medium" | "low"
+Identify 5–12 components.
+Write all content in {language_name}. Return ONLY the JSON array.
+"""
+

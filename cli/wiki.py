@@ -238,6 +238,49 @@ def cmd_generate(args: argparse.Namespace) -> int:
     if sonar_injected:
         print(f"🎨  {sonar_injected}개 페이지에 Mermaid 다이어그램 포함")
 
+    # ── 7-B. 비즈니스 분석 레이어 ────────────────────────────────────
+    business_analysis = None
+    if getattr(args, 'business', False):
+        from cli.business import BusinessAnalyzer
+        print("\n💼  비즈니스 분석 실행 중...")
+        t_biz = time.perf_counter()
+        try:
+            biz_analyzer = BusinessAnalyzer(provider, repo, repo_name=repo_name)
+            business_analysis = biz_analyzer.analyze(lang=args.lang)
+            # Inject business analysis pages into page_contents
+            page_contents["__business_overview__"] = business_analysis.business_summary_md
+            page_contents["__business_dataflow__"] = business_analysis.data_flow_summary_md
+            page_contents["__business_workflow__"] = business_analysis.workflow_summary_md
+            page_contents["__business_impact__"] = business_analysis.impact_summary_md
+            
+            # Update structure to show these in the UI
+            from cli.pipeline.structure_planner import WikiPage, WikiSection
+            
+            biz_section = WikiSection(
+                id="__section_business__",
+                title="Business Analysis" if args.lang != "ko" else "비즈니스 분석",
+                page_ids=[
+                    "__business_overview__",
+                    "__business_dataflow__",
+                    "__business_workflow__",
+                    "__business_impact__"
+                ]
+            )
+            structure.sections.append(biz_section)
+            structure.root_section_ids.append("__section_business__")
+            
+            structure.pages.extend([
+                WikiPage(id="__business_overview__", title="Business Overview", description="", importance="high", file_paths=[], section_id="__section_business__"),
+                WikiPage(id="__business_dataflow__", title="Data Flow", description="", importance="high", file_paths=[], section_id="__section_business__"),
+                WikiPage(id="__business_workflow__", title="Workflows", description="", importance="high", file_paths=[], section_id="__section_business__"),
+                WikiPage(id="__business_impact__", title="Impact Analysis", description="", importance="high", file_paths=[], section_id="__section_business__"),
+            ])
+            
+            elapsed_biz = time.perf_counter() - t_biz
+            print(f"✅  비즈니스 분석 완료 ({elapsed_biz:.1f}s)")
+        except Exception as exc:
+            logger.warning(f"비즈니스 분석 실패 (건너뜀): {exc}")
+
     # ── 8. Export to disk ──────────────────────────────────────────────────
     from cli.pipeline.file_exporter import FileExporter
 
@@ -366,6 +409,10 @@ def build_parser() -> argparse.ArgumentParser:
                      help="MCP 소스 비활성화 (빠른 실행 용도)")
     gen.add_argument("--mcp-config", default=None, metavar="PATH",
                      help="MCP 설정 파일 (default: ~/.localwiki/mcp-config.yaml)")
+    gen.add_argument(
+        "--business", "-B", action="store_true",
+        help="비즈니스 분석 레이어 활성화 (데이터 플로우, 워크플로우, 임팩트 분석)"
+    )
     gen.set_defaults(func=cmd_generate)
 
     # ── plan ──

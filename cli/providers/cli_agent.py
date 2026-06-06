@@ -1,33 +1,26 @@
 """
-CLIAgentProvider — wraps the localwiki-agent Go binary as an LLM provider.
+CLIAgentProvider — wraps local CLI agents as an LLM provider.
 
 Instead of API keys, this provider uses the user's already-authenticated
-subscription CLI tools (Gemini, Codex, Claude Code) via the Go binary.
+subscription CLI tools (Gemini, Codex, Claude Code, Antigravity) via the
+Python-native agent_runner module.
 """
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
-import os
-import subprocess
-import tempfile
-from pathlib import Path
+
+from api.agent_runner import AgentRegistry, RunResult
 
 logger = logging.getLogger(__name__)
-
-# Path to the Go binary (relative to this file or override via env)
-_AGENT_BIN = os.environ.get(
-    "LOCALWIKI_AGENT_BIN",
-    str(Path(__file__).parent.parent.parent / "bin" / "localwiki-agent"),
-)
 
 
 class CLIAgentProvider:
     """
-    LLM provider backed by a locally-installed CLI (Gemini/Codex/Claude Code).
+    LLM provider backed by a locally-installed CLI (Gemini/Codex/Claude/agy).
 
-    The Go binary ``localwiki-agent`` is invoked as a subprocess and returns
-    JSON on stdout.  No API keys required — uses the user's subscription auth.
+    Uses ``api.agent_runner`` (Python asyncio) instead of the old Go binary.
+    No API keys required — uses the user's subscription auth.
 
     Usage::
 
@@ -37,151 +30,90 @@ class CLIAgentProvider:
 
     def __init__(
         self,
-        agent: str,  # "gemini" | "codex" | "claude"
+        agent: str,  # "gemini" | "codex" | "claude" | "antigravity"
         model: str | None = None,
         cwd: str = ".",
         timeout: int = 300,
     ):
         self.agent = agent
-        self.model = model
+        self.model = model or ""
         self.cwd = cwd
         self.timeout = timeout
-        self._bin = _find_agent_bin()
+        self._registry = AgentRegistry(
+            gemini_model=self.model if agent == "gemini" else "",
+            codex_model=self.model if agent == "codex" else "",
+            claude_model=self.model if agent == "claude" else "",
+        )
 
     # ------------------------------------------------------------------ #
 
     def generate(self, prompt: str, event_sink=None) -> str:
         """Send prompt to the CLI agent and return the generated text."""
-        if not self._bin:
+        runner = self._registry.get(self.agent)
+        if not runner.available():
             raise RuntimeError(
-                "localwiki-agent binary not found. "
-                "Run: cd localwiki/agent && go build -o ../bin/localwiki-agent ./cmd/localwiki-agent/"
+                f"{self.agent} CLI not found on PATH. "
+                f"Install the '{runner.cli_binary}' tool first."
             )
 
-        # Write prompt to a temp file to avoid shell escaping issues
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write(prompt)
-            prompt_file = f.name
+        if event_sink is not None:
+            return self._generate_streaming(prompt, event_sink)
 
-        try:
-            cmd = [
-                self._bin,
-                "run",
-                "--agent", self.agent,
-                "--prompt-file", prompt_file,
-                "--cwd", self.cwd,
-                "--timeout", str(self.timeout),
-            ]
-            if self.model:
-                cmd += ["--model", self.model]
-
-            if event_sink is not None:
-                return self._generate_streaming(cmd, event_sink)
-
-            logger.debug(f"Invoking agent: {' '.join(cmd[:5])}...")
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout + 10,
+        # Synchronous collect
+        result: RunResult = asyncio.run(
+            runner.run_collect(
+                prompt=prompt,
+                cwd=self.cwd,
+                model=self.model,
+                timeout=self.timeout,
             )
-
-            if result.returncode != 0 and not result.stdout:
-                raise RuntimeError(
-                    f"localwiki-agent exited {result.returncode}: {result.stderr.strip()}"
-                )
-            if result.returncode != 0:
-                logger.error(f"Agent stdout: {result.stdout.strip()}")
-                logger.error(f"Agent stderr: {result.stderr.strip()}")
-
-            data = json.loads(result.stdout.strip())
-
-            if data.get("error"):
-                raise RuntimeError(f"Agent error ({self.agent}): {data['error']}")
-
-            content = data.get("content", "")
-            elapsed = data.get("elapsed_ms", "?")
-            logger.info(
-                f"[{self.agent}/{data.get('model', '?')}] "
-                f"{len(content)} chars in {elapsed}ms"
-            )
-            return content
-
-        finally:
-            os.unlink(prompt_file)
-
-    def _generate_streaming(self, cmd: list[str], event_sink) -> str:
-        """Invoke localwiki-agent in JSONL mode and forward events to event_sink."""
-        stream_cmd = [*cmd, "--stream-jsonl"]
-        logger.debug(f"Invoking streaming agent: {' '.join(stream_cmd[:6])}...")
-        process = subprocess.Popen(
-            stream_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
         )
 
-        content_parts: list[str] = []
-        assert process.stdout is not None
-        for line in process.stdout:
-            raw = line.strip()
-            if not raw:
-                continue
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                event = {"type": "agent_log", "source": "stdout", "content": raw}
+        if result.error and not result.content:
+            raise RuntimeError(f"Agent error ({self.agent}): {result.error}")
+        if result.error:
+            logger.error(f"Agent stderr ({self.agent}): {result.error}")
 
-            event_type = event.get("type")
-            if event_type == "chunk":
-                content_parts.append(event.get("content", ""))
-            elif event_type == "complete" and event.get("content"):
-                content_parts = [event.get("content", "")]
-            if callable(event_sink):
-                event_sink(event)
+        logger.info(
+            f"[{self.agent}/{result.model}] "
+            f"{len(result.content)} chars in {result.elapsed_ms}ms"
+        )
+        return result.content
 
-        stderr = process.stderr.read() if process.stderr else ""
-        return_code = process.wait(timeout=self.timeout + 10)
-        if stderr and callable(event_sink):
-            event_sink({"type": "agent_log", "source": "stderr", "content": stderr})
+    def _generate_streaming(self, prompt: str, event_sink) -> str:
+        """Run agent in streaming mode and forward events to event_sink."""
 
-        if return_code != 0:
-            raise RuntimeError(f"localwiki-agent exited {return_code}: {stderr.strip()}")
+        async def _run() -> str:
+            runner = self._registry.get(self.agent)
+            content_parts: list[str] = []
+            async for event in runner.run_stream_jsonl(
+                prompt=prompt,
+                cwd=self.cwd,
+                model=self.model,
+                timeout=self.timeout,
+            ):
+                ev_dict = {
+                    "type": event.type,
+                    "agent": event.agent,
+                    "model": event.model,
+                    "content": event.content,
+                    "error": event.error,
+                    "elapsed_ms": event.elapsed_ms,
+                }
+                if event.type == "chunk":
+                    content_parts.append(event.content)
+                elif event.type == "complete" and event.content:
+                    content_parts = [event.content]
+                if callable(event_sink):
+                    event_sink(ev_dict)
+            return "".join(content_parts).strip()
 
-        return "".join(content_parts).strip()
+        return asyncio.run(_run())
 
     def check_available(self) -> bool:
         """Return True if the underlying CLI agent is installed."""
-        if not self._bin:
-            return False
         try:
-            result = subprocess.run(
-                [self._bin, "check", self.agent],
-                capture_output=True, text=True, timeout=5,
-            )
-            return result.returncode == 0
+            runner = self._registry.get(self.agent)
+            return runner.available()
         except Exception:
             return False
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def _find_agent_bin() -> str | None:
-    """Locate the localwiki-agent binary."""
-    candidate = Path(_AGENT_BIN)
-    if candidate.is_file() and os.access(candidate, os.X_OK):
-        return str(candidate)
-
-    # Also try PATH
-    import shutil
-    found = shutil.which("localwiki-agent")
-    if found:
-        return found
-
-    logger.warning(
-        f"localwiki-agent binary not found at {_AGENT_BIN}. "
-        "Build it first: cd agent && go build -o ../bin/localwiki-agent ./cmd/localwiki-agent/"
-    )
-    return None

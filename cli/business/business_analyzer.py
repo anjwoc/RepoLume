@@ -1,0 +1,287 @@
+"""
+BusinessAnalyzer — Orchestrates comprehensive business logic analysis.
+
+Analyzes a repository to extract:
+  - Core business domain and purpose
+  - Key business entities and their relationships
+  - Business workflows and processes
+  - Data flows across the system
+  - Business impact of critical components
+  - Technical debt with business implications
+"""
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict
+
+from cli.business.data_flow_tracer import DataFlowTracer, DataFlowGraph
+from cli.business.workflow_mapper import WorkflowMapper, BusinessWorkflow
+from cli.business.impact_analyzer import ImpactAnalyzer, ComponentImpact
+from cli.prompts import (
+    BUSINESS_OVERVIEW_PROMPT,
+    BUSINESS_ENTITIES_PROMPT,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BusinessDomain:
+    """High-level business domain description."""
+    name: str
+    description: str
+    core_purpose: str
+    target_users: List[str]
+    key_value_propositions: List[str]
+
+
+@dataclass
+class BusinessEntity:
+    """A key business entity (concept, object) in the codebase."""
+    name: str
+    description: str
+    source_files: List[str]
+    related_entities: List[str] = field(default_factory=list)
+    business_criticality: str = "medium"  # "high" | "medium" | "low"
+
+
+@dataclass
+class BusinessAnalysis:
+    """Complete business analysis result for a repository."""
+    domain: BusinessDomain
+    entities: List[BusinessEntity]
+    workflows: List[BusinessWorkflow]
+    data_flows: List[DataFlowGraph]
+    component_impacts: List[ComponentImpact]
+    business_summary_md: str       # Full markdown analysis page
+    data_flow_summary_md: str      # Data flow section markdown
+    workflow_summary_md: str       # Workflow section markdown
+    impact_summary_md: str         # Impact analysis section markdown
+
+
+class BusinessAnalyzer:
+    """
+    Orchestrates the full business analysis of a repository.
+
+    Usage::
+
+        from cli.business import BusinessAnalyzer
+        analyzer = BusinessAnalyzer(provider, repo, repo_name="my-app")
+        analysis = analyzer.analyze(lang="ko")
+        print(analysis.business_summary_md)
+    """
+
+    def __init__(self, provider, repo, repo_name: str):
+        self._provider = provider
+        self._repo = repo
+        self._repo_name = repo_name
+        self._data_flow_tracer = DataFlowTracer(provider, repo)
+        self._workflow_mapper = WorkflowMapper(provider, repo)
+        self._impact_analyzer = ImpactAnalyzer(provider, repo)
+
+    def analyze(self, lang: str = "en") -> BusinessAnalysis:
+        """Run the full business analysis pipeline."""
+        logger.info(f"Starting business analysis for {self._repo_name}...")
+
+        # 1. Get file tree and README for context
+        file_tree = self._repo.file_tree()
+        readme = self._repo.readme() or "(no README found)"
+        if len(readme) > 6_000:
+            readme = readme[:6_000] + "\n...(truncated)"
+
+        # 2. Generate business overview (domain + entities)
+        logger.info("Analyzing business domain...")
+        domain, entities = self._analyze_domain_and_entities(
+            file_tree, readme, lang
+        )
+
+        # 3. Trace data flows
+        logger.info("Tracing data flows...")
+        data_flows = self._data_flow_tracer.trace(
+            file_tree, readme, lang=lang
+        )
+
+        # 4. Map business workflows
+        logger.info("Mapping business workflows...")
+        workflows = self._workflow_mapper.map(
+            file_tree, readme, entities, lang=lang
+        )
+
+        # 5. Analyze component impact
+        logger.info("Analyzing component business impact...")
+        component_impacts = self._impact_analyzer.analyze(
+            file_tree, entities, workflows, lang=lang
+        )
+
+        # 6. Render markdown sections
+        business_summary_md = self._render_business_summary(
+            domain, entities, lang
+        )
+        data_flow_md = self._data_flow_tracer.render_markdown(data_flows, lang)
+        workflow_md = self._workflow_mapper.render_markdown(workflows, lang)
+        impact_md = self._impact_analyzer.render_markdown(component_impacts, lang)
+
+        logger.info("Business analysis complete.")
+        return BusinessAnalysis(
+            domain=domain,
+            entities=entities,
+            workflows=workflows,
+            data_flows=data_flows,
+            component_impacts=component_impacts,
+            business_summary_md=business_summary_md,
+            data_flow_summary_md=data_flow_md,
+            workflow_summary_md=workflow_md,
+            impact_summary_md=impact_md,
+        )
+
+    # ── Private helpers ──────────────────────────────────────────────────── #
+
+    def _analyze_domain_and_entities(
+        self, file_tree: str, readme: str, lang: str
+    ):
+        """Use LLM to extract business domain and key entities."""
+        from cli.pipeline.structure_planner import LANGUAGE_NAMES
+        import json, re
+
+        language_name = LANGUAGE_NAMES.get(lang, "English")
+
+        # Business overview
+        overview_prompt = BUSINESS_OVERVIEW_PROMPT.format(
+            repo_name=self._repo_name,
+            file_tree=file_tree,
+            readme=readme,
+            language_name=language_name,
+        )
+        overview_raw = self._provider.generate(overview_prompt)
+
+        # Entity extraction
+        entity_prompt = BUSINESS_ENTITIES_PROMPT.format(
+            repo_name=self._repo_name,
+            file_tree=file_tree,
+            readme=readme,
+            language_name=language_name,
+        )
+        entity_raw = self._provider.generate(entity_prompt)
+
+        domain = self._parse_domain(overview_raw)
+        entities = self._parse_entities(entity_raw)
+        return domain, entities
+
+    def _parse_domain(self, raw: str) -> BusinessDomain:
+        """Parse LLM domain response into BusinessDomain."""
+        import json, re
+        try:
+            clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
+            clean = re.sub(r"\s*```$", "", clean.strip(), flags=re.MULTILINE)
+            match = re.search(r"\{.*\}", clean, re.DOTALL)
+            if match:
+                data = json.loads(match.group())
+                return BusinessDomain(
+                    name=data.get("name", self._repo_name),
+                    description=data.get("description", ""),
+                    core_purpose=data.get("core_purpose", ""),
+                    target_users=data.get("target_users", []),
+                    key_value_propositions=data.get("key_value_propositions", []),
+                )
+        except Exception as e:
+            logger.warning(f"Domain parse failed, using raw text: {e}")
+
+        # Fallback: use raw as description
+        return BusinessDomain(
+            name=self._repo_name,
+            description=raw[:500],
+            core_purpose="",
+            target_users=[],
+            key_value_propositions=[],
+        )
+
+    def _parse_entities(self, raw: str) -> List[BusinessEntity]:
+        """Parse LLM entity response into list of BusinessEntity."""
+        import json, re
+        try:
+            clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
+            clean = re.sub(r"\s*```$", "", clean.strip(), flags=re.MULTILINE)
+            match = re.search(r"\[.*\]", clean, re.DOTALL)
+            if match:
+                data = json.loads(match.group())
+                return [
+                    BusinessEntity(
+                        name=e.get("name", ""),
+                        description=e.get("description", ""),
+                        source_files=e.get("source_files", []),
+                        related_entities=e.get("related_entities", []),
+                        business_criticality=e.get("business_criticality", "medium"),
+                    )
+                    for e in data if e.get("name")
+                ]
+        except Exception as e:
+            logger.warning(f"Entity parse failed: {e}")
+        return []
+
+    def _render_business_summary(
+        self,
+        domain: BusinessDomain,
+        entities: List[BusinessEntity],
+        lang: str,
+    ) -> str:
+        """Render the business overview section as markdown."""
+        lines = [
+            f"# Business Analysis: {domain.name}",
+            "",
+            "## Business Domain Overview",
+            "",
+            domain.description,
+            "",
+        ]
+
+        if domain.core_purpose:
+            lines += ["**Core Purpose:**", "", domain.core_purpose, ""]
+
+        if domain.target_users:
+            lines += ["**Target Users:**", ""]
+            for u in domain.target_users:
+                lines.append(f"- {u}")
+            lines.append("")
+
+        if domain.key_value_propositions:
+            lines += ["**Key Value Propositions:**", ""]
+            for v in domain.key_value_propositions:
+                lines.append(f"- {v}")
+            lines.append("")
+
+        if entities:
+            lines += ["## Core Business Entities", ""]
+            high = [e for e in entities if e.business_criticality == "high"]
+            med = [e for e in entities if e.business_criticality == "medium"]
+            low = [e for e in entities if e.business_criticality == "low"]
+
+            for group_label, group in [
+                ("🔴 High Criticality", high),
+                ("🟡 Medium Criticality", med),
+                ("🟢 Low Criticality", low),
+            ]:
+                if not group:
+                    continue
+                lines += [f"### {group_label}", ""]
+                for entity in group:
+                    lines += [
+                        f"#### {entity.name}",
+                        "",
+                        entity.description,
+                        "",
+                    ]
+                    if entity.source_files:
+                        lines.append(
+                            "**Source files:** "
+                            + ", ".join(f"`{f}`" for f in entity.source_files[:5])
+                        )
+                        lines.append("")
+                    if entity.related_entities:
+                        lines.append(
+                            "**Related to:** "
+                            + ", ".join(entity.related_entities)
+                        )
+                        lines.append("")
+
+        return "\n".join(lines)

@@ -1,0 +1,183 @@
+"""
+ObsidianExporter — Exports wiki pages to an Obsidian vault.
+
+Creates:
+  - One .md file per wiki page (with [[wiki-links]] syntax)
+  - An index file (README.md) with table of contents
+  - Preserves Mermaid diagrams (Obsidian supports them natively)
+
+No API key required — writes directly to the local file system.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import re
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from cli.exporters.base_exporter import BaseExporter, ExportResult
+
+logger = logging.getLogger(__name__)
+
+
+class ObsidianExporter(BaseExporter):
+    """
+    Exports wiki pages to an Obsidian vault directory.
+
+    Usage::
+
+        exporter = ObsidianExporter(vault_path="~/Documents/MyVault/ProjectWiki")
+        result = exporter.export(pages, wiki_title="My Project Wiki")
+    """
+
+    def __init__(self, vault_path: str):
+        self._vault_path = Path(vault_path).expanduser().resolve()
+
+    @property
+    def name(self) -> str:
+        return "obsidian"
+
+    def export(
+        self,
+        pages: Dict[str, str],
+        wiki_title: str,
+        **kwargs,
+    ) -> ExportResult:
+        """Export all wiki pages to the Obsidian vault directory."""
+        try:
+            self._vault_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            return ExportResult(
+                success=False,
+                exported_count=0,
+                target=self.name,
+                errors=[f"Cannot create vault directory: {e}"],
+                output_path=str(self._vault_path),
+            )
+
+        exported = 0
+        errors = []
+        file_paths = []
+        page_titles: Dict[str, str] = {}  # page_id -> title for link resolution
+
+        # First pass: collect titles for wiki-link generation
+        for page_id, content in pages.items():
+            title = self._extract_title(content, fallback=page_id)
+            page_titles[page_id] = title
+
+        # Business analysis page titles
+        business_titles = {
+            "__business_overview__": f"{wiki_title} — Business Overview",
+            "__business_dataflow__": f"{wiki_title} — Data Flow",
+            "__business_workflow__": f"{wiki_title} — Workflows",
+            "__business_impact__": f"{wiki_title} — Impact Analysis",
+        }
+        page_titles.update({k: v for k, v in business_titles.items() if k in pages})
+
+        # Second pass: write pages
+        for page_id, content in pages.items():
+            title = page_titles.get(page_id, page_id)
+            filename = self._safe_filename(title)
+            filepath = self._vault_path / f"{filename}.md"
+
+            try:
+                obsidian_content = self._convert_to_obsidian(
+                    content, page_titles, current_page_id=page_id
+                )
+                filepath.write_text(obsidian_content, encoding="utf-8")
+                file_paths.append(str(filepath))
+                exported += 1
+                logger.debug(f"Exported: {filepath}")
+            except Exception as e:
+                errors.append(f"Error exporting {page_id}: {e}")
+                logger.error(f"Obsidian export error: {e}")
+
+        # Write index / README
+        index_content = self._build_index(wiki_title, pages, page_titles)
+        index_path = self._vault_path / "README.md"
+        try:
+            index_path.write_text(index_content, encoding="utf-8")
+            file_paths.append(str(index_path))
+        except Exception as e:
+            errors.append(f"Index write error: {e}")
+
+        return ExportResult(
+            success=exported > 0,
+            exported_count=exported,
+            target=self.name,
+            errors=errors,
+            output_path=str(self._vault_path),
+        )
+
+    def _convert_to_obsidian(
+        self,
+        content: str,
+        page_titles: Dict[str, str],
+        current_page_id: str = "",
+    ) -> str:
+        """Convert LocalWiki markdown to Obsidian-compatible markdown."""
+        # Add YAML frontmatter
+        title = self._extract_title(content, fallback=current_page_id)
+        frontmatter = f"---\ntitle: {title}\ntags: [localwiki]\n---\n\n"
+
+        # Clean LocalWiki-specific markup
+        md = self._clean_markdown(content)
+
+        # Convert internal page refs to Obsidian [[wiki-links]]
+        # Pattern: [Page Title](#page-id) -> [[Page Title]]
+        def replace_link(match):
+            link_text = match.group(1)
+            return f"[[{link_text}]]"
+
+        md = re.sub(r"\[([^\]]+)\]\(#[a-z0-9-]+\)", replace_link, md)
+
+        return frontmatter + md
+
+    def _build_index(
+        self,
+        wiki_title: str,
+        pages: Dict[str, str],
+        page_titles: Dict[str, str],
+    ) -> str:
+        """Build a table-of-contents index page."""
+        lines = [
+            f"# {wiki_title}",
+            "",
+            f"> Generated by [LocalWiki](https://github.com/localwiki/local-deepwiki)",
+            "",
+            "## Pages",
+            "",
+        ]
+
+        # Separate business analysis pages
+        regular_pages = {k: v for k, v in pages.items() if not (k.startswith("__") and k.endswith("__"))}
+        business_pages = {k: v for k, v in pages.items() if k.startswith("__") and k.endswith("__")}
+
+        for page_id in sorted(regular_pages.keys()):
+            title = page_titles.get(page_id, page_id)
+            filename = self._safe_filename(title)
+            lines.append(f"- [[{filename}|{title}]]")
+
+        if business_pages:
+            lines += ["", "## Business Analysis", ""]
+            for page_id in business_pages:
+                title = page_titles.get(page_id, page_id)
+                filename = self._safe_filename(title)
+                lines.append(f"- [[{filename}|{title}]]")
+
+        return "\n".join(lines)
+
+    def _extract_title(self, content: str, fallback: str = "Page") -> str:
+        """Extract H1 title from markdown content."""
+        for line in content.split("\n"):
+            if line.startswith("# "):
+                return line[2:].strip()[:200]
+        return fallback[:200]
+
+    def _safe_filename(self, title: str) -> str:
+        """Convert page title to a safe filename."""
+        # Remove characters not allowed in file names
+        safe = re.sub(r'[\\/:*?"<>|]', "-", title)
+        safe = safe.strip(". ").strip()
+        return safe[:100] or "page"

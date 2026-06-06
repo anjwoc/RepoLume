@@ -24,6 +24,7 @@ def get_provider(provider: str, model: str | None = None, cwd: str = ".", **kwar
       - "gemini-cli"  → CLIAgentProvider("gemini")
       - "codex-cli"   → CLIAgentProvider("codex")
       - "claude-cli"  → CLIAgentProvider("claude")
+      - "antigravity-cli" → CLIAgentProvider("antigravity")
     """
     name = provider.lower().strip()
 
@@ -39,6 +40,10 @@ def get_provider(provider: str, model: str | None = None, cwd: str = ".", **kwar
     if name in ("claude-cli", "claude-sub", "anthropic-cli"):
         from cli.providers.cli_agent import CLIAgentProvider
         return CLIAgentProvider("claude", model=model, cwd=cwd, **kwargs)
+
+    if name in ("antigravity-cli", "agy-cli", "antigravity-sub", "agy-sub"):
+        from cli.providers.cli_agent import CLIAgentProvider
+        return CLIAgentProvider("antigravity", model=model, cwd=cwd, **kwargs)
 
     # ── API-key providers ─────────────────────────────────────────────────
     if name == "gemini":
@@ -56,7 +61,7 @@ def get_provider(provider: str, model: str | None = None, cwd: str = ".", **kwar
     raise ValueError(
         f"Unknown provider '{provider}'. "
         "API-key: gemini, claude, openai. "
-        "CLI (subscription): gemini-cli, codex-cli, claude-cli"
+        "CLI (subscription): gemini-cli, codex-cli, claude-cli, antigravity-cli"
     )
 
 
@@ -64,7 +69,7 @@ def list_providers() -> dict[str, list[str]]:
     """Return all available provider names grouped by type."""
     return {
         "api_key": ["gemini", "claude", "openai", "codex", "gpt"],
-        "cli_subscription": ["gemini-cli", "codex-cli", "claude-cli"],
+        "cli_subscription": ["gemini-cli", "codex-cli", "claude-cli", "antigravity-cli"],
     }
 
 
