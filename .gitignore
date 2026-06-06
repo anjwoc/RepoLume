@@ -76,3 +76,13 @@ next-env.d.ts
 # ignore adding self-signed certs
 certs/
 .env*.local
+
+# Build & Cache Outputs
+dist-electron/
+wiki-out/
+.localwiki-cache/
+.antigravitycli/
+screenshots/
+
+# local scratch / debug (not part of app)
+/scratch/
