@@ -1,16 +1,16 @@
-# Graph Report - local-wiki  (2026-06-08)
+# Graph Report - local-wiki  (2026-06-09)
 
 ## Corpus Check
-- 237 files · ~162,035 words
+- 218 files · ~251,451 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2586 nodes · 4651 edges · 197 communities (179 shown, 18 thin omitted)
-- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 559 edges (avg confidence: 0.51)
+- 2622 nodes · 4711 edges · 185 communities (169 shown, 16 thin omitted)
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 564 edges (avg confidence: 0.51)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2e808757`
+- Built from commit: `1cd37bc0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -173,7 +173,8 @@
 - [[_COMMUNITY_Community 161|Community 161]]
 - [[_COMMUNITY_Community 162|Community 162]]
 - [[_COMMUNITY_Community 166|Community 166]]
-- [[_COMMUNITY_Community 196|Community 196]]
+- [[_COMMUNITY_Community 167|Community 167]]
+- [[_COMMUNITY_Community 176|Community 176]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 271 edges
@@ -181,11 +182,11 @@
 3. `DataSource` - 54 edges
 4. `SourcedContext` - 52 edges
 5. `MCPStdioClient` - 43 edges
-6. `WikiPage` - 41 edges
-7. `AgentRegistry` - 40 edges
+6. `AgentRegistry` - 41 edges
+7. `WikiPage` - 41 edges
 8. `OpenAIClient` - 38 edges
-9. `CallGraph` - 37 edges
-10. `NotionExporter` - 36 edges
+9. `NotionExporter` - 37 edges
+10. `ObsidianExporter` - 37 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `bool` --uses--> `RunResult`  [INFERRED]
@@ -202,11 +203,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (197 total, 18 thin omitted)
+## Communities (185 total, 16 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.06
-Nodes (53): BusinessAnalysis, BusinessAnalyzer, BusinessDomain, BusinessEntity, BusinessAnalyzer — Orchestrates comprehensive business logic analysis.  Analyzes, Use LLM to extract business domain and key entities., Parse LLM domain response into BusinessDomain., Parse LLM entity response into list of BusinessEntity. (+45 more)
+Cohesion: 0.05
+Nodes (51): BusinessAnalysis, BusinessDomain, BusinessEntity, BusinessAnalyzer — Orchestrates comprehensive business logic analysis.  Analyzes, Use LLM to extract business domain and key entities., Parse LLM domain response into BusinessDomain., Parse LLM entity response into list of BusinessEntity., Render the business overview section as markdown. (+43 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.05
@@ -218,11 +219,11 @@ Nodes (63): dependencies, class-variance-authority, clsx, cmdk, date-fns, embla-
 
 ### Community 3 - "Community 3"
 Cohesion: 0.06
-Nodes (37): bool, str, bool, int, str, bool, str, Any (+29 more)
+Nodes (36): bool, str, bool, int, str, bool, str, Any (+28 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.05
-Nodes (42): estimate_token_count(), get_all_messages_content(), get_first_message_content(), get_probabilities(), handle_streaming_response(), OpenAIClient, parse_stream_response(), Any (+34 more)
+Nodes (38): estimate_token_count(), get_all_messages_content(), get_first_message_content(), get_probabilities(), handle_streaming_response(), parse_stream_response(), Any, GeneratorOutput (+30 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.06
@@ -230,7 +231,7 @@ Nodes (40): useIsMobile(), Sheet(), SheetContent(), SheetDescription(), SheetFoo
 
 ### Community 6 - "Community 6"
 Cohesion: 0.07
-Nodes (34): get_model_config(), Get configuration for the specified provider and model      Parameters:, OpenRouterClient, Any, ModelType, OpenRouter ModelClient integration., Make an asynchronous call to the OpenRouter API., Process a streaming response from OpenRouter. (+26 more)
+Nodes (40): get_model_config(), load_embedder_config(), load_generator_config(), load_json_config(), load_lang_config(), load_repo_config(), Any, str (+32 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.09
@@ -241,12 +242,12 @@ Cohesion: 0.07
 Nodes (36): Action, ActionType, actionTypes, addToRemoveQueue(), dispatch(), genId(), listeners, memoryState (+28 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.09
-Nodes (33): count_tokens(), download_repo(), get_bitbucket_file_content(), get_file_content(), get_github_file_content(), get_gitlab_file_content(), prepare_data_pipeline(), bool (+25 more)
+Cohesion: 0.08
+Nodes (34): count_tokens(), download_repo(), get_bitbucket_file_content(), get_file_content(), get_github_file_content(), get_gitlab_file_content(), prepare_data_pipeline(), bool (+26 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.13
-Nodes (16): ABC, bool, str, ExportResult, ExportResult, BaseExporter, ExportResult, BaseExporter — Abstract base class for all wiki exporters. (+8 more)
+Cohesion: 0.09
+Nodes (24): ABC, bool, str, ExportResult, ExportResult, str, BaseExporter, ExportResult (+16 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.06
@@ -258,7 +259,7 @@ Nodes (27): BlockActionWrapperProps, Command(), CommandDialog(), CommandGroup(),
 
 ### Community 13 - "Community 13"
 Cohesion: 0.06
-Nodes (38): AgyAuthSession, check_auth_status(), bool, str, Submits the pasted code to the running PTY session., Check if agy is already authenticated by running a dummy prompt., Starts agy in a PTY and captures the Google OAuth URL., start_auth_session() (+30 more)
+Nodes (37): AgyAuthSession, check_auth_status(), bool, str, Submits the pasted code to the running PTY session., Check if agy is already authenticated by running a dummy prompt., Starts agy in a PTY and captures the Google OAuth URL., start_auth_session() (+29 more)
 
 ### Community 14 - "Community 14"
 Cohesion: 0.08
@@ -269,24 +270,24 @@ Cohesion: 0.08
 Nodes (20): bool, SourcedContext, str, int, str, ElectionConfig, ElectionMCPClient, Election MCP Client — connects via stdio bridge or remote MCP for election data. (+12 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.09
-Nodes (22): DatabaseManager, Manages the creation, loading, transformation, and persistence of LocalDB instan, Reset the database to its initial state., Module containing all prompts used in the LocalWiki project., AssistantResponse, CustomConversation, DialogTurn, Memory (+14 more)
+Cohesion: 0.08
+Nodes (26): DatabaseManager, Manages the creation, loading, transformation, and persistence of LocalDB instan, Reset the database to its initial state., check_ollama_model_exists(), bool, str, Check if an Ollama model exists before attempting to use it.          Args:, Module containing all prompts used in the LocalWiki project. (+18 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.08
-Nodes (23): GoogleEmbedderClient, Any, EmbedderOutput, ModelType, str, Convert inputs to Google AI API format.                  Args:             input, Call Google AI embedding API.                  Args:             api_kwargs: API, Async call to Google AI embedding API.                  Note: Google AI Python c (+15 more)
+Nodes (23): GoogleEmbedderClient, Any, EmbedderOutput, ModelType, str, Google AI Embeddings ModelClient integration., Convert inputs to Google AI API format.                  Args:             input, Call Google AI embedding API.                  Args:             api_kwargs: API (+15 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.11
-Nodes (25): Allow running as: python -m cli, Path, str, build_parser(), cmd_generate(), cmd_plan(), cmd_publish(), _load_dotenv() (+17 more)
+Cohesion: 0.10
+Nodes (31): ArgumentParser, BusinessAnalyzer, Orchestrates the full business analysis of a repository.      Usage::          f, Allow running as: python -m cli, build_parser(), cmd_generate(), cmd_plan(), cmd_publish() (+23 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.11
 Nodes (19): bool, Path, str, AtlassianConfig, Atlassian connection configuration., DBConfig, Database connection configuration., GitHubConfig (+11 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.23
-Nodes (6): str, Convert LocalWiki markdown to Obsidian-compatible markdown., Build a table-of-contents index page., Extract H1 title from markdown content., Convert page title to a safe filename., Export all wiki pages to the Obsidian vault directory.
+Cohesion: 0.10
+Nodes (20): cleanup_trash(), delete_wiki_cache(), get_wiki_cache_path(), Saves wiki cache data to the file system., Generates the file path for a given wiki cache., Generates the file path for a given wiki cache., Saves wiki cache data to the file system., Saves wiki cache data to the file system. (+12 more)
 
 ### Community 21 - "Community 21"
 Cohesion: 0.12
@@ -297,8 +298,8 @@ Cohesion: 0.08
 Nodes (31): get_embedder_config(), get_embedder_type(), is_google_embedder(), is_ollama_embedder(), Get the current embedder configuration based on LOCALWIKI_EMBEDDER_TYPE.      Re, Check if the current embedder configuration uses OllamaClient.      Returns:, Check if the current embedder configuration uses GoogleEmbedderClient.      Retu, Get the current embedder type based on configuration.      Returns:         str: (+23 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.13
-Nodes (20): ArgumentParser, bool, int, int, str, WikiPage, WikiStructure, ContextSignals (+12 more)
+Cohesion: 0.10
+Nodes (25): bool, int, int, str, WikiPage, WikiStructure, bool, str (+17 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.12
@@ -313,16 +314,16 @@ Cohesion: 0.13
 Nodes (26): AskMode, Message, WikiAskPanel(), WikiAskPanelProps, AppSettings, AskParams, AskSemanticParams, askSource() (+18 more)
 
 ### Community 27 - "Community 27"
-Cohesion: 0.13
-Nodes (16): Any, bool, Path, str, WikiPage, GraphifyBridge, graphify bridge — interfaces with the graphify knowledge-graph tool (https://git, Ask graphify to generate a wiki-style Markdown page for a component.         Ret (+8 more)
+Cohesion: 0.09
+Nodes (25): bool, str, WikiPage, Any, bool, Path, str, WikiPage (+17 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.12
-Nodes (45): AgentRegistry, Lookup and availability check for all CLI runners., Return list of agent names whose CLI binary is on PATH., AuthCodeSubmit, AuthorizationConfig, FixDiagramRequest, get_model_config(), Model (+37 more)
+Cohesion: 0.11
+Nodes (48): AgentRegistry, Lookup and availability check for all CLI runners., Return list of agent names whose CLI binary is on PATH., AuthCodeSubmit, AuthorizationConfig, FixDiagramRequest, generate_markdown_tree_zip(), get_model_config() (+40 more)
 
 ### Community 29 - "Community 29"
-Cohesion: 0.17
-Nodes (17): encode_sse(), parse_event_filter(), parse_last_event_id(), post_task_event(), Any, bool, int, str (+9 more)
+Cohesion: 0.18
+Nodes (18): emit_task_event(), encode_sse(), parse_event_filter(), parse_last_event_id(), post_task_event(), Any, bool, int (+10 more)
 
 ### Community 30 - "Community 30"
 Cohesion: 0.17
@@ -349,16 +350,16 @@ Cohesion: 0.19
 Nodes (7): int, Path, str, Read a single file by its relative path. Returns empty string on error., Return a text representation of the directory tree., Return the contents of the first README file found (any extension)., Return {relative_path: content} for all indexable files.         Skips files tha
 
 ### Community 36 - "Community 36"
-Cohesion: 0.14
-Nodes (12): Any, int, str, MCPStdioClient, Send a JSON-RPC request and return the result., Send a JSON-RPC notification (no response expected)., Read lines from stdout until we find the response to expected_id., Minimal MCP client that speaks JSON-RPC 2.0 over a subprocess's stdin/stdout. (+4 more)
+Cohesion: 0.13
+Nodes (13): Any, int, str, MCPStdioClient, MCP Base Client — JSON-RPC 2.0 over stdio for any MCP server process.  This impl, Send a JSON-RPC request and return the result., Send a JSON-RPC notification (no response expected)., Read lines from stdout until we find the response to expected_id. (+5 more)
 
 ### Community 37 - "Community 37"
 Cohesion: 0.10
 Nodes (21): embedder, batch_size, client_class, embedder_google, batch_size, client_class, model_kwargs, model_kwargs (+13 more)
 
 ### Community 38 - "Community 38"
-Cohesion: 0.09
-Nodes (23): agent_check(), cleanup_trash(), delete_wiki_cache(), export_obsidian(), get_cached_wiki(), get_git_roots(), get_wiki_cache_path(), _git_remote_to_web_url() (+15 more)
+Cohesion: 0.06
+Nodes (33): agent_check(), export_notion(), export_obsidian(), get_cached_wiki(), get_git_roots(), _git_remote_to_web_url(), MultiRepoBusinessContext, str (+25 more)
 
 ### Community 39 - "Community 39"
 Cohesion: 0.10
@@ -373,8 +374,8 @@ Cohesion: 0.10
 Nodes (8): BaseRunner, bool, Build the CLI argument list (excluding binary name and prompt)., Return the string to pass to stdin (default: prompt as-is)., Return runner-specific environment overrides., Optional post-processing of raw stdout. Override in subclasses., Abstract base for all CLI agent runners., Return True if the CLI binary is on PATH.
 
 ### Community 42 - "Community 42"
-Cohesion: 0.16
-Nodes (14): OllamaModelNotFoundError, Custom exception for when Ollama model is not found, bool, int, SourcedContext, str, Exception, AtlassianMCPClient (+6 more)
+Cohesion: 0.25
+Nodes (10): bool, int, SourcedContext, str, AtlassianMCPClient, Atlassian MCP Client — Jira + Confluence via official Remote MCP Server.  Two mo, Fetches Jira issues and Confluence pages to enrich wiki context.      Cloud mode, Fetch Jira issues and Confluence pages related to `topic`.         Returns Sourc (+2 more)
 
 ### Community 43 - "Community 43"
 Cohesion: 0.10
@@ -385,8 +386,8 @@ Cohesion: 0.16
 Nodes (13): bool, int, SourcedContext, str, DatabaseMCPClient, _filter_relevant_tables(), Database MCP Client — DBHub (PostgreSQL/MySQL/MSSQL/MariaDB) + Oracle SQLcl.  DB, Build the MCP server launch command. (+5 more)
 
 ### Community 45 - "Community 45"
-Cohesion: 0.18
-Nodes (13): Path, str, WikiStructure, str, FileExporter, File Exporter — writes generated wiki pages to disk as Markdown files, mirroring, Convert a title to a filesystem-safe slug., Exports a WikiStructure + generated page contents to disk.      Output layout:: (+5 more)
+Cohesion: 0.27
+Nodes (7): Path, str, WikiStructure, File Exporter — writes generated wiki pages to disk as Markdown files, mirroring, Convert a title to a filesystem-safe slug., Write all files and return the output directory path., _slugify()
 
 ### Community 46 - "Community 46"
 Cohesion: 0.10
@@ -397,16 +398,16 @@ Cohesion: 0.13
 Nodes (17): ButtonGroup(), ButtonGroupSeparator(), ButtonGroupText(), buttonGroupVariants, Item(), ItemActions(), ItemContent(), ItemDescription() (+9 more)
 
 ### Community 48 - "Community 48"
-Cohesion: 0.19
-Nodes (10): export_notion(), Export wiki pages to a Notion database., str, NotionExporter, Create a Notion page and return its URL., Convert markdown to Notion block objects (simplified)., Extract H1 title from markdown content., Exports wiki pages to Notion.      Each wiki page becomes a Notion page under a (+2 more)
+Cohesion: 0.12
+Nodes (16): devDependencies, concurrently, electron, electron-builder, eslint, eslint-config-next, @eslint/eslintrc, @playwright/test (+8 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.19
 Nodes (13): Carousel(), CarouselApi, CarouselContent(), CarouselContext, CarouselContextProps, CarouselItem(), CarouselNext(), CarouselOptions (+5 more)
 
 ### Community 50 - "Community 50"
-Cohesion: 0.24
-Nodes (10): load_embedder_config(), load_generator_config(), load_json_config(), load_lang_config(), load_repo_config(), Any, str, Recursively replace placeholders like "${ENV_VAR}" in string values     within a (+2 more)
+Cohesion: 0.14
+Nodes (14): scripts, build, deploy:vercel, desktop, desktop:build, dev, dev:all, dev:api (+6 more)
 
 ### Community 51 - "Community 51"
 Cohesion: 0.11
@@ -425,12 +426,12 @@ Cohesion: 0.17
 Nodes (12): _embed_wiki_docs(), _get_wiki_docs(), int, str, Wiki RAG (P3): semantic retrieval over the generated wiki documents.  Builds an, Return (context_text, cited_page_titles) for the most relevant wiki chunks., Build adalflow Documents from wiki pages and embed them via the standard pipelin, retrieve_wiki_context() (+4 more)
 
 ### Community 55 - "Community 55"
-Cohesion: 0.14
-Nodes (11): bool, str, WikiPage, GraphContext, Graph Context Builder — combines codegraph and graphify outputs into a single co, Unified interface for building graph-based LLM context.      Tries graphify firs, Args:             repo_path: Absolute path to the repository.             auto_i, Attempt to build missing indexes (best-effort, non-fatal). (+3 more)
+Cohesion: 0.21
+Nodes (6): str, Create a Notion page and return its URL., Convert markdown to Notion block objects (simplified)., Extract H1 title from markdown content., Extract Notion page ID from URL., Export all wiki pages to Notion.
 
 ### Community 56 - "Community 56"
-Cohesion: 0.21
-Nodes (12): bool, int, SourcedContext, str, detect_github_remote(), GitHubMCPClient, GitHub MCP Client — official GitHub MCP server.  Two modes:   1. Remote (recomme, Auto-detect GitHub owner/repo from git remote URL.      Returns (owner, repo) or (+4 more)
+Cohesion: 0.16
+Nodes (15): OllamaModelNotFoundError, Custom exception for when Ollama model is not found, bool, int, SourcedContext, str, Exception, MCPError (+7 more)
 
 ### Community 57 - "Community 57"
 Cohesion: 0.12
@@ -441,24 +442,24 @@ Cohesion: 0.22
 Nodes (6): Chunk, Context, RunRequest, RunResult, NewClaudeRunner(), ClaudeRunner
 
 ### Community 59 - "Community 59"
-Cohesion: 0.18
-Nodes (9): IgnoreLogChangeDetectedFilter, str, Configure logging for the application with log rotation.      Environment variab, setup_logging(), check_ollama_model_exists(), bool, str, Check if an Ollama model exists before attempting to use it.          Args: (+1 more)
+Cohesion: 0.38
+Nodes (11): fetchEventStream(), emitTaskEvent(), effectiveWikiLanguage(), elapsed(), emitStep(), providerToCli(), regenerateWikiPage(), runWikiGeneration() (+3 more)
 
 ### Community 60 - "Community 60"
 Cohesion: 0.24
 Nodes (9): BlockActionType, BlockActionWrapper(), GitRoot, Markdown(), MarkdownProps, COMPLETION_CHATTER, normalizeMarkdownContent(), stripCompletionChatter() (+1 more)
 
 ### Community 61 - "Community 61"
-Cohesion: 0.47
-Nodes (8): fetchEventStream(), emitTaskEvent(), elapsed(), emitStep(), providerToCli(), regenerateWikiPage(), runWikiGeneration(), translateWikiGeneration()
+Cohesion: 0.18
+Nodes (7): SelectContent(), SelectItem(), SelectLabel(), SelectScrollDownButton(), SelectScrollUpButton(), SelectSeparator(), SelectTrigger()
 
 ### Community 62 - "Community 62"
 Cohesion: 0.12
 Nodes (15): build, appId, directories, files, mac, productName, win, output (+7 more)
 
 ### Community 63 - "Community 63"
-Cohesion: 0.12
-Nodes (16): devDependencies, concurrently, electron, electron-builder, eslint, eslint-config-next, @eslint/eslintrc, @playwright/test (+8 more)
+Cohesion: 0.22
+Nodes (9): export_wiki(), generate_json_export(), generate_markdown_export(), Export wiki content as Markdown or JSON.      Args:         request: The export, Export wiki content as Markdown or JSON.      Args:         request: The export, Generate Markdown export of wiki pages.      Args:         repo_url: The reposit, Generate Markdown export of wiki pages.      Args:         repo_url: The reposit, Generate JSON export of wiki pages.      Args:         repo_url: The repository (+1 more)
 
 ### Community 64 - "Community 64"
 Cohesion: 0.12
@@ -469,20 +470,20 @@ Cohesion: 0.21
 Nodes (6): Chunk, Context, RunRequest, RunResult, NewGeminiRunner(), GeminiRunner
 
 ### Community 66 - "Community 66"
-Cohesion: 0.28
-Nodes (14): analyze_business(), AnalyzeBusinessRequest, _business_provider_name(), _business_repo_paths(), Run business analysis (data flow, workflow, impact) and return markdown pages., _patch_business_dependencies(), test_analyze_business_accepts_multi_repo_and_reports_invalid_paths(), test_analyze_business_accepts_single_repo() (+6 more)
+Cohesion: 0.25
+Nodes (15): analyze_business(), AnalyzeBusinessRequest, _business_provider_name(), _business_repo_paths(), Run business analysis (data flow, workflow, impact) and return markdown pages., Run business analysis (data flow, workflow, impact) and return markdown pages., _patch_business_dependencies(), test_analyze_business_accepts_multi_repo_and_reports_invalid_paths() (+7 more)
 
 ### Community 67 - "Community 67"
 Cohesion: 0.20
 Nodes (6): Chunk, Context, RunRequest, RunResult, NewAntigravityRunner(), AntigravityRunner
 
 ### Community 68 - "Community 68"
-Cohesion: 0.23
-Nodes (5): int, Run the CLI agent and collect the full output synchronously., Run the CLI agent and yield JSONL events compatible with the old         Go bina, Strip the codex CLI header/footer lines:           codex\n<content>\ntokens used, RunResult
+Cohesion: 0.15
+Nodes (8): JsonlEvent, int, agent_runner.py — Python-native replacement for the localwiki-agent Go binary., Run the CLI agent and collect the full output synchronously., Run the CLI agent and yield JSONL events compatible with the old         Go bina, Strip the codex CLI header/footer lines:           codex\n<content>\ntokens used, RunResult, CLIAgentProvider — wraps local CLI agents as an LLM provider.  Instead of API ke
 
 ### Community 69 - "Community 69"
-Cohesion: 0.14
-Nodes (14): scripts, build, deploy:vercel, desktop, desktop:build, dev, dev:all, dev:api (+6 more)
+Cohesion: 0.29
+Nodes (5): Any, ModelType, Make an asynchronous call to the OpenRouter API., Initialize the asynchronous OpenRouter client., Convert AdalFlow inputs to OpenRouter API format.
 
 ### Community 70 - "Community 70"
 Cohesion: 0.33
@@ -509,8 +510,8 @@ Cohesion: 0.21
 Nodes (10): InputGroup(), InputGroupAddon(), inputGroupAddonVariants, InputGroupButton(), inputGroupButtonVariants, InputGroupInput(), InputGroupText(), InputGroupTextarea() (+2 more)
 
 ### Community 76 - "Community 76"
-Cohesion: 0.18
-Nodes (4): AntigravityRunner, JsonlEvent, agent_runner.py — Python-native replacement for the localwiki-agent Go binary., Runs prompts via the `agy` CLI (Antigravity IDE agent).     Injects a strict ins
+Cohesion: 0.20
+Nodes (3): AntigravityRunner, Build CLI arguments when the prompt must be passed as an argument., Runs prompts via the `agy` CLI (Antigravity IDE agent).     Injects a strict ins
 
 ### Community 77 - "Community 77"
 Cohesion: 0.17
@@ -521,16 +522,16 @@ Cohesion: 0.18
 Nodes (11): temperature, temperature, top_p, gpt-5.5, gpt-5.5-mini, o1, o3, temperature (+3 more)
 
 ### Community 79 - "Community 79"
-Cohesion: 0.18
-Nodes (7): SelectContent(), SelectItem(), SelectLabel(), SelectScrollDownButton(), SelectScrollUpButton(), SelectSeparator(), SelectTrigger()
+Cohesion: 0.40
+Nodes (3): str, Extract JSON from LLM response and parse into WikiStructure., Args:             repo: LocalRepo instance (has .file_tree() and .readme())
 
 ### Community 80 - "Community 80"
 Cohesion: 0.29
 Nodes (9): Chunk, CollectChunks(), CollectChunksWithCallback(), DrainTo(), StringsToChunks(), Runner, RunRequest, RunResult (+1 more)
 
 ### Community 81 - "Community 81"
-Cohesion: 0.22
-Nodes (9): NavigationMenu(), NavigationMenuContent(), NavigationMenuIndicator(), NavigationMenuItem(), NavigationMenuLink(), NavigationMenuList(), NavigationMenuTrigger(), navigationMenuTriggerStyle (+1 more)
+Cohesion: 0.50
+Nodes (3): EmbedderOutput, r"""Parse the embedding response to a structure Adalflow components can understa, CreateEmbeddingResponse
 
 ### Community 82 - "Community 82"
 Cohesion: 0.22
@@ -545,12 +546,16 @@ Cohesion: 0.22
 Nodes (8): CLI 사용, Docker Compose 빠른 시작, LocalWiki, 라이선스, 로컬 개발, 문서, 오픈소스 고지, 주요 기능
 
 ### Community 85 - "Community 85"
-Cohesion: 0.29
-Nodes (7): check_connection(), fix_diagram(), get_local_repo_structure(), Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation, Return the file tree and README content for a local repository., Fire-and-forget diagram fix.      Immediately returns {status: "queued", job_id}, JSONResponse
+Cohesion: 0.18
+Nodes (11): check_connection(), fix_diagram(), get_local_repo_structure(), Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation, Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation, Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation, Return the file tree and README content for a local repository., Return the file tree and README content for a local repository. (+3 more)
+
+### Community 86 - "Community 86"
+Cohesion: 0.50
+Nodes (4): temperature, top_k, top_p, gemini-2.5-pro
 
 ### Community 87 - "Community 87"
 Cohesion: 0.25
-Nodes (8): temperature, top_k, top_p, default_model, models, supportsCustomModel, gemini-2.5-pro, google
+Nodes (8): temperature, top_k, top_p, default_model, models, supportsCustomModel, gemini-2.5-flash, google
 
 ### Community 88 - "Community 88"
 Cohesion: 0.25
@@ -749,12 +754,16 @@ Cohesion: 0.67
 Nodes (3): Cmd, CollectOutput(), PipeCmd()
 
 ### Community 137 - "Community 137"
-Cohesion: 0.50
-Nodes (4): temperature, top_k, top_p, gemini-2.5-flash
+Cohesion: 0.22
+Nodes (9): NavigationMenu(), NavigationMenuContent(), NavigationMenuIndicator(), NavigationMenuItem(), NavigationMenuLink(), NavigationMenuList(), NavigationMenuTrigger(), navigationMenuTriggerStyle (+1 more)
 
 ### Community 138 - "Community 138"
 Cohesion: 0.50
 Nodes (3): Generation Workflow, Sequence, Steps
+
+### Community 140 - "Community 140"
+Cohesion: 0.29
+Nodes (7): get_processed_projects(), health_check(), Health check endpoint for Docker and monitoring, Health check endpoint for Docker and monitoring, Health check endpoint for Docker and monitoring, Lists all processed projects found in the wiki cache directory.     Projects are, Lists all processed projects found in the wiki cache directory.     Projects are
 
 ### Community 142 - "Community 142"
 Cohesion: 0.67
@@ -768,25 +777,29 @@ Nodes (3): temperature, top_p, anthropic/claude-3.7-sonnet
 Cohesion: 0.67
 Nodes (3): openai/gpt-5.5, temperature, top_p
 
+### Community 167 - "Community 167"
+Cohesion: 0.50
+Nodes (3): Test the specific issues identified in the codebase., Test that RAG doesn't make binary assumptions about embedders., TestIssuesIdentified
+
 ## Knowledge Gaps
-- **601 isolated node(s):** `version`, `configurations`, `Chunk`, `RunResult`, `Chunk` (+596 more)
+- **600 isolated node(s):** `version`, `configurations`, `Chunk`, `RunResult`, `Chunk` (+595 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **16 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `BusinessAnalyzer` connect `Community 0` to `Community 66`, `Community 18`, `Community 13`?**
-  _High betweenness centrality (0.078) - this node is a cross-community bridge._
+- **Why does `BusinessAnalyzer` connect `Community 18` to `Community 0`, `Community 66`, `Community 13`?**
+  _High betweenness centrality (0.080) - this node is a cross-community bridge._
 - **Why does `get_provider()` connect `Community 3` to `Community 66`, `Community 18`, `Community 13`?**
   _High betweenness centrality (0.071) - this node is a cross-community bridge._
-- **Why does `cmd_generate()` connect `Community 18` to `Community 0`, `Community 3`, `Community 71`, `Community 45`, `Community 55`, `Community 21`, `Community 23`?**
-  _High betweenness centrality (0.048) - this node is a cross-community bridge._
+- **Why does `WikiPage` connect `Community 27` to `Community 32`, `Community 7`, `Community 79`, `Community 18`, `Community 23`?**
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
 - **Are the 37 inferred relationships involving `DataSource` (e.g. with `bool` and `int`) actually correct?**
   _`DataSource` has 37 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 36 inferred relationships involving `SourcedContext` (e.g. with `bool` and `int`) actually correct?**
   _`SourcedContext` has 36 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `version`, `configurations`, `Chunk` to the rest of the system?**
-  _1019 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1070 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.05506329113924051 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.052947052947052944 - nodes in this community are weakly interconnected._

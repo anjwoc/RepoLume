@@ -32,7 +32,8 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
   const [testMode, setTestMode] = useState<boolean>(false);
-  const [enableBusiness, setEnableBusiness] = useState(false);
+  // Business analysis is always on by default — no opt-in checkbox.
+  const [enableBusiness] = useState(true);
   const [projectPath, setProjectPath] = useState<string>("");
   
   const [recentProjects, setRecentProjects] = useState<ApiProcessedProject[]>([]);
@@ -419,10 +420,9 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
             <input type="checkbox" checked={testMode} onChange={(e) => setTestMode(e.target.checked)} style={{ cursor: "pointer", accentColor: t.primary }} />
             빠른 테스트 모드
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: t.textSecondary, fontSize: 13 }}>
-            <input type="checkbox" checked={enableBusiness} onChange={(e) => setEnableBusiness(e.target.checked)} style={{ cursor: "pointer", accentColor: t.primary }} />
-            비즈니스 분석
-          </label>
+          <span style={{ display: "flex", alignItems: "center", gap: "6px", color: t.textMuted, fontSize: 12 }}>
+            ✓ 비즈니스 분석 기본 포함
+          </span>
         </div>
 
         <button

@@ -120,6 +120,10 @@ class WikiExportRequest(BaseModel):
     repo_url: str = Field(..., description="URL of the repository")
     pages: List[WikiPage] = Field(..., description="List of wiki pages to export")
     format: Literal["markdown", "json"] = Field(..., description="Export format (markdown or json)")
+    # markdown only: "single" = one concatenated .md, "tree" = zip mirroring the
+    # section/page directory structure. Ignored for json.
+    structure: Literal["single", "tree"] = Field("single", description="Markdown layout: single file or directory-tree zip")
+    wiki_structure: Optional[WikiStructureModel] = Field(None, description="Section hierarchy, required for tree export")
 
 # --- Model Configuration Models ---
 class Model(BaseModel):
@@ -340,7 +344,18 @@ async def export_wiki(request: WikiExportRequest):
         # Get current timestamp for the filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        if request.format == "markdown":
+        if request.format == "markdown" and request.structure == "tree":
+            # Directory-tree zip mirroring the section/page hierarchy.
+            content = generate_markdown_tree_zip(
+                request.repo_url, request.pages, request.wiki_structure
+            )
+            response = Response(
+                content=content,
+                media_type="application/zip",
+                headers={"Content-Disposition": f"attachment; filename={repo_name}_wiki_{timestamp}.zip"},
+            )
+            return response
+        elif request.format == "markdown":
             # Generate Markdown content
             content = generate_markdown_export(request.repo_url, request.pages)
             filename = f"{repo_name}_wiki_{timestamp}.md"
@@ -638,6 +653,57 @@ def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
 
     return markdown
 
+def generate_markdown_tree_zip(
+    repo_url: str,
+    pages: List[WikiPage],
+    wiki_structure: Optional[WikiStructureModel],
+) -> bytes:
+    """
+    Build a zip archive mirroring the wiki's section/page directory structure:
+    one .md per page under a per-section folder, plus a root index.md (TOC).
+    Pages not assigned to any section are written at the archive root.
+    """
+    import io
+    import re
+    import zipfile
+
+    def slug(text: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+    page_by_id = {p.id: p for p in pages}
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    index_lines = [f"# Wiki Documentation for {repo_url}\n", f"\nGenerated on: {timestamp}\n"]
+    used_ids = set()
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        sections = (wiki_structure.sections or []) if wiki_structure else []
+        for i, section in enumerate(sections, 1):
+            sec_dir = f"{i:02d}-{slug(section.title) or section.id}"
+            index_lines.append(f"\n## {section.title}\n")
+            for pid in section.pages:
+                page = page_by_id.get(pid)
+                if not page:
+                    continue
+                used_ids.add(pid)
+                fname = f"{sec_dir}/{slug(page.title) or page.id}.md"
+                zf.writestr(fname, f"# {page.title}\n\n{page.content}\n")
+                index_lines.append(f"- [{page.title}]({fname})\n")
+
+        # Orphan pages (not referenced by any section) at the archive root.
+        orphans = [p for p in pages if p.id not in used_ids]
+        if orphans:
+            index_lines.append("\n## Other\n")
+            for page in orphans:
+                fname = f"{slug(page.title) or page.id}.md"
+                zf.writestr(fname, f"# {page.title}\n\n{page.content}\n")
+                index_lines.append(f"- [{page.title}]({fname})\n")
+
+        zf.writestr("index.md", "".join(index_lines))
+
+    return buf.getvalue()
+
+
 def generate_json_export(repo_url: str, pages: List[WikiPage]) -> str:
     """
     Generate JSON export of wiki pages.
@@ -719,7 +785,8 @@ async def fix_diagram(request: FixDiagramRequest):
     ) if request.custom_instruction else (
         f"The following Mermaid diagram has a syntax error.\n"
         f"Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, "
-        f"newline chars in labels). Output ONLY the corrected diagram inside a "
+        f"newline chars in labels). Keep all node/edge label text in its ORIGINAL "
+        f"language — do NOT translate labels. Output ONLY the corrected diagram inside a "
         f"```mermaid ... ``` block. Do not add any conversational text.\n\n"
         f"Original Diagram:\n```mermaid\n{request.chart_code}\n```"
     )

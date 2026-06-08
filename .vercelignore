@@ -1,11 +1,13 @@
-# Ignore python backend and go agent from Vercel deployment
-api/
-agent/
-cli/
-.localwiki-cache/
-wiki-out/
-tests/
-tests_backup/
-bin/
-docs/
-secrets/
+.codegraph
+dist-electron
+.localwiki-cache
+wiki-out
+screenshots
+graphify-out
+localwiki-agent
+playwright-report
+test-results
+e2e
+tests
+.next
+node_modules

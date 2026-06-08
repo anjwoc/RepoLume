@@ -134,7 +134,7 @@ Structure your page with:
    Cite AT LEAST 5 different source files throughout the page.
 
 7. **Summary**: brief closing paragraph.
-
+{topic_requirements}
 IMPORTANT:
 - Ground every claim in the provided source files only.
 - Do NOT invent or infer from external knowledge.
@@ -142,6 +142,69 @@ IMPORTANT:
 - Do NOT wrap your entire answer in ```markdown fences.
 - Start directly with the `<details>` block.
 """
+
+
+# ─────────────────────────────────────────────
+# Topic-specific page requirements
+# The generic WIKI_PAGE_PROMPT only *suggests* diagrams, so the model defaults
+# to `graph TD` and never emits sequence/ER diagrams. These blocks MANDATE the
+# diagram type and the concrete content each topic must cover. Injected into
+# WIKI_PAGE_PROMPT via {topic_requirements}, routed by section/title.
+# ─────────────────────────────────────────────
+
+_TOPIC_BATCH = """
+MANDATORY for this BATCH JOB page (in addition to the structure above):
+- Include a `sequenceDiagram` showing the job execution order across components
+  (Scheduler/Trigger → JobLauncher → Step → ItemReader → ItemProcessor → ItemWriter → commit).
+  Make chunk boundaries and the transaction commit point explicit.
+- Include a table of the job's schedule and tuning: job name / cron or trigger /
+  chunk-size / idempotency / retry & skip policy.
+- Add a dedicated paragraph on failure & re-run behavior: where it can break and how it recovers.
+"""
+
+_TOPIC_EVENT = """
+MANDATORY for this EVENT-PROCESSING page (in addition to the structure above):
+- Include a `sequenceDiagram` of the message flow
+  (Producer → Broker/topic → Consumer group → Handler → ack/commit), with the
+  retry / DLQ branch on failure shown explicitly.
+- Include a table of topics/messages: topic / payload schema / consumer group / partition key.
+- Add a dedicated paragraph on idempotency, duplicate handling, and dead-letter (DLQ) policy.
+"""
+
+_TOPIC_BACKEND = """
+MANDATORY for this BACKEND API page (in addition to the structure above):
+- Include an endpoint table: HTTP method / path / auth / request & response summary.
+- Include a `sequenceDiagram` for at least one key endpoint
+  (Client → Controller → Service → Repository/external call → Response).
+- Add a dedicated paragraph on the authentication & authorization flow.
+"""
+
+_TOPIC_DATABASE = """
+MANDATORY for this DATA MODEL / DATABASE page (in addition to the structure above):
+- Include an `erDiagram` of the tables/entities with primary keys, foreign keys,
+  and relationship cardinality (e.g. `CUSTOMER ||--o{ ORDER : places`), extracted
+  from the JPA entities / schema in the source files.
+- Include per-table column tables: column / type / constraints / description.
+- Add a paragraph explaining the main joins and relationships.
+- Base every entity, column, and relationship strictly on the source files — do NOT invent.
+"""
+
+
+def topic_requirements(section_id: str = "", page_title: str = "", has_db_schema: bool = False) -> str:
+    """Return the MANDATORY topic block for a page, or '' if none applies.
+    Routed by keywords in the section id + page title (and the db-schema signal)."""
+    text = f"{section_id} {page_title}".lower()
+    if has_db_schema or any(k in text for k in (
+        "database", "schema", "data model", "datamodel", "erd", "entity", "persistence", "table"
+    )):
+        return _TOPIC_DATABASE
+    if any(k in text for k in ("batch", "scheduler", "cron", "job")):
+        return _TOPIC_BATCH
+    if any(k in text for k in ("event", "consumer", "producer", "kafka", "message", "stream", "queue", "topic")):
+        return _TOPIC_EVENT
+    if any(k in text for k in ("api", "backend", "controller", "service", "gateway", "endpoint")):
+        return _TOPIC_BACKEND
+    return ""
 
 
 # ─────────────────────────────────────────────

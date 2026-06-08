@@ -3,6 +3,64 @@ import mermaid from 'mermaid';
 import { normalizeMarkdownContent } from "./markdown-normalize";
 import { fetchEventStream } from "./sse-fetcher";
 
+// Topic-specific page requirements. The generic prompt only *suggests* diagrams,
+// so the model defaults to `graph TD` and never emits sequence/ER diagrams. These
+// blocks MANDATE the diagram type + concrete content per topic. Routed by keywords
+// in the section title + page title (Korean and English).
+function topicRequirements(sectionTitle: string, pageTitle: string): string {
+  const text = `${sectionTitle} ${pageTitle}`.toLowerCase();
+  const has = (...ks: string[]) => ks.some((k) => text.includes(k));
+  if (has('database', 'schema', 'data model', 'datamodel', 'erd', 'entity', 'persistence', 'table', '데이터', '스키마', '테이블', '엔티티'))
+    return `
+### MANDATORY for this DATA MODEL / DATABASE page
+- Include an \`erDiagram\` of the tables/entities with primary keys, foreign keys, and relationship cardinality (e.g. \`CUSTOMER ||--o{ ORDER : places\`), extracted from the JPA entities / schema in the source files.
+- Include per-table column tables: column / type / constraints / description.
+- Add a paragraph explaining the main joins and relationships. Base everything strictly on the source files — do NOT invent.`;
+  if (has('batch', 'scheduler', 'cron', 'job', '배치'))
+    return `
+### MANDATORY for this BATCH JOB page
+- Include a \`sequenceDiagram\` of the job execution order (Scheduler/Trigger → JobLauncher → Step → ItemReader → ItemProcessor → ItemWriter → commit), making chunk boundaries and the transaction commit point explicit.
+- Include a table of the job's schedule/tuning: job name / cron or trigger / chunk-size / idempotency / retry & skip policy.
+- Add a dedicated paragraph on failure & re-run behavior.`;
+  if (has('event', 'consumer', 'producer', 'kafka', 'message', 'stream', 'queue', 'topic', '이벤트', '메시지'))
+    return `
+### MANDATORY for this EVENT-PROCESSING page
+- Include a \`sequenceDiagram\` of the message flow (Producer → Broker/topic → Consumer group → Handler → ack/commit) with the retry / DLQ branch on failure shown explicitly.
+- Include a table of topics/messages: topic / payload schema / consumer group / partition key.
+- Add a dedicated paragraph on idempotency, duplicate handling, and dead-letter (DLQ) policy.`;
+  if (has('api', 'backend', 'controller', 'service', 'gateway', 'endpoint', '백엔드'))
+    return `
+### MANDATORY for this BACKEND API page
+- Include an endpoint table: HTTP method / path / auth / request & response summary.
+- Include a \`sequenceDiagram\` for at least one key endpoint (Client → Controller → Service → Repository/external call → Response).
+- Add a dedicated paragraph on the authentication & authorization flow.`;
+  return '';
+}
+
+// Temporary fixed default until the per-wiki language setting is properly wired.
+// While set, all generation/regeneration/fix output uses this language regardless
+// of the (possibly stale) per-wiki language tag. Set to null to restore honoring
+// each wiki's own language. Centralized here so the choice lives in ONE place.
+export const FORCED_WIKI_LANGUAGE: string | null = "ko";
+
+/** Resolve the effective language: the forced default if set, else the wiki's own. */
+export function effectiveWikiLanguage(language?: string): string {
+  return FORCED_WIKI_LANGUAGE ?? language ?? "ko";
+}
+
+/** Single source of truth for the language instruction. Default is Korean-base
+ *  with English technical terms; only an explicit "en" yields English-only. */
+export function wikiLanguageInstruction(language?: string): string {
+  const lang = effectiveWikiLanguage(language);
+  if (lang === "en") {
+    return "IMPORTANT: The wiki content MUST be written ENTIRELY in English. Do NOT include Korean translations.";
+  }
+  if (lang === "bilingual") {
+    return "IMPORTANT: The wiki content MUST be generated bilingually (Korean with English technical terms preserved and explained).";
+  }
+  return "IMPORTANT: The main explanations and natural language descriptions MUST be written in Korean (한국어). However, you MUST KEEP essential technical terms, system components, variable names, and core section headers (e.g., Overview, Introduction, Deployment) in English.";
+}
+
 const STRICT_FORMAT_RULES = `
 ### CRITICAL OUTPUT FORMAT RULES
 1. Output ONLY the raw generated content (Markdown or JSON depending on the task).
@@ -59,12 +117,7 @@ export async function runWikiGeneration(
   const repo_type = "local";
   const language = outputLanguage;
 
-  let languageInstruction = "IMPORTANT: The main explanations and natural language descriptions MUST be written in Korean (한국어). However, you MUST KEEP essential technical terms, system components, variable names, and core section headers (e.g., Overview, Introduction, Deployment) in English.";
-  if (language === "en") {
-    languageInstruction = "IMPORTANT: The wiki content MUST be written ENTIRELY in English. Do NOT include Korean translations.";
-  } else if (language === "bilingual") {
-    languageInstruction = "IMPORTANT: The wiki content MUST be generated bilingually (Korean with English technical terms preserved and explained).";
-  }
+  const languageInstruction = wikiLanguageInstruction(language);
 
   const pipelineStart = Date.now();
 
@@ -120,7 +173,7 @@ ${languageInstruction}
 
 ### Naming Conventions & Rules
 1. DO NOT USE hyphens (\`-\`) in section titles, page titles, or IDs. Use spaces for titles, and camelCase or snake_case for IDs.
-2. ${language === 'ko' ? 'Write section and page titles entirely in Korean (한국어). Do not mix English and Korean in titles.' : 'Write section and page titles entirely in English.'}
+2. ${effectiveWikiLanguage(language) === 'ko' ? 'Write section and page titles entirely in Korean (한국어). Do not mix English and Korean in titles.' : 'Write section and page titles entirely in English.'}
 3. Make the structure clean, readable, and professional.
 
 Create a structured Table of Contents (wiki structure) with the following main sections:
@@ -272,6 +325,9 @@ OUTPUT RULES (STRICT): Respond with ONLY the JSON object — nothing else.
         ? `Source files to base content on:\n${page.filePaths.join('\n')}\n\nEnsure you cite the source files explicitly.`
         : `Analyze the repository codebase to gather relevant information for this topic.`;
 
+      const sectionTitle = (wikiStructure.sections || []).find((s: any) => (s.pages || []).includes(page.id))?.title || '';
+      const topicReq = topicRequirements(sectionTitle, page.title);
+
       const pagePrompt = `You are an expert technical writer and software architect.
 Your task is to generate a comprehensive and accurate technical wiki page in Markdown format.
 
@@ -279,6 +335,7 @@ Topic: "${page.title}"
 ${sourceFilesText}
 
 Use Mermaid diagrams where appropriate.
+${topicReq}
 
 ### Mermaid Diagram Rules
 1. **Choose the Best Direction:** Use \`graph TD\` (Top-Down) for hierarchical structures or \`graph LR\` (Left-Right) for pipelines and data flows. Choose the direction that naturally minimizes crossing lines.
@@ -707,7 +764,7 @@ export async function regenerateWikiPage({
   const t0 = Date.now();
   await emitStep(streamId, 'phase_start', 'generation', `🔄 "${page.title}" 페이지 재생성 시작...`);
 
-  const languageInstruction = `IMPORTANT: You MUST write the main explanations in ${language === 'ko' ? 'Korean' : 'English'}, but KEEP essential technical terms in English.`;
+  const languageInstruction = wikiLanguageInstruction(language);
 
   const sourceFilesText = page.filePaths && page.filePaths.length > 0
     ? `Source files to base content on:\n${page.filePaths.join('\n')}\n\nEnsure you cite the source files explicitly.`
@@ -720,6 +777,7 @@ Topic: "${page.title}"
 ${sourceFilesText}
 
 Use Mermaid diagrams where appropriate.
+${topicRequirements('', page.title)}
 
 ### Mermaid Diagram Rules
 1. ALWAYS use \`graph TD\` (Top-Down) or \`graph TB\` for flowcharts to prevent spaghetti diagrams. DO NOT use \`LR\` unless absolutely necessary for a very simple linear flow.

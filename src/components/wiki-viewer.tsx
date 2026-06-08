@@ -10,7 +10,7 @@ import {
 import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
 import { sanitizeMermaidChart } from "./Mermaid";
-import { regenerateWikiPage } from "@/lib/wiki-generator";
+import { regenerateWikiPage, wikiLanguageInstruction } from "@/lib/wiki-generator";
 import { WikiAskPanel } from "./WikiAskPanel";
 import { useJobStore } from "@/store/job-store";
 
@@ -99,6 +99,11 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   // Per-subproject git roots (each dir with its own .git) used to build GitHub
   // links rooted at the individual repository instead of the bundling parent.
   const [gitRoots, setGitRoots] = useState<{ prefix: string; name: string; webUrl: string | null; branch: string }[]>([]);
+  // Section(directory)-level regeneration + business-analysis generation.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [regeneratingSectionId, setRegeneratingSectionId] = useState<string | null>(null);
+  const [sectionRegenProgress, setSectionRegenProgress] = useState({ current: 0, total: 0 });
+  const [isGeneratingBusiness, setIsGeneratingBusiness] = useState(false);
   const regenPromptRef = useRef<HTMLTextAreaElement>(null);
 
   // Scan every mermaid block across all pages and return the ones that fail to
@@ -132,6 +137,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   // Export state
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportTarget, setExportTarget] = useState<"notion" | "obsidian" | "markdown">("notion");
+  // markdown layout: single concatenated file vs directory-tree zip
+  const [exportStructure, setExportStructure] = useState<"single" | "tree">("single");
   const [exportKey, setExportKey] = useState("");
   const [exportParentId, setExportParentId] = useState("");
   const [exportVault, setExportVault] = useState("");
@@ -257,7 +264,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
       }
     }
     loadWiki();
-  }, [projectData, currentLang]);
+  }, [projectData, currentLang, refreshKey]);
 
   const handleRegenerate = async (targetPageId?: string) => {
     if (!selectedPage || !projectData || !wikiStructure) return;
@@ -325,6 +332,167 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     } finally {
       setLocalLoadingPages(prev => ({ ...prev, [pageIdToFix]: false }));
       if (regenPromptRef.current) regenPromptRef.current.value = "";
+    }
+  };
+
+  // Read generation settings from localStorage (shared by page/section regen).
+  const readGenSettings = () => {
+    let apiKey = "", mode = "api", provider = "google", model = "gemini-2.5-flash";
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem(APP_SETTINGS_KEY);
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          apiKey = s.apiKey || "";
+          mode = (s.useCli ?? true) ? "cli" : "api";
+          provider = s.provider || "google";
+          model = s.model || "gemini-2.5-flash";
+        } catch (e) {}
+      }
+    }
+    return { apiKey, mode, provider, model };
+  };
+
+  // Collect all page ids belonging to a section, recursing into subsections.
+  const collectSectionPageIds = (sectionId: string): string[] => {
+    const sec = (wikiStructure?.sections || []).find((s: any) => s.id === sectionId);
+    if (!sec) return [];
+    let ids: string[] = [...(sec.pages || [])];
+    for (const subId of (sec.subsections || [])) {
+      ids = ids.concat(collectSectionPageIds(subId));
+    }
+    return ids;
+  };
+
+  // Directory(section)-level regeneration: regenerate every page in the section
+  // sequentially using the same per-page path, then save the cache once.
+  const handleRegenerateSection = async (sectionId: string, sectionTitle: string) => {
+    if (!projectData || !wikiStructure || regeneratingSectionId) return;
+    // The business section is produced by analyze_business, not page regen.
+    if (sectionId === "__section_business__") {
+      await handleGenerateBusiness();
+      return;
+    }
+    const pageIds = collectSectionPageIds(sectionId).filter((id) => !id.startsWith("__business"));
+    if (pageIds.length === 0) return;
+    if (!window.confirm(`"${sectionTitle}" 섹션의 ${pageIds.length}개 페이지를 재생성합니다.\nLLM이 ${pageIds.length}회 호출됩니다 (시간·비용 소모). 계속할까요?`)) return;
+
+    setRegeneratingSectionId(sectionId);
+    setSectionRegenProgress({ current: 0, total: pageIds.length });
+    const { apiKey, mode, provider, model } = readGenSettings();
+
+    try {
+      let working = { ...generatedPages };
+      for (let i = 0; i < pageIds.length; i++) {
+        const pid = pageIds[i];
+        const pageData = working[pid];
+        setSectionRegenProgress({ current: i + 1, total: pageIds.length });
+        if (!pageData) continue;
+        try {
+          const newContent = await regenerateWikiPage({
+            streamId: crypto.randomUUID(),
+            projectPath: `${projectData.owner}/${projectData.repo}`,
+            repo_type: projectData.repo_type,
+            model, provider, mode, apiKey,
+            language: currentLang,
+            page: pageData,
+            customPrompt: "",
+          });
+          if (newContent && newContent.trim() !== "") {
+            working = { ...working, [pid]: { ...pageData, content: newContent } };
+            setGeneratedPages(working);
+          }
+        } catch (e) {
+          console.error(`섹션 재생성: '${pid}' 실패`, e);
+        }
+      }
+
+      await fetch('/api/wiki_cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: { owner: projectData.owner, repo: projectData.repo, type: projectData.repo_type },
+          language: currentLang,
+          wiki_structure: wikiStructure,
+          generated_pages: working,
+          provider, model: projectData.model,
+        })
+      });
+      alert(`"${sectionTitle}" 섹션 ${pageIds.length}개 페이지 재생성을 완료했습니다.`);
+    } catch (err: any) {
+      alert(`섹션 재생성 실패: ${err.message}`);
+    } finally {
+      setRegeneratingSectionId(null);
+      setSectionRegenProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // Run business analysis on the current repo and merge the business section
+  // into the wiki + cache (for wikis originally generated without business).
+  const handleGenerateBusiness = async () => {
+    if (!projectData || isGeneratingBusiness) return;
+    const repoUrl = repoPath || `${projectData.owner}/${projectData.repo}`;
+    setIsGeneratingBusiness(true);
+    const { apiKey, mode, provider, model } = readGenSettings();
+    const cliTool = provider === "google" ? "gemini" : provider === "anthropic" ? "claude" : provider === "antigravity" ? "antigravity" : "codex";
+
+    try {
+      const bizRes = await fetch('/api/analyze_business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo_url: repoUrl, repo_urls: [repoUrl],
+          language: currentLang, provider, model, mode, cli_tool: cliTool,
+          ...(apiKey ? { api_key: apiKey } : {}),
+        })
+      });
+      if (!bizRes.ok) throw new Error(`분석 요청 실패 (${bizRes.status})`);
+      const bizData = await bizRes.json();
+
+      const businessPageIds = ["__business_overview__", "__business_dataflow__", "__business_workflow__", "__business_impact__"];
+      const isMultiRepo = Boolean(bizData.is_multi_repo);
+      const bizPages = [
+        { id: "__business_overview__", title: isMultiRepo ? "Cross-Repository Business Overview" : "Business Overview", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages?.__business_overview__ || "" },
+        { id: "__business_dataflow__", title: isMultiRepo ? "Cross-Repository Data Flow" : "Data Flow", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages?.__business_dataflow__ || "" },
+        { id: "__business_workflow__", title: isMultiRepo ? "Cross-Repository Workflows" : "Workflows", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages?.__business_workflow__ || "" },
+        { id: "__business_impact__", title: isMultiRepo ? "Cross-Repository Impact Analysis" : "Impact Analysis", description: "", importance: "high", filePaths: [], relatedPages: [], content: bizData.pages?.__business_impact__ || "" },
+      ];
+
+      // Merge the business section into a fresh copy of the structure + pages.
+      const structure: any = JSON.parse(JSON.stringify(wikiStructure));
+      structure.sections = (structure.sections || []).filter((s: any) => s.id !== "__section_business__");
+      structure.sections.push({
+        id: "__section_business__",
+        title: isMultiRepo ? "Cross-Repository Business Analysis" : (currentLang !== "ko" ? "Business Analysis" : "비즈니스 분석"),
+        pages: businessPageIds,
+      });
+      structure.rootSections = [
+        ...(structure.rootSections || []).filter((id: string) => id !== "__section_business__"),
+        "__section_business__",
+      ];
+      structure.pages = (structure.pages || []).filter((p: any) => !businessPageIds.includes(p.id)).concat(bizPages);
+
+      const newGeneratedPages = { ...generatedPages };
+      for (const p of bizPages) newGeneratedPages[p.id] = p;
+
+      await fetch('/api/wiki_cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: { owner: projectData.owner, repo: projectData.repo, type: projectData.repo_type },
+          language: currentLang,
+          wiki_structure: structure,
+          generated_pages: newGeneratedPages,
+          provider, model: projectData.model,
+        })
+      });
+      // Reload so the sidebar tree rebuilds with the new business section.
+      setRefreshKey((k) => k + 1);
+      alert("비즈니스 분석을 생성하여 위키에 추가했습니다.");
+    } catch (err: any) {
+      alert(`비즈니스 분석 생성 실패: ${err.message}`);
+    } finally {
+      setIsGeneratingBusiness(false);
     }
   };
 
@@ -479,6 +647,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 Modify the following markdown block according to the user's instruction.
 
 User Instruction: ${prompt}
+
+${wikiLanguageInstruction(currentLang)}
 
 Output ONLY the modified markdown block. Do not include any explanation or conversational text. Preserve markdown formatting.
 
@@ -638,7 +808,7 @@ ${blockContent}`;
         setBatchFixProgress({ current: i + 1, total: brokenDiagrams.length });
 
         const fixPrompt = `The following Mermaid diagram has a syntax error.
-Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Output ONLY the corrected diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.
+Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Keep all node/edge label text in its ORIGINAL language — do NOT translate labels. Output ONLY the corrected diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.
 
 Original Diagram:
 \`\`\`mermaid
@@ -747,18 +917,38 @@ ${chartCode}
         alert(`✅ 성공적으로 ${data.exported_count}개의 페이지를 Obsidian(${data.output_path})으로 내보냈습니다.`);
       }
       else {
-        // Markdown/JSON 다운로드
+        // Markdown 다운로드 — 단일 파일 또는 디렉토리 구조 zip.
+        // tree 모드는 섹션 계층(wiki_structure)으로 폴더를 구성하므로 전체 페이지
+        // 객체와 구조를 함께 전송한다.
+        const mdRequest = {
+          repo_url: `${projectData.owner}/${projectData.repo}`,
+          format: "markdown",
+          structure: exportStructure,
+          wiki_structure: exportStructure === "tree" ? wikiStructure : undefined,
+          pages: Object.entries(generatedPages).map(([id, v]) => {
+            const p = v as WikiPage;
+            return {
+              id,
+              title: p.title || id,
+              content: p.content || "",
+              filePaths: (p as any).filePaths || [],
+              importance: (p as any).importance || "medium",
+              relatedPages: (p as any).relatedPages || [],
+            };
+          }),
+        };
         const res = await fetch('/api/export/wiki', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(exportData)
+          body: JSON.stringify(mdRequest)
         });
         if (!res.ok) throw new Error('Export failed');
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const filename = res.headers.get('Content-Disposition')?.split('filename=')[1] || `wiki_export_${Date.now()}.md`;
+        const fallbackName = `wiki_export_${Date.now()}.${exportStructure === "tree" ? "zip" : "md"}`;
+        const filename = res.headers.get('Content-Disposition')?.split('filename=')[1] || fallbackName;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
@@ -808,8 +998,10 @@ ${chartCode}
     const isExpanded = expanded.has(item.id);
     const isFolder = item.icon === "folder";
 
+    const isRegenSection = regeneratingSectionId === item.id;
+
     return (
-      <div>
+      <div style={{ position: "relative" }}>
         <button
           onClick={() => (isFolder ? toggleFolder(item.id) : navigate(item.id))}
           style={{
@@ -817,7 +1009,7 @@ ${chartCode}
             alignItems: "center",
             gap: 7,
             width: "100%",
-            padding: `7px 10px 7px ${14 + depth * 14}px`,
+            padding: `7px ${isFolder ? 56 : 10}px 7px ${14 + depth * 14}px`,
             borderRadius: 10,
             background: isSelected ? t.primaryLight : "transparent",
             border: "none",
@@ -844,6 +1036,28 @@ ${chartCode}
             </motion.div>
           )}
         </button>
+
+        {isFolder && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleRegenerateSection(item.id, item.title); }}
+            disabled={!!regeneratingSectionId}
+            title={`"${item.title}" 섹션(디렉토리) 전체 재생성`}
+            style={{
+              position: "absolute", top: 6, right: 30,
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "3px 5px", borderRadius: 6, border: "none",
+              background: isRegenSection ? t.primaryLight : "transparent",
+              color: isRegenSection ? t.primary : t.textMuted,
+              cursor: regeneratingSectionId ? "default" : "pointer",
+              fontSize: 10,
+            }}
+            onMouseEnter={(e) => { if (!regeneratingSectionId) e.currentTarget.style.color = t.primary; }}
+            onMouseLeave={(e) => { if (!isRegenSection) e.currentTarget.style.color = t.textMuted; }}
+          >
+            <RefreshCw size={11} className={isRegenSection ? "animate-spin" : ""} />
+            {isRegenSection && <span>{sectionRegenProgress.current}/{sectionRegenProgress.total}</span>}
+          </button>
+        )}
 
         {isFolder && item.children && (
           <div style={{ overflow: "hidden", maxHeight: isExpanded ? 2000 : 0, opacity: isExpanded ? 1 : 0, transition: "max-height 0.22s ease, opacity 0.18s ease" }}>
@@ -1032,15 +1246,28 @@ ${chartCode}
                         </button>
                       )}
                     </div>
-                    <button
-                      onClick={() => setShowRegenModal(true)}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
-                    >
-                      <RefreshCw size={13} />
-                      페이지 재생성 (Review)
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        onClick={handleGenerateBusiness}
+                        disabled={isGeneratingBusiness}
+                        title="비즈니스 분석(개요·데이터플로우·워크플로우·영향분석)을 생성하여 위키에 추가합니다"
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: isGeneratingBusiness ? "default" : "pointer", transition: "all 0.15s" }}
+                        onMouseEnter={(e) => { if (!isGeneratingBusiness) { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; } }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
+                      >
+                        <Sparkles size={13} className={isGeneratingBusiness ? "animate-pulse" : ""} />
+                        {isGeneratingBusiness ? "비즈니스 분석 중..." : "비즈니스 분석 생성"}
+                      </button>
+                      <button
+                        onClick={() => setShowRegenModal(true)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
+                      >
+                        <RefreshCw size={13} />
+                        페이지 재생성 (Review)
+                      </button>
+                    </div>
                   </div>
                   )}
                   {isRegenerating ? (
@@ -1285,7 +1512,28 @@ ${chartCode}
               )}
 
               {exportTarget === "markdown" && (
-                <p style={{ color: t.textSecondary, fontSize: 13, marginBottom: 20 }}>전체 위키가 하나의 Markdown 파일로 병합되어 다운로드됩니다.</p>
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ color: t.textSecondary, fontSize: 13, marginBottom: 10 }}>다운로드 형태를 선택하세요.</p>
+                  {([
+                    { v: "single", label: "단일 Markdown 파일", desc: "전체 위키를 하나의 .md 파일로 병합" },
+                    { v: "tree", label: "디렉토리 구조 (zip)", desc: "섹션/페이지 폴더 구조 그대로 .md 여러 개를 zip으로" },
+                  ] as const).map(({ v, label, desc }) => (
+                    <button
+                      key={v}
+                      onClick={() => setExportStructure(v)}
+                      style={{
+                        display: "block", width: "100%", textAlign: "left", marginBottom: 8,
+                        padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                        background: exportStructure === v ? t.primaryLight : "transparent",
+                        border: `1px solid ${exportStructure === v ? t.primary : t.divider}`,
+                        color: exportStructure === v ? t.primary : t.text,
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: exportStructure === v ? 600 : 500 }}>{label}</div>
+                      <div style={{ fontSize: 11, color: t.textSecondary, marginTop: 2 }}>{desc}</div>
+                    </button>
+                  ))}
+                </div>
               )}
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>

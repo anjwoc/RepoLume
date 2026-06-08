@@ -792,7 +792,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L1",
       "id": "api_agent_runner",
-      "community": 76,
+      "community": 68,
       "norm_label": "agent_runner.py"
     },
     {
@@ -810,7 +810,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L43",
       "id": "api_agent_runner_jsonlevent",
-      "community": 76,
+      "community": 68,
       "norm_label": "jsonlevent"
     },
     {
@@ -819,7 +819,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L52",
       "id": "api_agent_runner_jsonlevent_to_json",
-      "community": 76,
+      "community": 68,
       "norm_label": ".to_json()"
     },
     {
@@ -936,7 +936,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L108",
       "id": "api_agent_runner_baserunner_build_args_for_prompt",
-      "community": 140,
+      "community": 76,
       "norm_label": "._build_args_for_prompt()"
     },
     {
@@ -1359,7 +1359,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L573",
       "id": "api_agent_runner_antigravityrunner_build_args",
-      "community": 140,
+      "community": 76,
       "norm_label": "._build_args()"
     },
     {
@@ -1395,7 +1395,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L592",
       "id": "api_agent_runner_antigravityrunner_run_stream_jsonl",
-      "community": 76,
+      "community": 68,
       "norm_label": ".run_stream_jsonl()"
     },
     {
@@ -1458,7 +1458,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L1",
       "id": "api_agent_runner_rationale_1",
-      "community": 76,
+      "community": 68,
       "norm_label": "agent_runner.py \u2014 python-native replacement for the localwiki-agent go binary."
     },
     {
@@ -1494,7 +1494,7 @@
       "source_file": "api/agent_runner.py",
       "source_location": "L109",
       "id": "api_agent_runner_rationale_109",
-      "community": 140,
+      "community": 76,
       "norm_label": "build cli arguments when the prompt must be passed as an argument."
     },
     {
@@ -1719,7 +1719,7 @@
       "source_file": "api/config.py",
       "source_location": "L1",
       "id": "api_config",
-      "community": 50,
+      "community": 6,
       "norm_label": "config.py"
     },
     {
@@ -1728,7 +1728,7 @@
       "source_file": "api/config.py",
       "source_location": "L48",
       "id": "api_config_replace_env_placeholders",
-      "community": 50,
+      "community": 6,
       "norm_label": "replace_env_placeholders()"
     },
     {
@@ -1737,7 +1737,7 @@
       "source_file": "api/config.py",
       "source_location": "L48",
       "id": "api_config_py_str",
-      "community": 50,
+      "community": 6,
       "norm_label": "str"
     },
     {
@@ -1746,7 +1746,7 @@
       "source_file": "api/config.py",
       "source_location": "L48",
       "id": "api_config_py_any",
-      "community": 50,
+      "community": 6,
       "norm_label": "any"
     },
     {
@@ -1755,7 +1755,7 @@
       "source_file": "api/config.py",
       "source_location": "L79",
       "id": "api_config_load_json_config",
-      "community": 50,
+      "community": 6,
       "norm_label": "load_json_config()"
     },
     {
@@ -1764,7 +1764,7 @@
       "source_file": "api/config.py",
       "source_location": "L103",
       "id": "api_config_load_generator_config",
-      "community": 50,
+      "community": 6,
       "norm_label": "load_generator_config()"
     },
     {
@@ -1773,7 +1773,7 @@
       "source_file": "api/config.py",
       "source_location": "L126",
       "id": "api_config_load_embedder_config",
-      "community": 50,
+      "community": 6,
       "norm_label": "load_embedder_config()"
     },
     {
@@ -1818,7 +1818,7 @@
       "source_file": "api/config.py",
       "source_location": "L208",
       "id": "api_config_load_repo_config",
-      "community": 50,
+      "community": 6,
       "norm_label": "load_repo_config()"
     },
     {
@@ -1827,7 +1827,7 @@
       "source_file": "api/config.py",
       "source_location": "L212",
       "id": "api_config_load_lang_config",
-      "community": 50,
+      "community": 6,
       "norm_label": "load_lang_config()"
     },
     {
@@ -1845,7 +1845,7 @@
       "source_file": "api/config.py",
       "source_location": "L49",
       "id": "api_config_rationale_49",
-      "community": 50,
+      "community": 6,
       "norm_label": "recursively replace placeholders like \"${env_var}\" in string values     within a"
     },
     {
@@ -2160,7 +2160,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L8",
       "id": "config_generator_models_gemini_2_5_pro",
-      "community": 87,
+      "community": 86,
       "norm_label": "gemini-2.5-pro"
     },
     {
@@ -2169,7 +2169,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L9",
       "id": "config_generator_gemini_2_5_pro_temperature",
-      "community": 87,
+      "community": 86,
       "norm_label": "temperature"
     },
     {
@@ -2178,7 +2178,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L10",
       "id": "config_generator_gemini_2_5_pro_top_p",
-      "community": 87,
+      "community": 86,
       "norm_label": "top_p"
     },
     {
@@ -2187,7 +2187,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L11",
       "id": "config_generator_gemini_2_5_pro_top_k",
-      "community": 87,
+      "community": 86,
       "norm_label": "top_k"
     },
     {
@@ -2196,7 +2196,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L13",
       "id": "config_generator_models_gemini_2_5_flash",
-      "community": 137,
+      "community": 87,
       "norm_label": "gemini-2.5-flash"
     },
     {
@@ -2205,7 +2205,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L14",
       "id": "config_generator_gemini_2_5_flash_temperature",
-      "community": 137,
+      "community": 87,
       "norm_label": "temperature"
     },
     {
@@ -2214,7 +2214,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L15",
       "id": "config_generator_gemini_2_5_flash_top_p",
-      "community": 137,
+      "community": 87,
       "norm_label": "top_p"
     },
     {
@@ -2223,7 +2223,7 @@
       "source_file": "api/config/generator.json",
       "source_location": "L16",
       "id": "config_generator_gemini_2_5_flash_top_k",
-      "community": 137,
+      "community": 87,
       "norm_label": "top_k"
     },
     {
@@ -3060,7 +3060,7 @@
       "source_file": "api/google_embedder_client.py",
       "source_location": "L1",
       "id": "api_google_embedder_client",
-      "community": 50,
+      "community": 17,
       "norm_label": "google_embedder_client.py"
     },
     {
@@ -3078,7 +3078,7 @@
       "source_file": "",
       "source_location": "",
       "id": "modelclient",
-      "community": 17,
+      "community": 6,
       "norm_label": "modelclient"
     },
     {
@@ -3177,7 +3177,7 @@
       "source_file": "api/google_embedder_client.py",
       "source_location": "L1",
       "id": "api_google_embedder_client_rationale_1",
-      "community": 50,
+      "community": 17,
       "norm_label": "google ai embeddings modelclient integration."
     },
     {
@@ -3240,7 +3240,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L1",
       "id": "api_logging_config",
-      "community": 59,
+      "community": 6,
       "norm_label": "logging_config.py"
     },
     {
@@ -3249,7 +3249,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L7",
       "id": "api_logging_config_ignorelogchangedetectedfilter",
-      "community": 59,
+      "community": 6,
       "norm_label": "ignorelogchangedetectedfilter"
     },
     {
@@ -3258,7 +3258,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L8",
       "id": "api_logging_config_ignorelogchangedetectedfilter_filter",
-      "community": 59,
+      "community": 6,
       "norm_label": ".filter()"
     },
     {
@@ -3267,7 +3267,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L8",
       "id": "logrecord",
-      "community": 59,
+      "community": 6,
       "norm_label": "logrecord"
     },
     {
@@ -3276,7 +3276,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L12",
       "id": "api_logging_config_setup_logging",
-      "community": 59,
+      "community": 6,
       "norm_label": "setup_logging()"
     },
     {
@@ -3285,7 +3285,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L12",
       "id": "api_logging_config_py_str",
-      "community": 59,
+      "community": 6,
       "norm_label": "str"
     },
     {
@@ -3294,7 +3294,7 @@
       "source_file": "api/logging_config.py",
       "source_location": "L13",
       "id": "api_logging_config_rationale_13",
-      "community": 59,
+      "community": 6,
       "norm_label": "configure logging for the application with log rotation.      environment variab"
     },
     {
@@ -3303,7 +3303,7 @@
       "source_file": "api/main.py",
       "source_location": "L1",
       "id": "api_main",
-      "community": 59,
+      "community": 6,
       "norm_label": "main.py"
     },
     {
@@ -3312,7 +3312,7 @@
       "source_file": "api/main.py",
       "source_location": "L30",
       "id": "api_main_patched_watch",
-      "community": 59,
+      "community": 6,
       "norm_label": "patched_watch()"
     },
     {
@@ -3321,7 +3321,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L1",
       "id": "api_ollama_patch",
-      "community": 59,
+      "community": 9,
       "norm_label": "ollama_patch.py"
     },
     {
@@ -3330,7 +3330,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L17",
       "id": "api_ollama_patch_ollamamodelnotfounderror",
-      "community": 42,
+      "community": 56,
       "norm_label": "ollamamodelnotfounderror"
     },
     {
@@ -3339,7 +3339,7 @@
       "source_file": "",
       "source_location": "",
       "id": "exception",
-      "community": 42,
+      "community": 56,
       "norm_label": "exception"
     },
     {
@@ -3348,7 +3348,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L21",
       "id": "api_ollama_patch_check_ollama_model_exists",
-      "community": 59,
+      "community": 16,
       "norm_label": "check_ollama_model_exists()"
     },
     {
@@ -3357,7 +3357,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L21",
       "id": "api_ollama_patch_py_str",
-      "community": 59,
+      "community": 16,
       "norm_label": "str"
     },
     {
@@ -3366,7 +3366,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L21",
       "id": "api_ollama_patch_py_bool",
-      "community": 59,
+      "community": 16,
       "norm_label": "bool"
     },
     {
@@ -3429,7 +3429,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L18",
       "id": "api_ollama_patch_rationale_18",
-      "community": 42,
+      "community": 56,
       "norm_label": "custom exception for when ollama model is not found"
     },
     {
@@ -3438,7 +3438,7 @@
       "source_file": "api/ollama_patch.py",
       "source_location": "L22",
       "id": "api_ollama_patch_rationale_22",
-      "community": 59,
+      "community": 16,
       "norm_label": "check if an ollama model exists before attempting to use it.          args:"
     },
     {
@@ -3573,7 +3573,7 @@
       "source_file": "api/openai_client.py",
       "source_location": "L120",
       "id": "api_openai_client_openaiclient",
-      "community": 4,
+      "community": 6,
       "norm_label": "openaiclient"
     },
     {
@@ -3654,7 +3654,7 @@
       "source_file": "api/openai_client.py",
       "source_location": "L257",
       "id": "api_openai_client_openaiclient_parse_embedding_response",
-      "community": 4,
+      "community": 81,
       "norm_label": ".parse_embedding_response()"
     },
     {
@@ -3663,7 +3663,7 @@
       "source_file": "api/openai_client.py",
       "source_location": "L257",
       "id": "createembeddingresponse",
-      "community": 4,
+      "community": 81,
       "norm_label": "createembeddingresponse"
     },
     {
@@ -3672,7 +3672,7 @@
       "source_file": "api/openai_client.py",
       "source_location": "L257",
       "id": "api_openai_client_py_embedderoutput",
-      "community": 4,
+      "community": 81,
       "norm_label": "embedderoutput"
     },
     {
@@ -3870,7 +3870,7 @@
       "source_file": "api/openai_client.py",
       "source_location": "L260",
       "id": "api_openai_client_rationale_260",
-      "community": 4,
+      "community": 81,
       "norm_label": "r\"\"\"parse the embedding response to a structure adalflow components can understa"
     },
     {
@@ -3987,7 +3987,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L58",
       "id": "api_openrouter_client_openrouterclient_init_async_client",
-      "community": 6,
+      "community": 69,
       "norm_label": ".init_async_client()"
     },
     {
@@ -3996,7 +3996,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L71",
       "id": "api_openrouter_client_openrouterclient_convert_inputs_to_api_kwargs",
-      "community": 6,
+      "community": 69,
       "norm_label": ".convert_inputs_to_api_kwargs()"
     },
     {
@@ -4005,7 +4005,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L71",
       "id": "api_openrouter_client_py_any",
-      "community": 6,
+      "community": 69,
       "norm_label": "any"
     },
     {
@@ -4014,7 +4014,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L71",
       "id": "api_openrouter_client_py_modeltype",
-      "community": 6,
+      "community": 69,
       "norm_label": "modeltype"
     },
     {
@@ -4023,7 +4023,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L112",
       "id": "api_openrouter_client_openrouterclient_acall",
-      "community": 6,
+      "community": 69,
       "norm_label": ".acall()"
     },
     {
@@ -4095,7 +4095,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L59",
       "id": "api_openrouter_client_rationale_59",
-      "community": 6,
+      "community": 69,
       "norm_label": "initialize the asynchronous openrouter client."
     },
     {
@@ -4104,7 +4104,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L74",
       "id": "api_openrouter_client_rationale_74",
-      "community": 6,
+      "community": 69,
       "norm_label": "convert adalflow inputs to openrouter api format."
     },
     {
@@ -4113,7 +4113,7 @@
       "source_file": "api/openrouter_client.py",
       "source_location": "L113",
       "id": "api_openrouter_client_rationale_113",
-      "community": 6,
+      "community": 69,
       "norm_label": "make an asynchronous call to the openrouter api."
     },
     {
@@ -4455,7 +4455,7 @@
       "source_file": "api/server.py",
       "source_location": "L38",
       "id": "api_server_get_adalflow_default_root_path",
-      "community": 13,
+      "community": 9,
       "norm_label": "get_adalflow_default_root_path()"
     },
     {
@@ -4543,7 +4543,7 @@
       "label": "Model",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L125",
+      "source_location": "L129",
       "id": "api_server_model",
       "community": 28,
       "norm_label": "model"
@@ -4552,7 +4552,7 @@
       "label": "Provider",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L132",
+      "source_location": "L136",
       "id": "api_server_provider",
       "community": 28,
       "norm_label": "provider"
@@ -4561,7 +4561,7 @@
       "label": "ModelConfig",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L141",
+      "source_location": "L145",
       "id": "api_server_modelconfig",
       "community": 28,
       "norm_label": "modelconfig"
@@ -4570,7 +4570,7 @@
       "label": "AuthorizationConfig",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L148",
+      "source_location": "L152",
       "id": "api_server_authorizationconfig",
       "community": 28,
       "norm_label": "authorizationconfig"
@@ -4579,7 +4579,7 @@
       "label": "AuthCodeSubmit",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L156",
+      "source_location": "L160",
       "id": "api_server_authcodesubmit",
       "community": 28,
       "norm_label": "authcodesubmit"
@@ -4588,7 +4588,7 @@
       "label": "agent_list()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L164",
+      "source_location": "L168",
       "id": "api_server_agent_list",
       "community": 13,
       "norm_label": "agent_list()"
@@ -4597,7 +4597,7 @@
       "label": "agent_check()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L171",
+      "source_location": "L175",
       "id": "api_server_agent_check",
       "community": 38,
       "norm_label": "agent_check()"
@@ -4606,7 +4606,7 @@
       "label": "str",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L171",
+      "source_location": "L175",
       "id": "api_server_py_str",
       "community": 38,
       "norm_label": "str"
@@ -4615,7 +4615,7 @@
       "label": "agent_auth_status()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L186",
+      "source_location": "L190",
       "id": "api_server_agent_auth_status",
       "community": 13,
       "norm_label": "agent_auth_status()"
@@ -4624,7 +4624,7 @@
       "label": "agent_auth_start()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L191",
+      "source_location": "L195",
       "id": "api_server_agent_auth_start",
       "community": 13,
       "norm_label": "agent_auth_start()"
@@ -4633,7 +4633,7 @@
       "label": "agent_auth_submit()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L198",
+      "source_location": "L202",
       "id": "api_server_agent_auth_submit",
       "community": 13,
       "norm_label": "agent_auth_submit()"
@@ -4642,7 +4642,7 @@
       "label": "select_folder()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L205",
+      "source_location": "L209",
       "id": "api_server_select_folder",
       "community": 13,
       "norm_label": "select_folder()"
@@ -4651,7 +4651,7 @@
       "label": "get_lang_config()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L245",
+      "source_location": "L249",
       "id": "api_server_get_lang_config",
       "community": 13,
       "norm_label": "get_lang_config()"
@@ -4660,7 +4660,7 @@
       "label": "get_auth_status()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L249",
+      "source_location": "L253",
       "id": "api_server_get_auth_status",
       "community": 13,
       "norm_label": "get_auth_status()"
@@ -4669,7 +4669,7 @@
       "label": "validate_auth_code()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L256",
+      "source_location": "L260",
       "id": "api_server_validate_auth_code",
       "community": 13,
       "norm_label": "validate_auth_code()"
@@ -4678,7 +4678,7 @@
       "label": "get_model_config()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L263",
+      "source_location": "L267",
       "id": "api_server_get_model_config",
       "community": 28,
       "norm_label": "get_model_config()"
@@ -4687,25 +4687,25 @@
       "label": "export_wiki()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L323",
+      "source_location": "L327",
       "id": "api_server_export_wiki",
-      "community": 13,
+      "community": 63,
       "norm_label": "export_wiki()"
     },
     {
       "label": "export_notion()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L371",
+      "source_location": "L386",
       "id": "api_server_export_notion",
-      "community": 48,
+      "community": 38,
       "norm_label": "export_notion()"
     },
     {
       "label": "export_obsidian()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L391",
+      "source_location": "L406",
       "id": "api_server_export_obsidian",
       "community": 38,
       "norm_label": "export_obsidian()"
@@ -4714,7 +4714,7 @@
       "label": "AnalyzeBusinessRequest",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L410",
+      "source_location": "L425",
       "id": "api_server_analyzebusinessrequest",
       "community": 66,
       "norm_label": "analyzebusinessrequest"
@@ -4723,7 +4723,7 @@
       "label": "MultiRepoBusinessContext",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L421",
+      "source_location": "L436",
       "id": "api_server_multirepobusinesscontext",
       "community": 38,
       "norm_label": "multirepobusinesscontext"
@@ -4732,7 +4732,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L424",
+      "source_location": "L439",
       "id": "api_server_multirepobusinesscontext_init",
       "community": 38,
       "norm_label": ".__init__()"
@@ -4741,7 +4741,7 @@
       "label": "Any",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L424",
+      "source_location": "L439",
       "id": "api_server_py_any",
       "community": 28,
       "norm_label": "any"
@@ -4750,7 +4750,7 @@
       "label": ".file_tree()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L428",
+      "source_location": "L443",
       "id": "api_server_multirepobusinesscontext_file_tree",
       "community": 38,
       "norm_label": ".file_tree()"
@@ -4759,7 +4759,7 @@
       "label": "int",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L428",
+      "source_location": "L443",
       "id": "api_server_py_int",
       "community": 28,
       "norm_label": "int"
@@ -4768,7 +4768,7 @@
       "label": ".readme()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L434",
+      "source_location": "L449",
       "id": "api_server_multirepobusinesscontext_readme",
       "community": 38,
       "norm_label": ".readme()"
@@ -4777,7 +4777,7 @@
       "label": ".read_file()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L441",
+      "source_location": "L456",
       "id": "api_server_multirepobusinesscontext_read_file",
       "community": 38,
       "norm_label": ".read_file()"
@@ -4786,7 +4786,7 @@
       "label": "_business_repo_paths()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L449",
+      "source_location": "L464",
       "id": "api_server_business_repo_paths",
       "community": 66,
       "norm_label": "_business_repo_paths()"
@@ -4795,7 +4795,7 @@
       "label": "_business_provider_name()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L463",
+      "source_location": "L478",
       "id": "api_server_business_provider_name",
       "community": 66,
       "norm_label": "_business_provider_name()"
@@ -4804,7 +4804,7 @@
       "label": "analyze_business()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L490",
+      "source_location": "L505",
       "id": "api_server_analyze_business",
       "community": 66,
       "norm_label": "analyze_business()"
@@ -4813,7 +4813,7 @@
       "label": "get_local_repo_structure()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L548",
+      "source_location": "L563",
       "id": "api_server_get_local_repo_structure",
       "community": 85,
       "norm_label": "get_local_repo_structure()"
@@ -4822,25 +4822,43 @@
       "label": "generate_markdown_export()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L594",
+      "source_location": "L609",
       "id": "api_server_generate_markdown_export",
-      "community": 13,
+      "community": 63,
       "norm_label": "generate_markdown_export()"
+    },
+    {
+      "label": "generate_markdown_tree_zip()",
+      "file_type": "code",
+      "source_file": "api/server.py",
+      "source_location": "L656",
+      "id": "api_server_generate_markdown_tree_zip",
+      "community": 28,
+      "norm_label": "generate_markdown_tree_zip()"
+    },
+    {
+      "label": "bytes",
+      "file_type": "code",
+      "source_file": "api/server.py",
+      "source_location": "L656",
+      "id": "bytes",
+      "community": 28,
+      "norm_label": "bytes"
     },
     {
       "label": "generate_json_export()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L641",
+      "source_location": "L707",
       "id": "api_server_generate_json_export",
-      "community": 13,
+      "community": 63,
       "norm_label": "generate_json_export()"
     },
     {
       "label": "FixDiagramRequest",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L680",
+      "source_location": "L746",
       "id": "api_server_fixdiagramrequest",
       "community": 28,
       "norm_label": "fixdiagramrequest"
@@ -4849,7 +4867,7 @@
       "label": "fix_diagram()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L695",
+      "source_location": "L761",
       "id": "api_server_fix_diagram",
       "community": 85,
       "norm_label": "fix_diagram()"
@@ -4858,7 +4876,7 @@
       "label": "WikiAskPageInput",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L875",
+      "source_location": "L940",
       "id": "api_server_wikiaskpageinput",
       "community": 28,
       "norm_label": "wikiaskpageinput"
@@ -4867,7 +4885,7 @@
       "label": "WikiAskRequest",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L881",
+      "source_location": "L946",
       "id": "api_server_wikiaskrequest",
       "community": 28,
       "norm_label": "wikiaskrequest"
@@ -4876,7 +4894,7 @@
       "label": "_provider_to_cli()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L895",
+      "source_location": "L960",
       "id": "api_server_provider_to_cli",
       "community": 13,
       "norm_label": "_provider_to_cli()"
@@ -4885,7 +4903,7 @@
       "label": "wiki_ask_stream()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L906",
+      "source_location": "L971",
       "id": "api_server_wiki_ask_stream",
       "community": 13,
       "norm_label": "wiki_ask_stream()"
@@ -4894,7 +4912,7 @@
       "label": "wiki_rag_health()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L966",
+      "source_location": "L1031",
       "id": "api_server_wiki_rag_health",
       "community": 13,
       "norm_label": "wiki_rag_health()"
@@ -4903,16 +4921,16 @@
       "label": "get_wiki_cache_path()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L992",
+      "source_location": "L1057",
       "id": "api_server_get_wiki_cache_path",
-      "community": 38,
+      "community": 20,
       "norm_label": "get_wiki_cache_path()"
     },
     {
       "label": "read_wiki_cache()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1000",
+      "source_location": "L1065",
       "id": "api_server_read_wiki_cache",
       "community": 38,
       "norm_label": "read_wiki_cache()"
@@ -4921,16 +4939,16 @@
       "label": "save_wiki_cache()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1013",
+      "source_location": "L1078",
       "id": "api_server_save_wiki_cache",
-      "community": 28,
+      "community": 20,
       "norm_label": "save_wiki_cache()"
     },
     {
       "label": "bool",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1013",
+      "source_location": "L1078",
       "id": "api_server_py_bool",
       "community": 28,
       "norm_label": "bool"
@@ -4939,7 +4957,7 @@
       "label": "read_wiki_out_cache()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1072",
+      "source_location": "L1137",
       "id": "api_server_read_wiki_out_cache",
       "community": 28,
       "norm_label": "read_wiki_out_cache()"
@@ -4948,7 +4966,7 @@
       "label": "get_cached_wiki()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1138",
+      "source_location": "L1203",
       "id": "api_server_get_cached_wiki",
       "community": 38,
       "norm_label": "get_cached_wiki()"
@@ -4957,7 +4975,7 @@
       "label": "_git_remote_to_web_url()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1173",
+      "source_location": "L1238",
       "id": "api_server_git_remote_to_web_url",
       "community": 38,
       "norm_label": "_git_remote_to_web_url()"
@@ -4966,7 +4984,7 @@
       "label": "_scan_git_roots()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1199",
+      "source_location": "L1264",
       "id": "api_server_scan_git_roots",
       "community": 38,
       "norm_label": "_scan_git_roots()"
@@ -4975,7 +4993,7 @@
       "label": "get_git_roots()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1255",
+      "source_location": "L1320",
       "id": "api_server_get_git_roots",
       "community": 38,
       "norm_label": "get_git_roots()"
@@ -4984,43 +5002,43 @@
       "label": "store_wiki_cache()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1282",
+      "source_location": "L1347",
       "id": "api_server_store_wiki_cache",
-      "community": 28,
+      "community": 20,
       "norm_label": "store_wiki_cache()"
     },
     {
       "label": "cleanup_trash()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1299",
+      "source_location": "L1364",
       "id": "api_server_cleanup_trash",
-      "community": 38,
+      "community": 20,
       "norm_label": "cleanup_trash()"
     },
     {
       "label": "delete_wiki_cache()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1330",
+      "source_location": "L1395",
       "id": "api_server_delete_wiki_cache",
-      "community": 38,
+      "community": 20,
       "norm_label": "delete_wiki_cache()"
     },
     {
       "label": "health_check()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1394",
+      "source_location": "L1459",
       "id": "api_server_health_check",
-      "community": 13,
+      "community": 140,
       "norm_label": "health_check()"
     },
     {
       "label": "check_connection()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1403",
+      "source_location": "L1468",
       "id": "api_server_check_connection",
       "community": 85,
       "norm_label": "check_connection()"
@@ -5029,7 +5047,7 @@
       "label": "root()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1431",
+      "source_location": "L1496",
       "id": "api_server_root",
       "community": 13,
       "norm_label": "root()"
@@ -5038,9 +5056,9 @@
       "label": "get_processed_projects()",
       "file_type": "code",
       "source_file": "api/server.py",
-      "source_location": "L1459",
+      "source_location": "L1524",
       "id": "api_server_get_processed_projects",
-      "community": 13,
+      "community": 140,
       "norm_label": "get_processed_projects()"
     },
     {
@@ -5101,8 +5119,8 @@
       "label": "Model for LLM model configuration",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L126",
-      "id": "api_server_rationale_126",
+      "source_location": "L130",
+      "id": "api_server_rationale_130",
       "community": 28,
       "norm_label": "model for llm model configuration"
     },
@@ -5110,8 +5128,8 @@
       "label": "Model for LLM provider configuration",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L133",
-      "id": "api_server_rationale_133",
+      "source_location": "L137",
+      "id": "api_server_rationale_137",
       "community": 28,
       "norm_label": "model for llm provider configuration"
     },
@@ -5119,8 +5137,8 @@
       "label": "Model for the entire model configuration",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L142",
-      "id": "api_server_rationale_142",
+      "source_location": "L146",
+      "id": "api_server_rationale_146",
       "community": 28,
       "norm_label": "model for the entire model configuration"
     },
@@ -5128,8 +5146,8 @@
       "label": "List all CLI agents and their availability status.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L165",
-      "id": "api_server_rationale_165",
+      "source_location": "L169",
+      "id": "api_server_rationale_169",
       "community": 13,
       "norm_label": "list all cli agents and their availability status."
     },
@@ -5137,8 +5155,8 @@
       "label": "Check if a specific CLI agent is installed and available.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L172",
-      "id": "api_server_rationale_172",
+      "source_location": "L176",
+      "id": "api_server_rationale_176",
       "community": 38,
       "norm_label": "check if a specific cli agent is installed and available."
     },
@@ -5146,8 +5164,8 @@
       "label": "Opens a native folder picker dialog on the host OS and returns the absolute path",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L206",
-      "id": "api_server_rationale_206",
+      "source_location": "L210",
+      "id": "api_server_rationale_210",
       "community": 13,
       "norm_label": "opens a native folder picker dialog on the host os and returns the absolute path"
     },
@@ -5155,8 +5173,8 @@
       "label": "Check if authentication is required for the wiki.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L250",
-      "id": "api_server_rationale_250",
+      "source_location": "L254",
+      "id": "api_server_rationale_254",
       "community": 13,
       "norm_label": "check if authentication is required for the wiki."
     },
@@ -5164,8 +5182,8 @@
       "label": "Check authorization code.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L257",
-      "id": "api_server_rationale_257",
+      "source_location": "L261",
+      "id": "api_server_rationale_261",
       "community": 13,
       "norm_label": "check authorization code."
     },
@@ -5173,8 +5191,8 @@
       "label": "Get available model providers and their models.      This endpoint returns the c",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L264",
-      "id": "api_server_rationale_264",
+      "source_location": "L268",
+      "id": "api_server_rationale_268",
       "community": 28,
       "norm_label": "get available model providers and their models.      this endpoint returns the c"
     },
@@ -5182,26 +5200,26 @@
       "label": "Export wiki content as Markdown or JSON.      Args:         request: The export",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L324",
-      "id": "api_server_rationale_324",
-      "community": 13,
+      "source_location": "L328",
+      "id": "api_server_rationale_328",
+      "community": 63,
       "norm_label": "export wiki content as markdown or json.      args:         request: the export"
     },
     {
       "label": "Export wiki pages to a Notion database.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L372",
-      "id": "api_server_rationale_372",
-      "community": 48,
+      "source_location": "L387",
+      "id": "api_server_rationale_387",
+      "community": 38,
       "norm_label": "export wiki pages to a notion database."
     },
     {
       "label": "Export wiki pages to a local Obsidian vault.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L392",
-      "id": "api_server_rationale_392",
+      "source_location": "L407",
+      "id": "api_server_rationale_407",
       "community": 38,
       "norm_label": "export wiki pages to a local obsidian vault."
     },
@@ -5209,8 +5227,8 @@
       "label": "Minimal repo adapter that lets BusinessAnalyzer read multiple repos as one syste",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L422",
-      "id": "api_server_rationale_422",
+      "source_location": "L437",
+      "id": "api_server_rationale_437",
       "community": 38,
       "norm_label": "minimal repo adapter that lets businessanalyzer read multiple repos as one syste"
     },
@@ -5218,8 +5236,8 @@
       "label": "Run business analysis (data flow, workflow, impact) and return markdown pages.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L491",
-      "id": "api_server_rationale_491",
+      "source_location": "L506",
+      "id": "api_server_rationale_506",
       "community": 66,
       "norm_label": "run business analysis (data flow, workflow, impact) and return markdown pages."
     },
@@ -5227,8 +5245,8 @@
       "label": "Return the file tree and README content for a local repository.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L549",
-      "id": "api_server_rationale_549",
+      "source_location": "L564",
+      "id": "api_server_rationale_564",
       "community": 85,
       "norm_label": "return the file tree and readme content for a local repository."
     },
@@ -5236,26 +5254,35 @@
       "label": "Generate Markdown export of wiki pages.      Args:         repo_url: The reposit",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L595",
-      "id": "api_server_rationale_595",
-      "community": 13,
+      "source_location": "L610",
+      "id": "api_server_rationale_610",
+      "community": 63,
       "norm_label": "generate markdown export of wiki pages.      args:         repo_url: the reposit"
+    },
+    {
+      "label": "Build a zip archive mirroring the wiki's section/page directory structure:     o",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L661",
+      "id": "api_server_rationale_661",
+      "community": 28,
+      "norm_label": "build a zip archive mirroring the wiki's section/page directory structure:     o"
     },
     {
       "label": "Generate JSON export of wiki pages.      Args:         repo_url: The repository",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L642",
-      "id": "api_server_rationale_642",
-      "community": 13,
+      "source_location": "L708",
+      "id": "api_server_rationale_708",
+      "community": 63,
       "norm_label": "generate json export of wiki pages.      args:         repo_url: the repository"
     },
     {
       "label": "Fire-and-forget diagram fix.      Immediately returns {status: \"queued\", job_id}",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L696",
-      "id": "api_server_rationale_696",
+      "source_location": "L762",
+      "id": "api_server_rationale_762",
       "community": 85,
       "norm_label": "fire-and-forget diagram fix.      immediately returns {status: \"queued\", job_id}"
     },
@@ -5263,8 +5290,8 @@
       "label": "Semantic retrieval over the wiki, then delegate generation to the chat stream pa",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L907",
-      "id": "api_server_rationale_907",
+      "source_location": "L972",
+      "id": "api_server_rationale_972",
       "community": 13,
       "norm_label": "semantic retrieval over the wiki, then delegate generation to the chat stream pa"
     },
@@ -5272,8 +5299,8 @@
       "label": "Report whether semantic wiki search (Ollama embeddings) is usable, for the UI gu",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L967",
-      "id": "api_server_rationale_967",
+      "source_location": "L1032",
+      "id": "api_server_rationale_1032",
       "community": 13,
       "norm_label": "report whether semantic wiki search (ollama embeddings) is usable, for the ui gu"
     },
@@ -5281,17 +5308,17 @@
       "label": "Generates the file path for a given wiki cache.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L993",
-      "id": "api_server_rationale_993",
-      "community": 38,
+      "source_location": "L1058",
+      "id": "api_server_rationale_1058",
+      "community": 20,
       "norm_label": "generates the file path for a given wiki cache."
     },
     {
       "label": "Reads wiki cache data from the file system.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1001",
-      "id": "api_server_rationale_1001",
+      "source_location": "L1066",
+      "id": "api_server_rationale_1066",
       "community": 38,
       "norm_label": "reads wiki cache data from the file system."
     },
@@ -5299,17 +5326,17 @@
       "label": "Saves wiki cache data to the file system.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1014",
-      "id": "api_server_rationale_1014",
-      "community": 28,
+      "source_location": "L1079",
+      "id": "api_server_rationale_1079",
+      "community": 20,
       "norm_label": "saves wiki cache data to the file system."
     },
     {
       "label": "Retrieves cached wiki data (structure and generated pages) for a repository.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1145",
-      "id": "api_server_rationale_1145",
+      "source_location": "L1210",
+      "id": "api_server_rationale_1210",
       "community": 38,
       "norm_label": "retrieves cached wiki data (structure and generated pages) for a repository."
     },
@@ -5317,8 +5344,8 @@
       "label": "Convert a git remote (SSH or HTTPS) into a browsable web base URL.      git@host",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1174",
-      "id": "api_server_rationale_1174",
+      "source_location": "L1239",
+      "id": "api_server_rationale_1239",
       "community": 38,
       "norm_label": "convert a git remote (ssh or https) into a browsable web base url.      git@host"
     },
@@ -5326,8 +5353,8 @@
       "label": "Find every git repository root under base_path (the base itself + nested     sub",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1200",
-      "id": "api_server_rationale_1200",
+      "source_location": "L1265",
+      "id": "api_server_rationale_1265",
       "community": 38,
       "norm_label": "find every git repository root under base_path (the base itself + nested     sub"
     },
@@ -5335,8 +5362,8 @@
       "label": "Resolve the local source path for a wiki and return the git repository     roots",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1262",
-      "id": "api_server_rationale_1262",
+      "source_location": "L1327",
+      "id": "api_server_rationale_1327",
       "community": 38,
       "norm_label": "resolve the local source path for a wiki and return the git repository     roots"
     },
@@ -5344,44 +5371,44 @@
       "label": "Stores generated wiki data (structure and pages) to the server-side cache.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1283",
-      "id": "api_server_rationale_1283",
-      "community": 28,
+      "source_location": "L1348",
+      "id": "api_server_rationale_1348",
+      "community": 20,
       "norm_label": "stores generated wiki data (structure and pages) to the server-side cache."
     },
     {
       "label": "Delete files and folders in .trash directories older than 3 days.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1300",
-      "id": "api_server_rationale_1300",
-      "community": 38,
+      "source_location": "L1365",
+      "id": "api_server_rationale_1365",
+      "community": 20,
       "norm_label": "delete files and folders in .trash directories older than 3 days."
     },
     {
       "label": "Moves wiki cache and generated wiki files to .trash directory with a 3-day TTL.",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1337",
-      "id": "api_server_rationale_1337",
-      "community": 38,
+      "source_location": "L1402",
+      "id": "api_server_rationale_1402",
+      "community": 20,
       "norm_label": "moves wiki cache and generated wiki files to .trash directory with a 3-day ttl."
     },
     {
       "label": "Health check endpoint for Docker and monitoring",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1395",
-      "id": "api_server_rationale_1395",
-      "community": 13,
+      "source_location": "L1460",
+      "id": "api_server_rationale_1460",
+      "community": 140,
       "norm_label": "health check endpoint for docker and monitoring"
     },
     {
       "label": "Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1409",
-      "id": "api_server_rationale_1409",
+      "source_location": "L1474",
+      "id": "api_server_rationale_1474",
       "community": 85,
       "norm_label": "validate a litellm proxy url (cli mode) or api key (api mode) before generation"
     },
@@ -5389,8 +5416,8 @@
       "label": "Root endpoint to check if the API is running and list available endpoints dynami",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1432",
-      "id": "api_server_rationale_1432",
+      "source_location": "L1497",
+      "id": "api_server_rationale_1497",
       "community": 13,
       "norm_label": "root endpoint to check if the api is running and list available endpoints dynami"
     },
@@ -5398,9 +5425,9 @@
       "label": "Lists all processed projects found in the wiki cache directory.     Projects are",
       "file_type": "rationale",
       "source_file": "api/server.py",
-      "source_location": "L1460",
-      "id": "api_server_rationale_1460",
-      "community": 13,
+      "source_location": "L1525",
+      "id": "api_server_rationale_1525",
+      "community": 140,
       "norm_label": "lists all processed projects found in the wiki cache directory.     projects are"
     },
     {
@@ -5616,7 +5643,7 @@
       "source_file": "api/task_streams.py",
       "source_location": "L140",
       "id": "api_task_streams_emit_task_event",
-      "community": 6,
+      "community": 29,
       "norm_label": "emit_task_event()"
     },
     {
@@ -6012,7 +6039,7 @@
       "source_file": "cli/business/business_analyzer.py",
       "source_location": "L63",
       "id": "business_business_analyzer_businessanalyzer",
-      "community": 0,
+      "community": 18,
       "norm_label": "businessanalyzer"
     },
     {
@@ -6120,7 +6147,7 @@
       "source_file": "cli/business/business_analyzer.py",
       "source_location": "L64",
       "id": "business_business_analyzer_rationale_64",
-      "community": 0,
+      "community": 18,
       "norm_label": "orchestrates the full business analysis of a repository.      usage::          f"
     },
     {
@@ -7218,7 +7245,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L23",
       "id": "exporters_notion_exporter_notionexporter",
-      "community": 48,
+      "community": 28,
       "norm_label": "notionexporter"
     },
     {
@@ -7227,7 +7254,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L39",
       "id": "exporters_notion_exporter_notionexporter_init",
-      "community": 48,
+      "community": 55,
       "norm_label": ".__init__()"
     },
     {
@@ -7236,7 +7263,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L39",
       "id": "cli_exporters_notion_exporter_py_str",
-      "community": 48,
+      "community": 55,
       "norm_label": "str"
     },
     {
@@ -7245,7 +7272,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L48",
       "id": "exporters_notion_exporter_notionexporter_name",
-      "community": 48,
+      "community": 55,
       "norm_label": ".name()"
     },
     {
@@ -7254,7 +7281,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L51",
       "id": "exporters_notion_exporter_notionexporter_export",
-      "community": 48,
+      "community": 55,
       "norm_label": ".export()"
     },
     {
@@ -7272,7 +7299,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L123",
       "id": "exporters_notion_exporter_notionexporter_create_page",
-      "community": 48,
+      "community": 55,
       "norm_label": "._create_page()"
     },
     {
@@ -7281,7 +7308,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L161",
       "id": "exporters_notion_exporter_notionexporter_markdown_to_blocks",
-      "community": 48,
+      "community": 55,
       "norm_label": "._markdown_to_blocks()"
     },
     {
@@ -7290,7 +7317,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L233",
       "id": "exporters_notion_exporter_notionexporter_extract_title",
-      "community": 48,
+      "community": 55,
       "norm_label": "._extract_title()"
     },
     {
@@ -7299,7 +7326,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L240",
       "id": "exporters_notion_exporter_notionexporter_extract_page_id",
-      "community": 48,
+      "community": 55,
       "norm_label": "._extract_page_id()"
     },
     {
@@ -7317,7 +7344,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L24",
       "id": "exporters_notion_exporter_rationale_24",
-      "community": 48,
+      "community": 28,
       "norm_label": "exports wiki pages to notion.      each wiki page becomes a notion page under a"
     },
     {
@@ -7326,7 +7353,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L57",
       "id": "exporters_notion_exporter_rationale_57",
-      "community": 48,
+      "community": 55,
       "norm_label": "export all wiki pages to notion."
     },
     {
@@ -7335,7 +7362,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L126",
       "id": "exporters_notion_exporter_rationale_126",
-      "community": 48,
+      "community": 55,
       "norm_label": "create a notion page and return its url."
     },
     {
@@ -7344,7 +7371,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L162",
       "id": "exporters_notion_exporter_rationale_162",
-      "community": 48,
+      "community": 55,
       "norm_label": "convert markdown to notion block objects (simplified)."
     },
     {
@@ -7353,7 +7380,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L234",
       "id": "exporters_notion_exporter_rationale_234",
-      "community": 48,
+      "community": 55,
       "norm_label": "extract h1 title from markdown content."
     },
     {
@@ -7362,7 +7389,7 @@
       "source_file": "cli/exporters/notion_exporter.py",
       "source_location": "L241",
       "id": "exporters_notion_exporter_rationale_241",
-      "community": 48,
+      "community": 55,
       "norm_label": "extract notion page id from url."
     },
     {
@@ -7380,7 +7407,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L24",
       "id": "exporters_obsidian_exporter_obsidianexporter",
-      "community": 28,
+      "community": 10,
       "norm_label": "obsidianexporter"
     },
     {
@@ -7389,7 +7416,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L34",
       "id": "exporters_obsidian_exporter_obsidianexporter_init",
-      "community": 20,
+      "community": 10,
       "norm_label": ".__init__()"
     },
     {
@@ -7398,7 +7425,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L34",
       "id": "cli_exporters_obsidian_exporter_py_str",
-      "community": 20,
+      "community": 10,
       "norm_label": "str"
     },
     {
@@ -7407,7 +7434,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L38",
       "id": "exporters_obsidian_exporter_obsidianexporter_name",
-      "community": 20,
+      "community": 10,
       "norm_label": ".name()"
     },
     {
@@ -7416,7 +7443,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L41",
       "id": "exporters_obsidian_exporter_obsidianexporter_export",
-      "community": 20,
+      "community": 10,
       "norm_label": ".export()"
     },
     {
@@ -7434,7 +7461,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L113",
       "id": "exporters_obsidian_exporter_obsidianexporter_convert_to_obsidian",
-      "community": 20,
+      "community": 10,
       "norm_label": "._convert_to_obsidian()"
     },
     {
@@ -7443,7 +7470,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L137",
       "id": "exporters_obsidian_exporter_obsidianexporter_build_index",
-      "community": 20,
+      "community": 10,
       "norm_label": "._build_index()"
     },
     {
@@ -7452,7 +7479,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L171",
       "id": "exporters_obsidian_exporter_obsidianexporter_extract_title",
-      "community": 20,
+      "community": 10,
       "norm_label": "._extract_title()"
     },
     {
@@ -7461,7 +7488,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L178",
       "id": "exporters_obsidian_exporter_obsidianexporter_safe_filename",
-      "community": 20,
+      "community": 10,
       "norm_label": "._safe_filename()"
     },
     {
@@ -7479,7 +7506,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L25",
       "id": "exporters_obsidian_exporter_rationale_25",
-      "community": 28,
+      "community": 10,
       "norm_label": "exports wiki pages to an obsidian vault directory.      usage::          exporte"
     },
     {
@@ -7488,7 +7515,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L47",
       "id": "exporters_obsidian_exporter_rationale_47",
-      "community": 20,
+      "community": 10,
       "norm_label": "export all wiki pages to the obsidian vault directory."
     },
     {
@@ -7497,7 +7524,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L119",
       "id": "exporters_obsidian_exporter_rationale_119",
-      "community": 20,
+      "community": 10,
       "norm_label": "convert localwiki markdown to obsidian-compatible markdown."
     },
     {
@@ -7506,7 +7533,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L143",
       "id": "exporters_obsidian_exporter_rationale_143",
-      "community": 20,
+      "community": 10,
       "norm_label": "build a table-of-contents index page."
     },
     {
@@ -7515,7 +7542,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L172",
       "id": "exporters_obsidian_exporter_rationale_172",
-      "community": 20,
+      "community": 10,
       "norm_label": "extract h1 title from markdown content."
     },
     {
@@ -7524,7 +7551,7 @@
       "source_file": "cli/exporters/obsidian_exporter.py",
       "source_location": "L179",
       "id": "exporters_obsidian_exporter_rationale_179",
-      "community": 20,
+      "community": 10,
       "norm_label": "convert page title to a safe filename."
     },
     {
@@ -7776,7 +7803,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L1",
       "id": "indexer_graph_context",
-      "community": 55,
+      "community": 27,
       "norm_label": "graph_context.py"
     },
     {
@@ -7785,7 +7812,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L22",
       "id": "indexer_graph_context_graphcontext",
-      "community": 55,
+      "community": 18,
       "norm_label": "graphcontext"
     },
     {
@@ -7794,7 +7821,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L35",
       "id": "indexer_graph_context_graphcontext_init",
-      "community": 55,
+      "community": 27,
       "norm_label": ".__init__()"
     },
     {
@@ -7803,7 +7830,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L35",
       "id": "cli_indexer_graph_context_py_str",
-      "community": 55,
+      "community": 27,
       "norm_label": "str"
     },
     {
@@ -7812,7 +7839,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L35",
       "id": "cli_indexer_graph_context_py_bool",
-      "community": 55,
+      "community": 27,
       "norm_label": "bool"
     },
     {
@@ -7821,7 +7848,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L49",
       "id": "indexer_graph_context_graphcontext_try_auto_index",
-      "community": 55,
+      "community": 27,
       "norm_label": "._try_auto_index()"
     },
     {
@@ -7830,7 +7857,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L61",
       "id": "indexer_graph_context_graphcontext_for_page",
-      "community": 55,
+      "community": 27,
       "norm_label": ".for_page()"
     },
     {
@@ -7839,7 +7866,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L61",
       "id": "cli_indexer_graph_context_py_wikipage",
-      "community": 55,
+      "community": 27,
       "norm_label": "wikipage"
     },
     {
@@ -7848,7 +7875,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L86",
       "id": "indexer_graph_context_graphcontext_status",
-      "community": 55,
+      "community": 18,
       "norm_label": ".status()"
     },
     {
@@ -7857,7 +7884,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L93",
       "id": "indexer_graph_context_graphcontext_architecture_summary",
-      "community": 55,
+      "community": 27,
       "norm_label": ".architecture_summary()"
     },
     {
@@ -7866,7 +7893,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L1",
       "id": "indexer_graph_context_rationale_1",
-      "community": 55,
+      "community": 27,
       "norm_label": "graph context builder \u2014 combines codegraph and graphify outputs into a single co"
     },
     {
@@ -7875,7 +7902,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L23",
       "id": "indexer_graph_context_rationale_23",
-      "community": 55,
+      "community": 18,
       "norm_label": "unified interface for building graph-based llm context.      tries graphify firs"
     },
     {
@@ -7884,7 +7911,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L36",
       "id": "indexer_graph_context_rationale_36",
-      "community": 55,
+      "community": 27,
       "norm_label": "args:             repo_path: absolute path to the repository.             auto_i"
     },
     {
@@ -7893,7 +7920,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L50",
       "id": "indexer_graph_context_rationale_50",
-      "community": 55,
+      "community": 27,
       "norm_label": "attempt to build missing indexes (best-effort, non-fatal)."
     },
     {
@@ -7902,7 +7929,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L62",
       "id": "indexer_graph_context_rationale_62",
-      "community": 55,
+      "community": 27,
       "norm_label": "return the best available graph context for a wiki page.          token budget c"
     },
     {
@@ -7911,7 +7938,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L87",
       "id": "indexer_graph_context_rationale_87",
-      "community": 55,
+      "community": 18,
       "norm_label": "return availability status of each indexer."
     },
     {
@@ -7920,7 +7947,7 @@
       "source_file": "cli/indexer/graph_context.py",
       "source_location": "L94",
       "id": "indexer_graph_context_rationale_94",
-      "community": 55,
+      "community": 27,
       "norm_label": "return high-level architecture summary (for overview pages)."
     },
     {
@@ -8334,7 +8361,7 @@
       "source_file": "cli/mcp/base_client.py",
       "source_location": "L1",
       "id": "mcp_base_client",
-      "community": 42,
+      "community": 36,
       "norm_label": "base_client.py"
     },
     {
@@ -8343,7 +8370,7 @@
       "source_file": "cli/mcp/base_client.py",
       "source_location": "L26",
       "id": "mcp_base_client_mcperror",
-      "community": 42,
+      "community": 56,
       "norm_label": "mcperror"
     },
     {
@@ -8487,7 +8514,7 @@
       "source_file": "cli/mcp/base_client.py",
       "source_location": "L1",
       "id": "mcp_base_client_rationale_1",
-      "community": 42,
+      "community": 36,
       "norm_label": "mcp base client \u2014 json-rpc 2.0 over stdio for any mcp server process.  this impl"
     },
     {
@@ -8496,7 +8523,7 @@
       "source_file": "cli/mcp/base_client.py",
       "source_location": "L27",
       "id": "mcp_base_client_rationale_27",
-      "community": 42,
+      "community": 56,
       "norm_label": "raised when an mcp server returns an error or is unavailable."
     },
     {
@@ -9306,7 +9333,7 @@
       "source_file": "cli/pipeline/file_exporter.py",
       "source_location": "L26",
       "id": "pipeline_file_exporter_fileexporter",
-      "community": 45,
+      "community": 18,
       "norm_label": "fileexporter"
     },
     {
@@ -9378,7 +9405,7 @@
       "source_file": "cli/pipeline/file_exporter.py",
       "source_location": "L27",
       "id": "pipeline_file_exporter_rationale_27",
-      "community": 45,
+      "community": 18,
       "norm_label": "exports a wikistructure + generated page contents to disk.      output layout::"
     },
     {
@@ -9826,7 +9853,7 @@
       "label": "._collect_sources()",
       "file_type": "code",
       "source_file": "cli/pipeline/page_generator.py",
-      "source_location": "L213",
+      "source_location": "L217",
       "id": "pipeline_page_generator_wikipagegenerator_collect_sources",
       "community": 23,
       "norm_label": "._collect_sources()"
@@ -9835,7 +9862,7 @@
       "label": "_strip_outer_fence()",
       "file_type": "code",
       "source_file": "cli/pipeline/page_generator.py",
-      "source_location": "L233",
+      "source_location": "L237",
       "id": "pipeline_page_generator_strip_outer_fence",
       "community": 23,
       "norm_label": "_strip_outer_fence()"
@@ -9871,8 +9898,8 @@
       "label": "Read and concatenate source files up to MAX_SOURCE_CHARS.",
       "file_type": "rationale",
       "source_file": "cli/pipeline/page_generator.py",
-      "source_location": "L214",
-      "id": "pipeline_page_generator_rationale_214",
+      "source_location": "L218",
+      "id": "pipeline_page_generator_rationale_218",
       "community": 23,
       "norm_label": "read and concatenate source files up to max_source_chars."
     },
@@ -9880,8 +9907,8 @@
       "label": "Remove leading ```markdown and trailing ``` if present.",
       "file_type": "rationale",
       "source_file": "cli/pipeline/page_generator.py",
-      "source_location": "L234",
-      "id": "pipeline_page_generator_rationale_234",
+      "source_location": "L238",
+      "id": "pipeline_page_generator_rationale_238",
       "community": 23,
       "norm_label": "remove leading ```markdown and trailing ``` if present."
     },
@@ -9909,7 +9936,7 @@
       "source_file": "cli/pipeline/publisher.py",
       "source_location": "L10",
       "id": "pipeline_publisher_confluencepublisher_init",
-      "community": 18,
+      "community": 147,
       "norm_label": ".__init__()"
     },
     {
@@ -9918,7 +9945,7 @@
       "source_file": "cli/pipeline/publisher.py",
       "source_location": "L10",
       "id": "cli_pipeline_publisher_py_str",
-      "community": 18,
+      "community": 147,
       "norm_label": "str"
     },
     {
@@ -9927,7 +9954,7 @@
       "source_file": "cli/pipeline/publisher.py",
       "source_location": "L25",
       "id": "pipeline_publisher_confluencepublisher_publish_page",
-      "community": 18,
+      "community": 147,
       "norm_label": ".publish_page()"
     },
     {
@@ -9936,7 +9963,7 @@
       "source_file": "cli/pipeline/publisher.py",
       "source_location": "L72",
       "id": "pipeline_publisher_confluencepublisher_publish_directory",
-      "community": 18,
+      "community": 147,
       "norm_label": ".publish_directory()"
     },
     {
@@ -9945,7 +9972,7 @@
       "source_file": "cli/pipeline/publisher.py",
       "source_location": "L72",
       "id": "cli_pipeline_publisher_py_path",
-      "community": 18,
+      "community": 147,
       "norm_label": "path"
     },
     {
@@ -9963,7 +9990,7 @@
       "source_file": "cli/pipeline/source_tracker.py",
       "source_location": "L17",
       "id": "pipeline_source_tracker_datasource",
-      "community": 56,
+      "community": 42,
       "norm_label": "datasource"
     },
     {
@@ -10143,7 +10170,7 @@
       "source_file": "cli/pipeline/source_tracker.py",
       "source_location": "L18",
       "id": "pipeline_source_tracker_rationale_18",
-      "community": 56,
+      "community": 42,
       "norm_label": "provenance record for a single piece of data.      fields     ------     type"
     },
     {
@@ -10242,7 +10269,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L39",
       "id": "pipeline_structure_planner_wikipage",
-      "community": 23,
+      "community": 27,
       "norm_label": "wikipage"
     },
     {
@@ -10251,7 +10278,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L50",
       "id": "pipeline_structure_planner_wikistructure",
-      "community": 45,
+      "community": 23,
       "norm_label": "wikistructure"
     },
     {
@@ -10260,7 +10287,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L58",
       "id": "pipeline_structure_planner_wikistructure_page_by_id",
-      "community": 45,
+      "community": 79,
       "norm_label": ".page_by_id()"
     },
     {
@@ -10269,7 +10296,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L58",
       "id": "cli_pipeline_structure_planner_py_str",
-      "community": 45,
+      "community": 79,
       "norm_label": "str"
     },
     {
@@ -10296,7 +10323,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L78",
       "id": "pipeline_structure_planner_wikistructureplanner_plan",
-      "community": 45,
+      "community": 79,
       "norm_label": ".plan()"
     },
     {
@@ -10305,7 +10332,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L106",
       "id": "pipeline_structure_planner_wikistructureplanner_parse",
-      "community": 45,
+      "community": 79,
       "norm_label": "._parse()"
     },
     {
@@ -10332,7 +10359,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L79",
       "id": "pipeline_structure_planner_rationale_79",
-      "community": 45,
+      "community": 79,
       "norm_label": "args:             repo: localrepo instance (has .file_tree() and .readme())"
     },
     {
@@ -10341,7 +10368,7 @@
       "source_file": "cli/pipeline/structure_planner.py",
       "source_location": "L107",
       "id": "pipeline_structure_planner_rationale_107",
-      "community": 45,
+      "community": 79,
       "norm_label": "extract json from llm response and parse into wikistructure."
     },
     {
@@ -10354,6 +10381,33 @@
       "norm_label": "prompts.py"
     },
     {
+      "label": "topic_requirements()",
+      "file_type": "code",
+      "source_file": "cli/prompts.py",
+      "source_location": "L193",
+      "id": "cli_prompts_topic_requirements",
+      "community": 23,
+      "norm_label": "topic_requirements()"
+    },
+    {
+      "label": "str",
+      "file_type": "code",
+      "source_file": "cli/prompts.py",
+      "source_location": "L193",
+      "id": "cli_prompts_py_str",
+      "community": 23,
+      "norm_label": "str"
+    },
+    {
+      "label": "bool",
+      "file_type": "code",
+      "source_file": "cli/prompts.py",
+      "source_location": "L193",
+      "id": "cli_prompts_py_bool",
+      "community": 23,
+      "norm_label": "bool"
+    },
+    {
       "label": "Wiki-specific prompts for LocalWiki CLI.  Ported from localwiki's frontend (dete",
       "file_type": "rationale",
       "source_file": "cli/prompts.py",
@@ -10361,6 +10415,15 @@
       "id": "cli_prompts_rationale_1",
       "community": 0,
       "norm_label": "wiki-specific prompts for localwiki cli.  ported from localwiki's frontend (dete"
+    },
+    {
+      "label": "Return the MANDATORY topic block for a page, or '' if none applies.     Routed b",
+      "file_type": "rationale",
+      "source_file": "cli/prompts.py",
+      "source_location": "L194",
+      "id": "cli_prompts_rationale_194",
+      "community": 23,
+      "norm_label": "return the mandatory topic block for a page, or '' if none applies.     routed b"
     },
     {
       "label": "__init__.py",
@@ -10539,7 +10602,7 @@
       "source_file": "cli/providers/cli_agent.py",
       "source_location": "L1",
       "id": "providers_cli_agent",
-      "community": 3,
+      "community": 68,
       "norm_label": "cli_agent.py"
     },
     {
@@ -10620,7 +10683,7 @@
       "source_file": "cli/providers/cli_agent.py",
       "source_location": "L1",
       "id": "providers_cli_agent_rationale_1",
-      "community": 3,
+      "community": 68,
       "norm_label": "cliagentprovider \u2014 wraps local cli agents as an llm provider.  instead of api ke"
     },
     {
@@ -11934,7 +11997,7 @@
       "source_file": "cli/wiki.py",
       "source_location": "L364",
       "id": "argumentparser",
-      "community": 23,
+      "community": 18,
       "norm_label": "argumentparser"
     },
     {
@@ -12357,7 +12420,7 @@
       "source_file": "package.json",
       "source_location": "L7",
       "id": "package_scripts",
-      "community": 69,
+      "community": 50,
       "norm_label": "scripts"
     },
     {
@@ -12366,7 +12429,7 @@
       "source_file": "package.json",
       "source_location": "L8",
       "id": "package_scripts_setup",
-      "community": 69,
+      "community": 50,
       "norm_label": "setup"
     },
     {
@@ -12375,7 +12438,7 @@
       "source_file": "package.json",
       "source_location": "L9",
       "id": "package_scripts_setup_api",
-      "community": 69,
+      "community": 50,
       "norm_label": "setup:api"
     },
     {
@@ -12384,7 +12447,7 @@
       "source_file": "package.json",
       "source_location": "L10",
       "id": "package_scripts_dev",
-      "community": 69,
+      "community": 50,
       "norm_label": "dev"
     },
     {
@@ -12393,7 +12456,7 @@
       "source_file": "package.json",
       "source_location": "L11",
       "id": "package_scripts_dev_web",
-      "community": 69,
+      "community": 50,
       "norm_label": "dev:web"
     },
     {
@@ -12402,7 +12465,7 @@
       "source_file": "package.json",
       "source_location": "L12",
       "id": "package_scripts_dev_api",
-      "community": 69,
+      "community": 50,
       "norm_label": "dev:api"
     },
     {
@@ -12411,7 +12474,7 @@
       "source_file": "package.json",
       "source_location": "L13",
       "id": "package_scripts_dev_all",
-      "community": 69,
+      "community": 50,
       "norm_label": "dev:all"
     },
     {
@@ -12420,7 +12483,7 @@
       "source_file": "package.json",
       "source_location": "L14",
       "id": "package_scripts_build",
-      "community": 69,
+      "community": 50,
       "norm_label": "build"
     },
     {
@@ -12429,7 +12492,7 @@
       "source_file": "package.json",
       "source_location": "L15",
       "id": "package_scripts_start",
-      "community": 69,
+      "community": 50,
       "norm_label": "start"
     },
     {
@@ -12438,7 +12501,7 @@
       "source_file": "package.json",
       "source_location": "L16",
       "id": "package_scripts_lint",
-      "community": 69,
+      "community": 50,
       "norm_label": "lint"
     },
     {
@@ -12447,7 +12510,7 @@
       "source_file": "package.json",
       "source_location": "L17",
       "id": "package_scripts_export_showcase",
-      "community": 69,
+      "community": 50,
       "norm_label": "export-showcase"
     },
     {
@@ -12456,7 +12519,7 @@
       "source_file": "package.json",
       "source_location": "L18",
       "id": "package_scripts_deploy_vercel",
-      "community": 69,
+      "community": 50,
       "norm_label": "deploy:vercel"
     },
     {
@@ -12465,7 +12528,7 @@
       "source_file": "package.json",
       "source_location": "L19",
       "id": "package_scripts_desktop",
-      "community": 69,
+      "community": 50,
       "norm_label": "desktop"
     },
     {
@@ -12474,7 +12537,7 @@
       "source_file": "package.json",
       "source_location": "L20",
       "id": "package_scripts_desktop_build",
-      "community": 69,
+      "community": 50,
       "norm_label": "desktop:build"
     },
     {
@@ -13140,7 +13203,7 @@
       "source_file": "package.json",
       "source_location": "L112",
       "id": "package_devdependencies",
-      "community": 63,
+      "community": 48,
       "norm_label": "devdependencies"
     },
     {
@@ -13149,7 +13212,7 @@
       "source_file": "package.json",
       "source_location": "L113",
       "id": "package_devdependencies_eslint_eslintrc",
-      "community": 63,
+      "community": 48,
       "norm_label": "@eslint/eslintrc"
     },
     {
@@ -13158,7 +13221,7 @@
       "source_file": "package.json",
       "source_location": "L114",
       "id": "package_devdependencies_playwright_test",
-      "community": 63,
+      "community": 48,
       "norm_label": "@playwright/test"
     },
     {
@@ -13167,7 +13230,7 @@
       "source_file": "package.json",
       "source_location": "L115",
       "id": "package_devdependencies_tailwindcss_postcss",
-      "community": 63,
+      "community": 48,
       "norm_label": "@tailwindcss/postcss"
     },
     {
@@ -13176,7 +13239,7 @@
       "source_file": "package.json",
       "source_location": "L116",
       "id": "package_devdependencies_types_node",
-      "community": 63,
+      "community": 48,
       "norm_label": "@types/node"
     },
     {
@@ -13185,7 +13248,7 @@
       "source_file": "package.json",
       "source_location": "L117",
       "id": "package_devdependencies_types_react",
-      "community": 63,
+      "community": 48,
       "norm_label": "@types/react"
     },
     {
@@ -13194,7 +13257,7 @@
       "source_file": "package.json",
       "source_location": "L118",
       "id": "package_devdependencies_types_react_dom",
-      "community": 63,
+      "community": 48,
       "norm_label": "@types/react-dom"
     },
     {
@@ -13203,7 +13266,7 @@
       "source_file": "package.json",
       "source_location": "L119",
       "id": "package_devdependencies_types_react_syntax_highlighter",
-      "community": 63,
+      "community": 48,
       "norm_label": "@types/react-syntax-highlighter"
     },
     {
@@ -13212,7 +13275,7 @@
       "source_file": "package.json",
       "source_location": "L120",
       "id": "package_devdependencies_concurrently",
-      "community": 63,
+      "community": 48,
       "norm_label": "concurrently"
     },
     {
@@ -13221,7 +13284,7 @@
       "source_file": "package.json",
       "source_location": "L121",
       "id": "package_devdependencies_electron",
-      "community": 63,
+      "community": 48,
       "norm_label": "electron"
     },
     {
@@ -13230,7 +13293,7 @@
       "source_file": "package.json",
       "source_location": "L122",
       "id": "package_devdependencies_electron_builder",
-      "community": 63,
+      "community": 48,
       "norm_label": "electron-builder"
     },
     {
@@ -13239,7 +13302,7 @@
       "source_file": "package.json",
       "source_location": "L123",
       "id": "package_devdependencies_eslint",
-      "community": 63,
+      "community": 48,
       "norm_label": "eslint"
     },
     {
@@ -13248,7 +13311,7 @@
       "source_file": "package.json",
       "source_location": "L124",
       "id": "package_devdependencies_eslint_config_next",
-      "community": 63,
+      "community": 48,
       "norm_label": "eslint-config-next"
     },
     {
@@ -13257,7 +13320,7 @@
       "source_file": "package.json",
       "source_location": "L125",
       "id": "package_devdependencies_tailwindcss",
-      "community": 63,
+      "community": 48,
       "norm_label": "tailwindcss"
     },
     {
@@ -13266,7 +13329,7 @@
       "source_file": "package.json",
       "source_location": "L126",
       "id": "package_devdependencies_typescript",
-      "community": 63,
+      "community": 48,
       "norm_label": "typescript"
     },
     {
@@ -13275,89 +13338,8 @@
       "source_file": "package.json",
       "source_location": "L127",
       "id": "package_devdependencies_wait_on",
-      "community": 63,
+      "community": 48,
       "norm_label": "wait-on"
-    },
-    {
-      "label": "patch.py",
-      "file_type": "code",
-      "source_file": "patch.py",
-      "source_location": "L1",
-      "id": "patch",
-      "community": 176,
-      "norm_label": "patch.py"
-    },
-    {
-      "label": "patch_data_pipeline.py",
-      "file_type": "code",
-      "source_file": "patch_data_pipeline.py",
-      "source_location": "L1",
-      "id": "patch_data_pipeline",
-      "community": 177,
-      "norm_label": "patch_data_pipeline.py"
-    },
-    {
-      "label": "patch_markdown.py",
-      "file_type": "code",
-      "source_file": "patch_markdown.py",
-      "source_location": "L1",
-      "id": "patch_markdown",
-      "community": 178,
-      "norm_label": "patch_markdown.py"
-    },
-    {
-      "label": "patch_page.py",
-      "file_type": "code",
-      "source_file": "patch_page.py",
-      "source_location": "L1",
-      "id": "patch_page",
-      "community": 179,
-      "norm_label": "patch_page.py"
-    },
-    {
-      "label": "patch_simple_chat.py",
-      "file_type": "code",
-      "source_file": "patch_simple_chat.py",
-      "source_location": "L1",
-      "id": "patch_simple_chat",
-      "community": 180,
-      "norm_label": "patch_simple_chat.py"
-    },
-    {
-      "label": "patch_simple_chat_local.py",
-      "file_type": "code",
-      "source_file": "patch_simple_chat_local.py",
-      "source_location": "L1",
-      "id": "patch_simple_chat_local",
-      "community": 181,
-      "norm_label": "patch_simple_chat_local.py"
-    },
-    {
-      "label": "patch_viewer.py",
-      "file_type": "code",
-      "source_file": "patch_viewer.py",
-      "source_location": "L1",
-      "id": "patch_viewer",
-      "community": 182,
-      "norm_label": "patch_viewer.py"
-    },
-    {
-      "label": "patch_viewer2.py",
-      "file_type": "code",
-      "source_file": "patch_viewer2.py",
-      "source_location": "L1",
-      "id": "patch_viewer2",
-      "community": 183,
-      "norm_label": "patch_viewer2.py"
-    },
-    {
-      "label": "patch_wrapper.py",
-      "file_type": "code",
-      "source_file": "patch_wrapper.py",
-      "source_location": "L1",
-      "id": "patch_wrapper",
-      "community": 184,
-      "norm_label": "patch_wrapper.py"
     },
     {
       "label": "playwright.config.ts",
@@ -15240,6 +15222,15 @@
       "norm_label": "run.sh script"
     },
     {
+      "label": "sanitize_affiliate.py",
+      "file_type": "code",
+      "source_file": "scripts/sanitize_affiliate.py",
+      "source_location": "L1",
+      "id": "scripts_sanitize_affiliate",
+      "community": 177,
+      "norm_label": "sanitize_affiliate.py"
+    },
+    {
       "label": "setup-gcp-sa.sh",
       "file_type": "code",
       "source_file": "scripts/setup-gcp-sa.sh",
@@ -16392,7 +16383,7 @@
       "source_file": "src/components/ui/badge.tsx",
       "source_location": "L1",
       "id": "ui_badge",
-      "community": 196,
+      "community": 176,
       "norm_label": "badge.tsx"
     },
     {
@@ -16401,7 +16392,7 @@
       "source_file": "src/components/ui/badge.tsx",
       "source_location": "L7",
       "id": "ui_badge_badgevariants",
-      "community": 196,
+      "community": 176,
       "norm_label": "badgevariants"
     },
     {
@@ -16410,7 +16401,7 @@
       "source_file": "src/components/ui/badge.tsx",
       "source_location": "L28",
       "id": "ui_badge_badge",
-      "community": 196,
+      "community": 176,
       "norm_label": "badge()"
     },
     {
@@ -18318,7 +18309,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L1",
       "id": "ui_navigation_menu",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigation-menu.tsx"
     },
     {
@@ -18327,7 +18318,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L8",
       "id": "ui_navigation_menu_navigationmenu",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenu()"
     },
     {
@@ -18336,7 +18327,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L32",
       "id": "ui_navigation_menu_navigationmenulist",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenulist()"
     },
     {
@@ -18345,7 +18336,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L48",
       "id": "ui_navigation_menu_navigationmenuitem",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenuitem()"
     },
     {
@@ -18354,7 +18345,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L61",
       "id": "ui_navigation_menu_navigationmenutriggerstyle",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenutriggerstyle"
     },
     {
@@ -18363,7 +18354,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L65",
       "id": "ui_navigation_menu_navigationmenutrigger",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenutrigger()"
     },
     {
@@ -18372,7 +18363,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L85",
       "id": "ui_navigation_menu_navigationmenucontent",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenucontent()"
     },
     {
@@ -18381,7 +18372,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L102",
       "id": "ui_navigation_menu_navigationmenuviewport",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenuviewport()"
     },
     {
@@ -18390,7 +18381,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L122",
       "id": "ui_navigation_menu_navigationmenulink",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenulink()"
     },
     {
@@ -18399,7 +18390,7 @@
       "source_file": "src/components/ui/navigation-menu.tsx",
       "source_location": "L138",
       "id": "ui_navigation_menu_navigationmenuindicator",
-      "community": 81,
+      "community": 137,
       "norm_label": "navigationmenuindicator()"
     },
     {
@@ -18489,7 +18480,7 @@
       "source_file": "src/components/ui/popover.tsx",
       "source_location": "L1",
       "id": "ui_popover",
-      "community": 86,
+      "community": 166,
       "norm_label": "popover.tsx"
     },
     {
@@ -18498,7 +18489,7 @@
       "source_file": "src/components/ui/popover.tsx",
       "source_location": "L8",
       "id": "ui_popover_popover",
-      "community": 86,
+      "community": 166,
       "norm_label": "popover()"
     },
     {
@@ -18507,7 +18498,7 @@
       "source_file": "src/components/ui/popover.tsx",
       "source_location": "L14",
       "id": "ui_popover_popovertrigger",
-      "community": 86,
+      "community": 166,
       "norm_label": "popovertrigger()"
     },
     {
@@ -18516,7 +18507,7 @@
       "source_file": "src/components/ui/popover.tsx",
       "source_location": "L20",
       "id": "ui_popover_popovercontent",
-      "community": 86,
+      "community": 166,
       "norm_label": "popovercontent()"
     },
     {
@@ -18525,7 +18516,7 @@
       "source_file": "src/components/ui/popover.tsx",
       "source_location": "L42",
       "id": "ui_popover_popoveranchor",
-      "community": 86,
+      "community": 166,
       "norm_label": "popoveranchor()"
     },
     {
@@ -18642,7 +18633,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L1",
       "id": "ui_select",
-      "community": 79,
+      "community": 61,
       "norm_label": "select.tsx"
     },
     {
@@ -18651,7 +18642,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L9",
       "id": "ui_select_select",
-      "community": 79,
+      "community": 61,
       "norm_label": "select()"
     },
     {
@@ -18660,7 +18651,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L15",
       "id": "ui_select_selectgroup",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectgroup()"
     },
     {
@@ -18669,7 +18660,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L21",
       "id": "ui_select_selectvalue",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectvalue()"
     },
     {
@@ -18678,7 +18669,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L27",
       "id": "ui_select_selecttrigger",
-      "community": 79,
+      "community": 61,
       "norm_label": "selecttrigger()"
     },
     {
@@ -18687,7 +18678,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L53",
       "id": "ui_select_selectcontent",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectcontent()"
     },
     {
@@ -18696,7 +18687,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L88",
       "id": "ui_select_selectlabel",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectlabel()"
     },
     {
@@ -18705,7 +18696,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L101",
       "id": "ui_select_selectitem",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectitem()"
     },
     {
@@ -18714,7 +18705,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L125",
       "id": "ui_select_selectseparator",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectseparator()"
     },
     {
@@ -18723,7 +18714,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L138",
       "id": "ui_select_selectscrollupbutton",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectscrollupbutton()"
     },
     {
@@ -18732,7 +18723,7 @@
       "source_file": "src/components/ui/select.tsx",
       "source_location": "L156",
       "id": "ui_select_selectscrolldownbutton",
-      "community": 79,
+      "community": 61,
       "norm_label": "selectscrolldownbutton()"
     },
     {
@@ -20235,7 +20226,7 @@
       "source_file": "src/lib/sse-fetcher.ts",
       "source_location": "L1",
       "id": "lib_sse_fetcher",
-      "community": 61,
+      "community": 59,
       "norm_label": "sse-fetcher.ts"
     },
     {
@@ -20244,7 +20235,7 @@
       "source_file": "src/lib/sse-fetcher.ts",
       "source_location": "L3",
       "id": "lib_sse_fetcher_fetcheventstream",
-      "community": 61,
+      "community": 59,
       "norm_label": "fetcheventstream()"
     },
     {
@@ -20361,7 +20352,7 @@
       "source_file": "src/lib/taskStreamClient.ts",
       "source_location": "L75",
       "id": "lib_taskstreamclient_emittaskevent",
-      "community": 61,
+      "community": 59,
       "norm_label": "emittaskevent()"
     },
     {
@@ -20631,61 +20622,88 @@
       "source_file": "src/lib/wiki-generator.ts",
       "source_location": "L1",
       "id": "lib_wiki_generator",
-      "community": 61,
+      "community": 59,
       "norm_label": "wiki-generator.ts"
+    },
+    {
+      "label": "topicRequirements()",
+      "file_type": "code",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L10",
+      "id": "lib_wiki_generator_topicrequirements",
+      "community": 59,
+      "norm_label": "topicrequirements()"
+    },
+    {
+      "label": "effectiveWikiLanguage()",
+      "file_type": "code",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L47",
+      "id": "lib_wiki_generator_effectivewikilanguage",
+      "community": 59,
+      "norm_label": "effectivewikilanguage()"
+    },
+    {
+      "label": "wikiLanguageInstruction()",
+      "file_type": "code",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L53",
+      "id": "lib_wiki_generator_wikilanguageinstruction",
+      "community": 59,
+      "norm_label": "wikilanguageinstruction()"
     },
     {
       "label": "providerToCli()",
       "file_type": "code",
       "source_file": "src/lib/wiki-generator.ts",
-      "source_location": "L16",
+      "source_location": "L74",
       "id": "lib_wiki_generator_providertocli",
-      "community": 61,
+      "community": 59,
       "norm_label": "providertocli()"
     },
     {
       "label": "elapsed()",
       "file_type": "code",
       "source_file": "src/lib/wiki-generator.ts",
-      "source_location": "L23",
+      "source_location": "L81",
       "id": "lib_wiki_generator_elapsed",
-      "community": 61,
+      "community": 59,
       "norm_label": "elapsed()"
     },
     {
       "label": "emitStep()",
       "file_type": "code",
       "source_file": "src/lib/wiki-generator.ts",
-      "source_location": "L28",
+      "source_location": "L86",
       "id": "lib_wiki_generator_emitstep",
-      "community": 61,
+      "community": 59,
       "norm_label": "emitstep()"
     },
     {
       "label": "runWikiGeneration()",
       "file_type": "code",
       "source_file": "src/lib/wiki-generator.ts",
-      "source_location": "L38",
+      "source_location": "L96",
       "id": "lib_wiki_generator_runwikigeneration",
-      "community": 61,
+      "community": 59,
       "norm_label": "runwikigeneration()"
     },
     {
       "label": "translateWikiGeneration()",
       "file_type": "code",
       "source_file": "src/lib/wiki-generator.ts",
-      "source_location": "L467",
+      "source_location": "L524",
       "id": "lib_wiki_generator_translatewikigeneration",
-      "community": 61,
+      "community": 59,
       "norm_label": "translatewikigeneration()"
     },
     {
       "label": "regenerateWikiPage()",
       "file_type": "code",
       "source_file": "src/lib/wiki-generator.ts",
-      "source_location": "L682",
+      "source_location": "L739",
       "id": "lib_wiki_generator_regeneratewikipage",
-      "community": 61,
+      "community": 59,
       "norm_label": "regeneratewikipage()"
     },
     {
@@ -20743,42 +20761,6 @@
       "norm_label": "tailwind.config.js"
     },
     {
-      "label": "test-ast.js",
-      "file_type": "code",
-      "source_file": "test-ast.js",
-      "source_location": "L1",
-      "id": "test_ast",
-      "community": 166,
-      "norm_label": "test-ast.js"
-    },
-    {
-      "label": "file",
-      "file_type": "code",
-      "source_file": "test-ast.js",
-      "source_location": "L4",
-      "id": "test_ast_file",
-      "community": 166,
-      "norm_label": "file"
-    },
-    {
-      "label": "test-block.tsx",
-      "file_type": "code",
-      "source_file": "test-block.tsx",
-      "source_location": "L1",
-      "id": "test_block",
-      "community": 167,
-      "norm_label": "test-block.tsx"
-    },
-    {
-      "label": "BlockActionWrapper()",
-      "file_type": "code",
-      "source_file": "test-block.tsx",
-      "source_location": "L1",
-      "id": "test_block_blockactionwrapper",
-      "community": 167,
-      "norm_label": "blockactionwrapper()"
-    },
-    {
       "label": ".last-run.json",
       "file_type": "code",
       "source_file": "test-results/.last-run.json",
@@ -20804,123 +20786,6 @@
       "id": "test_results_last_run_failedtests",
       "community": 148,
       "norm_label": "failedtests"
-    },
-    {
-      "label": "test_ask.py",
-      "file_type": "code",
-      "source_file": "test_ask.py",
-      "source_location": "L1",
-      "id": "test_ask",
-      "community": 188,
-      "norm_label": "test_ask.py"
-    },
-    {
-      "label": "test_backend.py",
-      "file_type": "code",
-      "source_file": "test_backend.py",
-      "source_location": "L1",
-      "id": "test_backend",
-      "community": 13,
-      "norm_label": "test_backend.py"
-    },
-    {
-      "label": "test_backend2.py",
-      "file_type": "code",
-      "source_file": "test_backend2.py",
-      "source_location": "L1",
-      "id": "test_backend2",
-      "community": 38,
-      "norm_label": "test_backend2.py"
-    },
-    {
-      "label": "test_full_context.py",
-      "file_type": "code",
-      "source_file": "test_full_context.py",
-      "source_location": "L1",
-      "id": "test_full_context",
-      "community": 189,
-      "norm_label": "test_full_context.py"
-    },
-    {
-      "label": "test_get_local.py",
-      "file_type": "code",
-      "source_file": "test_get_local.py",
-      "source_location": "L1",
-      "id": "test_get_local",
-      "community": 6,
-      "norm_label": "test_get_local.py"
-    },
-    {
-      "label": "test_local.py",
-      "file_type": "code",
-      "source_file": "test_local.py",
-      "source_location": "L1",
-      "id": "test_local",
-      "community": 6,
-      "norm_label": "test_local.py"
-    },
-    {
-      "label": "test_md.js",
-      "file_type": "code",
-      "source_file": "test_md.js",
-      "source_location": "L1",
-      "id": "test_md",
-      "community": 147,
-      "norm_label": "test_md.js"
-    },
-    {
-      "label": "fs",
-      "file_type": "code",
-      "source_file": "test_md.js",
-      "source_location": "L1",
-      "id": "test_md_fs",
-      "community": 147,
-      "norm_label": "fs"
-    },
-    {
-      "label": "lines",
-      "file_type": "code",
-      "source_file": "test_md.js",
-      "source_location": "L18",
-      "id": "test_md_lines",
-      "community": 147,
-      "norm_label": "lines"
-    },
-    {
-      "label": "test_parse.py",
-      "file_type": "code",
-      "source_file": "test_parse.py",
-      "source_location": "L1",
-      "id": "test_parse",
-      "community": 190,
-      "norm_label": "test_parse.py"
-    },
-    {
-      "label": "test_regenerate.py",
-      "file_type": "code",
-      "source_file": "test_regenerate.py",
-      "source_location": "L1",
-      "id": "test_regenerate",
-      "community": 6,
-      "norm_label": "test_regenerate.py"
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "test_regenerate.py",
-      "source_location": "L4",
-      "id": "test_regenerate_main",
-      "community": 6,
-      "norm_label": "main()"
-    },
-    {
-      "label": "test_replace.py",
-      "file_type": "code",
-      "source_file": "test_replace.py",
-      "source_location": "L1",
-      "id": "test_replace",
-      "community": 191,
-      "norm_label": "test_replace.py"
     },
     {
       "label": "__init__.py",
@@ -21522,7 +21387,7 @@
       "source_file": "tests/unit/test_all_embedders.py",
       "source_location": "L376",
       "id": "unit_test_all_embedders_testissuesidentified",
-      "community": 6,
+      "community": 167,
       "norm_label": "testissuesidentified"
     },
     {
@@ -21531,7 +21396,7 @@
       "source_file": "tests/unit/test_all_embedders.py",
       "source_location": "L379",
       "id": "unit_test_all_embedders_testissuesidentified_test_binary_assumptions_in_rag",
-      "community": 6,
+      "community": 167,
       "norm_label": ".test_binary_assumptions_in_rag()"
     },
     {
@@ -21765,7 +21630,7 @@
       "source_file": "tests/unit/test_all_embedders.py",
       "source_location": "L377",
       "id": "unit_test_all_embedders_rationale_377",
-      "community": 6,
+      "community": 167,
       "norm_label": "test the specific issues identified in the codebase."
     },
     {
@@ -21774,7 +21639,7 @@
       "source_file": "tests/unit/test_all_embedders.py",
       "source_location": "L380",
       "id": "unit_test_all_embedders_rationale_380",
-      "community": 6,
+      "community": 167,
       "norm_label": "test that rag doesn't make binary assumptions about embedders."
     },
     {
@@ -23324,6 +23189,465 @@
       "id": "tests_readme_server_dependencies",
       "community": 40,
       "norm_label": "server dependencies"
+    },
+    {
+      "label": "Semantic retrieval over the wiki, then delegate generation to the chat stream pa",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L971",
+      "community": 13,
+      "norm_label": "semantic retrieval over the wiki, then delegate generation to the chat stream pa",
+      "id": "api_server_rationale_971"
+    },
+    {
+      "label": "Report whether semantic wiki search (Ollama embeddings) is usable, for the UI gu",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1031",
+      "community": 13,
+      "norm_label": "report whether semantic wiki search (ollama embeddings) is usable, for the ui gu",
+      "id": "api_server_rationale_1031"
+    },
+    {
+      "label": "Generates the file path for a given wiki cache.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1057",
+      "community": 20,
+      "norm_label": "generates the file path for a given wiki cache.",
+      "id": "api_server_rationale_1057"
+    },
+    {
+      "label": "Reads wiki cache data from the file system.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1065",
+      "community": 38,
+      "norm_label": "reads wiki cache data from the file system.",
+      "id": "api_server_rationale_1065"
+    },
+    {
+      "label": "Saves wiki cache data to the file system.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1078",
+      "community": 20,
+      "norm_label": "saves wiki cache data to the file system.",
+      "id": "api_server_rationale_1078"
+    },
+    {
+      "label": "Retrieves cached wiki data (structure and generated pages) for a repository.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1209",
+      "community": 38,
+      "norm_label": "retrieves cached wiki data (structure and generated pages) for a repository.",
+      "id": "api_server_rationale_1209"
+    },
+    {
+      "label": "Convert a git remote (SSH or HTTPS) into a browsable web base URL.      git@host",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1238",
+      "community": 38,
+      "norm_label": "convert a git remote (ssh or https) into a browsable web base url.      git@host",
+      "id": "api_server_rationale_1238"
+    },
+    {
+      "label": "Find every git repository root under base_path (the base itself + nested     sub",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1264",
+      "community": 38,
+      "norm_label": "find every git repository root under base_path (the base itself + nested     sub",
+      "id": "api_server_rationale_1264"
+    },
+    {
+      "label": "Resolve the local source path for a wiki and return the git repository     roots",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1326",
+      "community": 38,
+      "norm_label": "resolve the local source path for a wiki and return the git repository     roots",
+      "id": "api_server_rationale_1326"
+    },
+    {
+      "label": "Stores generated wiki data (structure and pages) to the server-side cache.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1347",
+      "community": 20,
+      "norm_label": "stores generated wiki data (structure and pages) to the server-side cache.",
+      "id": "api_server_rationale_1347"
+    },
+    {
+      "label": "Delete files and folders in .trash directories older than 3 days.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1364",
+      "community": 20,
+      "norm_label": "delete files and folders in .trash directories older than 3 days.",
+      "id": "api_server_rationale_1364"
+    },
+    {
+      "label": "Moves wiki cache and generated wiki files to .trash directory with a 3-day TTL.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1401",
+      "community": 20,
+      "norm_label": "moves wiki cache and generated wiki files to .trash directory with a 3-day ttl.",
+      "id": "api_server_rationale_1401"
+    },
+    {
+      "label": "Health check endpoint for Docker and monitoring",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1459",
+      "community": 140,
+      "norm_label": "health check endpoint for docker and monitoring",
+      "id": "api_server_rationale_1459"
+    },
+    {
+      "label": "Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1473",
+      "community": 85,
+      "norm_label": "validate a litellm proxy url (cli mode) or api key (api mode) before generation",
+      "id": "api_server_rationale_1473"
+    },
+    {
+      "label": "Root endpoint to check if the API is running and list available endpoints dynami",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1496",
+      "community": 13,
+      "norm_label": "root endpoint to check if the api is running and list available endpoints dynami",
+      "id": "api_server_rationale_1496"
+    },
+    {
+      "label": "Lists all processed projects found in the wiki cache directory.     Projects are",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1524",
+      "community": 140,
+      "norm_label": "lists all processed projects found in the wiki cache directory.     projects are",
+      "id": "api_server_rationale_1524"
+    },
+    {
+      "label": "Model for LLM model configuration",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L126",
+      "community": 28,
+      "norm_label": "model for llm model configuration",
+      "id": "api_server_rationale_126"
+    },
+    {
+      "label": "Model for LLM provider configuration",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L133",
+      "community": 28,
+      "norm_label": "model for llm provider configuration",
+      "id": "api_server_rationale_133"
+    },
+    {
+      "label": "Model for the entire model configuration",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L142",
+      "community": 28,
+      "norm_label": "model for the entire model configuration",
+      "id": "api_server_rationale_142"
+    },
+    {
+      "label": "List all CLI agents and their availability status.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L165",
+      "community": 13,
+      "norm_label": "list all cli agents and their availability status.",
+      "id": "api_server_rationale_165"
+    },
+    {
+      "label": "Check if a specific CLI agent is installed and available.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L172",
+      "community": 38,
+      "norm_label": "check if a specific cli agent is installed and available.",
+      "id": "api_server_rationale_172"
+    },
+    {
+      "label": "Opens a native folder picker dialog on the host OS and returns the absolute path",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L206",
+      "community": 13,
+      "norm_label": "opens a native folder picker dialog on the host os and returns the absolute path",
+      "id": "api_server_rationale_206"
+    },
+    {
+      "label": "Check if authentication is required for the wiki.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L250",
+      "community": 13,
+      "norm_label": "check if authentication is required for the wiki.",
+      "id": "api_server_rationale_250"
+    },
+    {
+      "label": "Check authorization code.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L257",
+      "community": 13,
+      "norm_label": "check authorization code.",
+      "id": "api_server_rationale_257"
+    },
+    {
+      "label": "Get available model providers and their models.      This endpoint returns the c",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L264",
+      "community": 28,
+      "norm_label": "get available model providers and their models.      this endpoint returns the c",
+      "id": "api_server_rationale_264"
+    },
+    {
+      "label": "Export wiki content as Markdown or JSON.      Args:         request: The export",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L324",
+      "community": 63,
+      "norm_label": "export wiki content as markdown or json.      args:         request: the export",
+      "id": "api_server_rationale_324"
+    },
+    {
+      "label": "Export wiki pages to a Notion database.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L372",
+      "community": 38,
+      "norm_label": "export wiki pages to a notion database.",
+      "id": "api_server_rationale_372"
+    },
+    {
+      "label": "Export wiki pages to a local Obsidian vault.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L392",
+      "community": 38,
+      "norm_label": "export wiki pages to a local obsidian vault.",
+      "id": "api_server_rationale_392"
+    },
+    {
+      "label": "Minimal repo adapter that lets BusinessAnalyzer read multiple repos as one syste",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L422",
+      "community": 38,
+      "norm_label": "minimal repo adapter that lets businessanalyzer read multiple repos as one syste",
+      "id": "api_server_rationale_422"
+    },
+    {
+      "label": "Run business analysis (data flow, workflow, impact) and return markdown pages.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L491",
+      "community": 66,
+      "norm_label": "run business analysis (data flow, workflow, impact) and return markdown pages.",
+      "id": "api_server_rationale_491"
+    },
+    {
+      "label": "Return the file tree and README content for a local repository.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L549",
+      "community": 85,
+      "norm_label": "return the file tree and readme content for a local repository.",
+      "id": "api_server_rationale_549"
+    },
+    {
+      "label": "Generate Markdown export of wiki pages.      Args:         repo_url: The reposit",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L595",
+      "community": 63,
+      "norm_label": "generate markdown export of wiki pages.      args:         repo_url: the reposit",
+      "id": "api_server_rationale_595"
+    },
+    {
+      "label": "Generate JSON export of wiki pages.      Args:         repo_url: The repository",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L642",
+      "community": 63,
+      "norm_label": "generate json export of wiki pages.      args:         repo_url: the repository",
+      "id": "api_server_rationale_642"
+    },
+    {
+      "label": "Fire-and-forget diagram fix.      Immediately returns {status: \"queued\", job_id}",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L696",
+      "community": 85,
+      "norm_label": "fire-and-forget diagram fix.      immediately returns {status: \"queued\", job_id}",
+      "id": "api_server_rationale_696"
+    },
+    {
+      "label": "Semantic retrieval over the wiki, then delegate generation to the chat stream pa",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L907",
+      "community": 13,
+      "norm_label": "semantic retrieval over the wiki, then delegate generation to the chat stream pa",
+      "id": "api_server_rationale_907"
+    },
+    {
+      "label": "Report whether semantic wiki search (Ollama embeddings) is usable, for the UI gu",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L967",
+      "community": 13,
+      "norm_label": "report whether semantic wiki search (ollama embeddings) is usable, for the ui gu",
+      "id": "api_server_rationale_967"
+    },
+    {
+      "label": "Generates the file path for a given wiki cache.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L993",
+      "community": 20,
+      "norm_label": "generates the file path for a given wiki cache.",
+      "id": "api_server_rationale_993"
+    },
+    {
+      "label": "Reads wiki cache data from the file system.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1001",
+      "community": 38,
+      "norm_label": "reads wiki cache data from the file system.",
+      "id": "api_server_rationale_1001"
+    },
+    {
+      "label": "Saves wiki cache data to the file system.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1014",
+      "community": 20,
+      "norm_label": "saves wiki cache data to the file system.",
+      "id": "api_server_rationale_1014"
+    },
+    {
+      "label": "Retrieves cached wiki data (structure and generated pages) for a repository.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1145",
+      "community": 38,
+      "norm_label": "retrieves cached wiki data (structure and generated pages) for a repository.",
+      "id": "api_server_rationale_1145"
+    },
+    {
+      "label": "Convert a git remote (SSH or HTTPS) into a browsable web base URL.      git@host",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1174",
+      "community": 38,
+      "norm_label": "convert a git remote (ssh or https) into a browsable web base url.      git@host",
+      "id": "api_server_rationale_1174"
+    },
+    {
+      "label": "Find every git repository root under base_path (the base itself + nested     sub",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1200",
+      "community": 38,
+      "norm_label": "find every git repository root under base_path (the base itself + nested     sub",
+      "id": "api_server_rationale_1200"
+    },
+    {
+      "label": "Resolve the local source path for a wiki and return the git repository     roots",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1262",
+      "community": 38,
+      "norm_label": "resolve the local source path for a wiki and return the git repository     roots",
+      "id": "api_server_rationale_1262"
+    },
+    {
+      "label": "Stores generated wiki data (structure and pages) to the server-side cache.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1283",
+      "community": 20,
+      "norm_label": "stores generated wiki data (structure and pages) to the server-side cache.",
+      "id": "api_server_rationale_1283"
+    },
+    {
+      "label": "Delete files and folders in .trash directories older than 3 days.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1300",
+      "community": 20,
+      "norm_label": "delete files and folders in .trash directories older than 3 days.",
+      "id": "api_server_rationale_1300"
+    },
+    {
+      "label": "Moves wiki cache and generated wiki files to .trash directory with a 3-day TTL.",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1337",
+      "community": 20,
+      "norm_label": "moves wiki cache and generated wiki files to .trash directory with a 3-day ttl.",
+      "id": "api_server_rationale_1337"
+    },
+    {
+      "label": "Health check endpoint for Docker and monitoring",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1395",
+      "community": 140,
+      "norm_label": "health check endpoint for docker and monitoring",
+      "id": "api_server_rationale_1395"
+    },
+    {
+      "label": "Validate a litellm proxy URL (CLI mode) or API key (API mode) before generation",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1409",
+      "community": 85,
+      "norm_label": "validate a litellm proxy url (cli mode) or api key (api mode) before generation",
+      "id": "api_server_rationale_1409"
+    },
+    {
+      "label": "Root endpoint to check if the API is running and list available endpoints dynami",
+      "file_type": "rationale",
+      "source_file": "api/server.py",
+      "source_location": "L1432",
+      "community": 13,
+      "norm_label": "root endpoint to check if the api is running and list available endpoints dynami",
+      "id": "api_server_rationale_1432"
+    },
+    {
+      "label": "Read and concatenate source files up to MAX_SOURCE_CHARS.",
+      "file_type": "rationale",
+      "source_file": "cli/pipeline/page_generator.py",
+      "source_location": "L214",
+      "community": 23,
+      "norm_label": "read and concatenate source files up to max_source_chars.",
+      "id": "pipeline_page_generator_rationale_214"
+    },
+    {
+      "label": "Remove leading ```markdown and trailing ``` if present.",
+      "file_type": "rationale",
+      "source_file": "cli/pipeline/page_generator.py",
+      "source_location": "L234",
+      "community": 23,
+      "norm_label": "remove leading ```markdown and trailing ``` if present.",
+      "id": "pipeline_page_generator_rationale_234"
     }
   ],
   "links": [
@@ -27087,6 +27411,16 @@
       "weight": 0.8,
       "confidence_score": 0.5,
       "source": "api_server_wikistructuremodel",
+      "target": "api_agent_runner_agentregistry"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "api/server.py",
+      "source_location": "L774",
+      "weight": 0.8,
+      "confidence_score": 0.5,
+      "source": "bytes",
       "target": "api_agent_runner_agentregistry"
     },
     {
@@ -33660,6 +33994,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L656",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server",
+      "target": "api_server_generate_markdown_tree_zip"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L38",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -34171,39 +34515,6 @@
       "target": "api_server"
     },
     {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_backend.py",
-      "source_location": "L3",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_backend",
-      "target": "api_server"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_backend2.py",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_backend2",
-      "target": "api_server"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_backend.py",
-      "source_location": "L3",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_backend",
-      "target": "api_server_get_adalflow_default_root_path"
-    },
-    {
       "relation": "references",
       "context": "generic_arg",
       "confidence": "EXTRACTED",
@@ -34223,6 +34534,17 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_generate_markdown_export",
+      "target": "api_server_wikipage"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L656",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_generate_markdown_tree_zip",
       "target": "api_server_wikipage"
     },
     {
@@ -34680,6 +35002,17 @@
       "target": "pipeline_local_repo_localrepo"
     },
     {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L656",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_generate_markdown_tree_zip",
+      "target": "api_server_wikistructuremodel"
+    },
+    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
@@ -35040,6 +35373,16 @@
       "target": "api_server_model"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L130",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_130",
+      "target": "api_server_model"
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -35101,6 +35444,16 @@
       "target": "api_server_provider"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L137",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_137",
+      "target": "api_server_provider"
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -35159,6 +35512,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_142",
+      "target": "api_server_modelconfig"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L146",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_146",
       "target": "api_server_modelconfig"
     },
     {
@@ -35274,6 +35637,16 @@
       "target": "api_server_agent_list"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L169",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_169",
+      "target": "api_server_agent_list"
+    },
+    {
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
@@ -35292,6 +35665,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_172",
+      "target": "api_server_agent_check"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L176",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_176",
       "target": "api_server_agent_check"
     },
     {
@@ -35380,6 +35763,17 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_generate_markdown_export",
+      "target": "api_server_py_str"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L656",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_generate_markdown_tree_zip",
       "target": "api_server_py_str"
     },
     {
@@ -35568,10 +35962,30 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L210",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_210",
+      "target": "api_server_select_folder"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L250",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_250",
+      "target": "api_server_get_auth_status"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L254",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_254",
       "target": "api_server_get_auth_status"
     },
     {
@@ -35588,10 +36002,30 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L261",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_261",
+      "target": "api_server_validate_auth_code"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L264",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_264",
+      "target": "api_server_get_model_config"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L268",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_268",
       "target": "api_server_get_model_config"
     },
     {
@@ -35617,6 +36051,17 @@
       "target": "api_server_generate_markdown_export"
     },
     {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L349",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_export_wiki",
+      "target": "api_server_generate_markdown_tree_zip"
+    },
+    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
@@ -35624,6 +36069,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_324",
+      "target": "api_server_export_wiki"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L328",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_328",
       "target": "api_server_export_wiki"
     },
     {
@@ -35648,6 +36103,16 @@
       "target": "api_server_export_notion"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L387",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_387",
+      "target": "api_server_export_notion"
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -35666,6 +36131,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_392",
+      "target": "api_server_export_obsidian"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L407",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_407",
       "target": "api_server_export_obsidian"
     },
     {
@@ -35893,6 +36368,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_422",
+      "target": "api_server_multirepobusinesscontext"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L437",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_437",
       "target": "api_server_multirepobusinesscontext"
     },
     {
@@ -36129,6 +36614,16 @@
       "target": "api_server_analyze_business"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L506",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_506",
+      "target": "api_server_analyze_business"
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -36153,6 +36648,16 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L564",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_564",
+      "target": "api_server_get_local_repo_structure"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L595",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36163,10 +36668,91 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L610",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_610",
+      "target": "api_server_generate_markdown_export"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L656",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_generate_markdown_tree_zip",
+      "target": "bytes"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L661",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_661",
+      "target": "api_server_generate_markdown_tree_zip"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "api/server.py",
+      "source_location": "L732",
+      "weight": 0.8,
+      "confidence_score": 0.5,
+      "source": "bytes",
+      "target": "api_simple_chat_chatcompletionrequest"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "api/server.py",
+      "source_location": "L389",
+      "weight": 0.8,
+      "confidence_score": 0.5,
+      "source": "bytes",
+      "target": "exporters_notion_exporter_notionexporter"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "api/server.py",
+      "source_location": "L409",
+      "weight": 0.8,
+      "confidence_score": 0.5,
+      "source": "bytes",
+      "target": "exporters_obsidian_exporter_obsidianexporter"
+    },
+    {
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "api/server.py",
+      "source_location": "L508",
+      "weight": 0.8,
+      "confidence_score": 0.5,
+      "source": "bytes",
+      "target": "pipeline_local_repo_localrepo"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L642",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_642",
+      "target": "api_server_generate_json_export"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L708",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_708",
       "target": "api_server_generate_json_export"
     },
     {
@@ -36239,6 +36825,16 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_696",
+      "target": "api_server_fix_diagram"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L762",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_762",
       "target": "api_server_fix_diagram"
     },
     {
@@ -36354,6 +36950,26 @@
       "target": "api_server_wiki_ask_stream"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L971",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_971",
+      "target": "api_server_wiki_ask_stream"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L972",
+      "weight": 1.0,
+      "source": "api_server_rationale_972",
+      "target": "api_server_wiki_ask_stream",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -36379,6 +36995,26 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1031",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1031",
+      "target": "api_server_wiki_rag_health"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1032",
+      "weight": 1.0,
+      "source": "api_server_rationale_1032",
+      "target": "api_server_wiki_rag_health",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L967",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36395,6 +37031,26 @@
       "confidence_score": 1.0,
       "source": "api_server_delete_wiki_cache",
       "target": "api_server_get_wiki_cache_path"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1057",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1057",
+      "target": "api_server_get_wiki_cache_path"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1058",
+      "weight": 1.0,
+      "source": "api_server_rationale_1058",
+      "target": "api_server_get_wiki_cache_path",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -36451,17 +37107,6 @@
       "target": "api_server_get_wiki_cache_path"
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_backend2.py",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_backend2",
-      "target": "api_server_get_wiki_cache_path"
-    },
-    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -36497,11 +37142,51 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1065",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1065",
+      "target": "api_server_read_wiki_cache"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1066",
+      "weight": 1.0,
+      "source": "api_server_rationale_1066",
+      "target": "api_server_read_wiki_cache",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1014",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_1014",
       "target": "api_server_save_wiki_cache"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1078",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1078",
+      "target": "api_server_save_wiki_cache"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1079",
+      "weight": 1.0,
+      "source": "api_server_rationale_1079",
+      "target": "api_server_save_wiki_cache",
+      "confidence_score": 1.0
     },
     {
       "relation": "references",
@@ -36590,11 +37275,51 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1209",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1209",
+      "target": "api_server_get_cached_wiki"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1210",
+      "weight": 1.0,
+      "source": "api_server_rationale_1210",
+      "target": "api_server_get_cached_wiki",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1174",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_1174",
       "target": "api_server_git_remote_to_web_url"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1238",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1238",
+      "target": "api_server_git_remote_to_web_url"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1239",
+      "weight": 1.0,
+      "source": "api_server_rationale_1239",
+      "target": "api_server_git_remote_to_web_url",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -36610,6 +37335,26 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1264",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1264",
+      "target": "api_server_scan_git_roots"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1265",
+      "weight": 1.0,
+      "source": "api_server_rationale_1265",
+      "target": "api_server_scan_git_roots",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1262",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36620,11 +37365,51 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1326",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1326",
+      "target": "api_server_get_git_roots"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1327",
+      "weight": 1.0,
+      "source": "api_server_rationale_1327",
+      "target": "api_server_get_git_roots",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1283",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_1283",
       "target": "api_server_store_wiki_cache"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1347",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1347",
+      "target": "api_server_store_wiki_cache"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1348",
+      "weight": 1.0,
+      "source": "api_server_rationale_1348",
+      "target": "api_server_store_wiki_cache",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -36651,6 +37436,26 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1364",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1364",
+      "target": "api_server_cleanup_trash"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1365",
+      "weight": 1.0,
+      "source": "api_server_rationale_1365",
+      "target": "api_server_cleanup_trash",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1337",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36661,11 +37466,51 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1401",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1401",
+      "target": "api_server_delete_wiki_cache"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1402",
+      "weight": 1.0,
+      "source": "api_server_rationale_1402",
+      "target": "api_server_delete_wiki_cache",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1395",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_1395",
       "target": "api_server_health_check"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1459",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1459",
+      "target": "api_server_health_check"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1460",
+      "weight": 1.0,
+      "source": "api_server_rationale_1460",
+      "target": "api_server_health_check",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -36692,6 +37537,26 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1473",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1473",
+      "target": "api_server_check_connection"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1474",
+      "weight": 1.0,
+      "source": "api_server_rationale_1474",
+      "target": "api_server_check_connection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1432",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36702,11 +37567,51 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "api/server.py",
+      "source_location": "L1496",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1496",
+      "target": "api_server_root"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1497",
+      "weight": 1.0,
+      "source": "api_server_rationale_1497",
+      "target": "api_server_root",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
       "source_location": "L1460",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_server_rationale_1460",
       "target": "api_server_get_processed_projects"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1524",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "api_server_rationale_1524",
+      "target": "api_server_get_processed_projects"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "api/server.py",
+      "source_location": "L1525",
+      "weight": 1.0,
+      "source": "api_server_rationale_1525",
+      "target": "api_server_get_processed_projects",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -36771,83 +37676,6 @@
       "target": "api_simple_chat"
     },
     {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_backend.py",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_backend",
-      "target": "api_simple_chat"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_backend2.py",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_backend2",
-      "target": "api_simple_chat"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_get_local.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_get_local",
-      "target": "api_simple_chat"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_local.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_local",
-      "target": "api_simple_chat"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate",
-      "target": "api_simple_chat"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate",
-      "target": "api_simple_chat_chatmessage"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L8",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate_main",
-      "target": "api_simple_chat_chatmessage"
-    },
-    {
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
@@ -36866,28 +37694,6 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_simple_chat_rationale_46",
-      "target": "api_simple_chat_chatcompletionrequest"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate",
-      "target": "api_simple_chat_chatcompletionrequest"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate_main",
       "target": "api_simple_chat_chatcompletionrequest"
     },
     {
@@ -36931,28 +37737,6 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "api_simple_chat_rationale_74",
-      "target": "api_simple_chat_chat_completions_stream"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L2",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate",
-      "target": "api_simple_chat_chat_completions_stream"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L21",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate_main",
       "target": "api_simple_chat_chat_completions_stream"
     },
     {
@@ -47893,6 +48677,17 @@
       "target": "cli_prompts"
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/pipeline/page_generator.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipeline_page_generator",
+      "target": "cli_prompts_topic_requirements"
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "cli/pipeline/page_generator.py",
@@ -48453,6 +49248,17 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "cli/pipeline/page_generator.py",
+      "source_location": "L196",
+      "weight": 1.0,
+      "source": "pipeline_page_generator_wikipagegenerator_generate_page",
+      "target": "cli_prompts_topic_requirements"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
       "source_file": "cli/pipeline/page_generator.py",
       "source_location": "L204",
       "weight": 1.0,
@@ -48507,10 +49313,30 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "cli/pipeline/page_generator.py",
+      "source_location": "L218",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipeline_page_generator_rationale_218",
+      "target": "pipeline_page_generator_wikipagegenerator_collect_sources"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/pipeline/page_generator.py",
       "source_location": "L234",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "pipeline_page_generator_rationale_234",
+      "target": "pipeline_page_generator_strip_outer_fence"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/pipeline/page_generator.py",
+      "source_location": "L238",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipeline_page_generator_rationale_238",
       "target": "pipeline_page_generator_strip_outer_fence"
     },
     {
@@ -49751,6 +50577,16 @@
       "target": "pipeline_structure_planner_wikistructureplanner_parse"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/prompts.py",
+      "source_location": "L193",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "cli_prompts",
+      "target": "cli_prompts_topic_requirements"
+    },
+    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "cli/prompts.py",
@@ -49759,6 +50595,38 @@
       "confidence_score": 1.0,
       "source": "cli_prompts_rationale_1",
       "target": "cli_prompts"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/prompts.py",
+      "source_location": "L194",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "cli_prompts_rationale_194",
+      "target": "cli_prompts_topic_requirements"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/prompts.py",
+      "source_location": "L193",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "cli_prompts_topic_requirements",
+      "target": "cli_prompts_py_bool"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "cli/prompts.py",
+      "source_location": "L193",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "cli_prompts_topic_requirements",
+      "target": "cli_prompts_py_str"
     },
     {
       "relation": "re_exports",
@@ -58146,9 +59014,9 @@
       "source_file": "src/components/Mermaid.tsx",
       "source_location": "L183",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "components_mermaid",
-      "target": "components_mermaid_sanitizemermaidchart",
-      "confidence_score": 1.0
+      "target": "components_mermaid_sanitizemermaidchart"
     },
     {
       "relation": "imports_from",
@@ -58157,9 +59025,9 @@
       "source_file": "src/components/wiki-viewer.tsx",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "components_wiki_viewer",
-      "target": "components_mermaid",
-      "confidence_score": 1.0
+      "target": "components_mermaid"
     },
     {
       "relation": "imports",
@@ -58168,9 +59036,9 @@
       "source_file": "src/components/wiki-viewer.tsx",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "components_wiki_viewer",
-      "target": "components_mermaid_sanitizemermaidchart",
-      "confidence_score": 1.0
+      "target": "components_mermaid_sanitizemermaidchart"
     },
     {
       "relation": "imports_from",
@@ -67586,6 +68454,17 @@
       "target": "lib_wiki_generator_regeneratewikipage"
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/wiki-viewer.tsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "components_wiki_viewer",
+      "target": "lib_wiki_generator_wikilanguageinstruction",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -68838,6 +69717,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "lib_wiki_generator",
+      "target": "lib_wiki_generator_effectivewikilanguage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
       "source_location": "L23",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -68888,11 +69777,97 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L10",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "lib_wiki_generator",
+      "target": "lib_wiki_generator_topicrequirements"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
       "source_location": "L467",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "lib_wiki_generator",
       "target": "lib_wiki_generator_translatewikigeneration"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "lib_wiki_generator",
+      "target": "lib_wiki_generator_wikilanguageinstruction",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L761",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "lib_wiki_generator_regeneratewikipage",
+      "target": "lib_wiki_generator_topicrequirements"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L310",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "lib_wiki_generator_runwikigeneration",
+      "target": "lib_wiki_generator_topicrequirements"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L176",
+      "weight": 1.0,
+      "source": "lib_wiki_generator_runwikigeneration",
+      "target": "lib_wiki_generator_effectivewikilanguage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "lib_wiki_generator_wikilanguageinstruction",
+      "target": "lib_wiki_generator_effectivewikilanguage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L767",
+      "weight": 1.0,
+      "source": "lib_wiki_generator_regeneratewikipage",
+      "target": "lib_wiki_generator_wikilanguageinstruction",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/wiki-generator.ts",
+      "source_location": "L120",
+      "weight": 1.0,
+      "source": "lib_wiki_generator_runwikigeneration",
+      "target": "lib_wiki_generator_wikilanguageinstruction",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -69025,26 +70000,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "test-ast.js",
-      "source_location": "L4",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_ast",
-      "target": "test_ast_file"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "test-block.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_block",
-      "target": "test_block_blockactionwrapper"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "test-results/.last-run.json",
       "source_location": "L3",
       "weight": 1.0,
@@ -69061,36 +70016,6 @@
       "confidence_score": 1.0,
       "source": "test_results_last_run",
       "target": "test_results_last_run_status"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "test_md.js",
-      "source_location": "L1",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_md",
-      "target": "test_md_fs"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "test_md.js",
-      "source_location": "L18",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_md",
-      "target": "test_md_lines"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "test_regenerate.py",
-      "source_location": "L4",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "test_regenerate",
-      "target": "test_regenerate_main"
     },
     {
       "relation": "contains",
@@ -71751,5 +72676,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "2e8087575f0872d6a432ae1f9c97863fe43a75ea"
+  "built_at_commit": "1cd37bc0e1177ac39eae6c14e76d085ae0ca0048"
 }

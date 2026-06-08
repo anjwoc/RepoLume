@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Dict, Optional
 
 from cli.pipeline.structure_planner import WikiPage, WikiStructure, LANGUAGE_NAMES
-from cli.prompts import WIKI_PAGE_PROMPT
+from cli.prompts import WIKI_PAGE_PROMPT, topic_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -186,12 +186,16 @@ class WikiPageGenerator:
 
         file_list = "\n".join(f"- {fp}" for fp in page.file_paths) or "(no files specified)"
 
+        has_db_schema = any(s.type == "database" for s in full_ctx.sources)
         prompt = WIKI_PAGE_PROMPT.format(
             page_title=page.title,
             repo_name=self._repo_name,
             file_list=file_list,
             source_contents=full_ctx.content or self._collect_sources(page.file_paths),
             language_name=language_name,
+            topic_requirements=topic_requirements(
+                getattr(page, "section_id", ""), page.title, has_db_schema
+            ),
         )
 
         try:
