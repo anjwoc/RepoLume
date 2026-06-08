@@ -5,6 +5,9 @@ description = "Backend API for LocalWiki, providing smart code analysis and AI-p
 license = {text = "MIT License"}
 
 [tool.poetry]
+packages = [
+    { include = "open_localwiki_api" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
