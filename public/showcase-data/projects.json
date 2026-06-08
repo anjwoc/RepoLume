@@ -8,5 +8,15 @@
     "submittedAt": 1780369866892,
     "language": "en",
     "model": null
+  },
+  {
+    "id": "localwiki_cache_local_local_affiliate_en_agy-gemini-3.5-flash-high.json",
+    "owner": "local",
+    "repo": "affiliate",
+    "name": "local/affiliate",
+    "repo_type": "local",
+    "submittedAt": 1780935540961,
+    "language": "en",
+    "model": "agy-gemini-3.5-flash-high"
   }
 ]
