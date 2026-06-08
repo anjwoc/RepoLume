@@ -565,8 +565,8 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
         readme_content = ""
 
         for root, dirs, files in os.walk(path):
-            # Exclude hidden dirs/files and virtual envs
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__' and d != 'node_modules' and d != '.venv']
+            # Exclude hidden dirs/files and virtual envs, plus common large build/vendor directories
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('__pycache__', 'node_modules', '.venv', 'dist', 'build', 'out', 'coverage', 'vendor')]
             for file in files:
                 if file.startswith('.') or file == '__init__.py' or file == '.DS_Store':
                     continue
@@ -673,6 +673,201 @@ app.add_api_route("/chat/completions/stream", chat_completions_stream, methods=[
 app.add_websocket_route("/ws/chat", handle_websocket_chat)
 
 
+# ---------------------------------------------------------------------------
+# Diagram Fix — Event-based, fully backend-driven
+# ---------------------------------------------------------------------------
+
+class FixDiagramRequest(BaseModel):
+    owner: str
+    repo: str
+    repo_type: str = "local"
+    language: str = "en"
+    model: Optional[str] = None
+    page_id: str
+    chart_code: str
+    custom_instruction: Optional[str] = None
+    provider: str = "google"
+    use_cli: bool = True
+    cli_tool: str = "gemini"
+
+
+@app.post("/api/fix_diagram", status_code=202)
+async def fix_diagram(request: FixDiagramRequest):
+    """
+    Fire-and-forget diagram fix.
+
+    Immediately returns {status: "queued", job_id} so the frontend can
+    navigate away.  A background asyncio task:
+      1. Calls the LLM to fix/modify the diagram.
+      2. Reads the wiki cache.
+      3. Replaces the old chart code with the new one.
+      4. Saves the cache back to disk.
+      5. Emits a task-stream event so a listening frontend gets notified.
+    """
+    import re as _re
+    from api.agent_runner import AgentRegistry
+    from api.task_streams import emit_task_event
+
+    job_id = __import__("uuid").uuid4().hex
+
+    fix_prompt = (
+        f"Modify the following Mermaid diagram according to the user's instruction.\n"
+        f"User Instruction: {request.custom_instruction}\n"
+        f"Output ONLY the modified diagram inside a ```mermaid ... ``` block. "
+        f"Do not add any conversational text.\n\n"
+        f"Original Diagram:\n```mermaid\n{request.chart_code}\n```"
+    ) if request.custom_instruction else (
+        f"The following Mermaid diagram has a syntax error.\n"
+        f"Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, "
+        f"newline chars in labels). Output ONLY the corrected diagram inside a "
+        f"```mermaid ... ``` block. Do not add any conversational text.\n\n"
+        f"Original Diagram:\n```mermaid\n{request.chart_code}\n```"
+    )
+
+    async def _bg_fix():
+        try:
+            await emit_task_event(job_id, "status", "다이어그램 수정 중...", phase="fix_diagram")
+
+            # Resolve CWD — reuse the same cache lookup used elsewhere
+            cwd = "."
+            if request.repo_type == "local":
+                try:
+                    cache_path = get_wiki_cache_path(
+                        request.owner, request.repo, request.repo_type,
+                        request.language, request.model,
+                    )
+                    if not os.path.exists(cache_path):
+                        # Try without model suffix
+                        cache_path = get_wiki_cache_path(
+                            request.owner, request.repo, request.repo_type,
+                            request.language,
+                        )
+                    if os.path.exists(cache_path):
+                        with open(cache_path, "r", encoding="utf-8") as f:
+                            _cd = json.load(f)
+                        local_path = (_cd.get("repo") or {}).get("localPath") or \
+                                     (_cd.get("repo") or {}).get("repoUrl") or "."
+                        if local_path and os.path.isdir(local_path):
+                            cwd = local_path
+                except Exception as e:
+                    logger.warning(f"fix_diagram: could not resolve cwd: {e}")
+
+            # Pick agent
+            agent_name = request.cli_tool if request.use_cli else "gemini"
+            if agent_name == "gemini" and (request.model or "").startswith("agy-"):
+                agent_name = "antigravity"
+            registry = AgentRegistry()
+            runner = registry.get(agent_name)
+
+            result = await runner.run_collect(
+                fix_prompt,
+                cwd=cwd,
+                model=request.model or "",
+                timeout=180,
+            )
+
+            if result.error:
+                raise RuntimeError(f"Agent error: {result.error}")
+
+            raw = result.content
+            match = (
+                _re.search(r"```mermaid\n([\s\S]*?)\n```", raw, _re.IGNORECASE) or
+                _re.search(r"```\n([\s\S]*?)\n```", raw)
+            )
+            new_code = match.group(1).strip() if match else raw.strip()
+            new_code = _re.sub(r"^```(mermaid)?\n", "", new_code, flags=_re.IGNORECASE)
+            new_code = _re.sub(r"\n```$", "", new_code).strip()
+
+            if not new_code:
+                raise RuntimeError("LLM 응답에서 다이어그램 코드를 추출하지 못했습니다.")
+
+            # Read current cache, patch the page content, save back
+            cache_data = await read_wiki_cache(
+                request.owner, request.repo, request.repo_type,
+                request.language, request.model,
+            )
+            if cache_data is None:
+                cache_data = await read_wiki_cache(
+                    request.owner, request.repo, request.repo_type,
+                    request.language,
+                )
+            if cache_data is None:
+                raise RuntimeError("캐시를 찾을 수 없습니다.")
+
+            page = cache_data.generated_pages.get(request.page_id)
+            if page is None:
+                raise RuntimeError(f"페이지 '{request.page_id}'를 캐시에서 찾을 수 없습니다.")
+
+            old_content = page.content
+            norm_old = old_content.replace('\r\n', '\n')
+            norm_chart = request.chart_code.replace('\r\n', '\n')
+            # The frontend captures the chart from rendered (normalized) markdown,
+            # which HTML-escapes stray tag-like tokens (e.g. the mermaid arrow
+            # `<-->` -> `&lt;--&gt;`). The stored source keeps the raw token, so
+            # un-escape the common entities before matching against the source.
+            def _unescape(s: str) -> str:
+                return (s.replace('&lt;', '<').replace('&gt;', '>')
+                         .replace('&quot;', '"').replace('&#39;', "'")
+                         .replace('&amp;', '&'))
+            norm_chart = _unescape(norm_chart)
+            fenced_new_code = f"```mermaid\n{new_code}\n```"
+
+            if norm_chart in norm_old:
+                new_content = norm_old.replace(norm_chart, fenced_new_code, 1)
+            elif norm_chart.strip() in norm_old:
+                new_content = norm_old.replace(norm_chart.strip(), fenced_new_code, 1)
+            else:
+                # Fallback: strip outer fences from request.chart_code and find the inner content
+                inner = _re.sub(r"^```(mermaid)?\n", "", norm_chart, flags=_re.IGNORECASE)
+                inner = _re.sub(r"\n```$", "", inner).strip()
+                if inner and inner in norm_old:
+                    # Find the surrounding fences
+                    pattern = r"```(?:mermaid)?\n[\s\S]*?" + _re.escape(inner) + r"[\s\S]*?\n```"
+                    match = _re.search(pattern, norm_old, _re.IGNORECASE)
+                    if match:
+                        new_content = norm_old[:match.start()] + fenced_new_code + norm_old[match.end():]
+                    else:
+                        raise RuntimeError(f"내부 매칭 실패. inner({len(inner)}): {repr(inner)[:50]}")
+                else:
+                    raise RuntimeError(f"원본 다이어그램 불일치. chart({len(norm_chart)}): {repr(norm_chart)[:50]}..., inner({len(inner)}): {repr(inner)[:50]}...")
+
+            page.content = new_content
+            cache_data.generated_pages[request.page_id] = page
+
+            save_req = WikiCacheRequest(
+                repo=cache_data.repo or RepoInfo(
+                    owner=request.owner, repo=request.repo,
+                    type=request.repo_type,
+                ),
+                language=request.language,
+                wiki_structure=cache_data.wiki_structure,
+                generated_pages=cache_data.generated_pages,
+                provider=request.provider,
+                model=request.model or "local",
+            )
+            await save_wiki_cache(save_req)
+
+            await emit_task_event(
+                job_id, "complete",
+                "다이어그램 수정 완료 — 페이지를 새로고침하세요.",
+                phase="fix_diagram",
+                data={"page_id": request.page_id},
+            )
+            logger.info(f"fix_diagram: page '{request.page_id}' updated successfully (job={job_id})")
+
+        except Exception as exc:
+            logger.error(f"fix_diagram background error: {exc}")
+            await emit_task_event(
+                job_id, "error",
+                f"다이어그램 수정 실패: {exc}",
+                phase="fix_diagram",
+            )
+
+    asyncio.create_task(_bg_fix())
+    return JSONResponse({"status": "queued", "job_id": job_id}, status_code=202)
+
+
+
 # --- Wiki RAG (P3): semantic Q&A grounded in the generated wiki documents ---
 
 class WikiAskPageInput(BaseModel):
@@ -768,6 +963,10 @@ async def wiki_ask_stream(request: WikiAskRequest):
 @app.get("/wiki/rag/health")
 async def wiki_rag_health():
     """Report whether semantic wiki search (Ollama embeddings) is usable, for the UI guard."""
+    from api.wiki_rag import WIKI_EMBEDDER_TYPE
+    if WIKI_EMBEDDER_TYPE == "none":
+        return {"available": True, "model": "none", "embedder": "none"}
+        
     from api.config import configs
 
     model = (
@@ -968,6 +1167,114 @@ async def get_cached_wiki(
         
     logger.info(f"Wiki cache not found for {owner}/{repo} ({repo_type}), lang: {language}")
     return None
+
+def _git_remote_to_web_url(remote: str) -> Optional[str]:
+    """Convert a git remote (SSH or HTTPS) into a browsable web base URL.
+
+    git@host:org/repo.git        -> https://host/org/repo
+    ssh://git@host:22/org/repo.git -> https://host/org/repo
+    https://host/org/repo.git    -> https://host/org/repo
+    """
+    import re
+    if not remote:
+        return None
+    remote = remote.strip()
+    remote = re.sub(r"\.git$", "", remote)
+    # scp-like syntax: git@host:org/repo
+    m = re.match(r"^[\w.+-]+@([^:/]+):(.+)$", remote)
+    if m:
+        return f"https://{m.group(1)}/{m.group(2)}"
+    # ssh://[user@]host[:port]/org/repo
+    m = re.match(r"^ssh://(?:[\w.+-]+@)?([^/:]+)(?::\d+)?/(.+)$", remote)
+    if m:
+        return f"https://{m.group(1)}/{m.group(2)}"
+    # http(s)://host/org/repo
+    if remote.startswith("http://") or remote.startswith("https://"):
+        return remote
+    return None
+
+
+def _scan_git_roots(base_path: str, max_depth: int = 3) -> List[Dict[str, Any]]:
+    """Find every git repository root under base_path (the base itself + nested
+    subdirectories that contain a .git). For each, resolve the origin remote's
+    web URL and the default branch. Returns entries keyed by their POSIX path
+    relative to base_path ("" for the base itself)."""
+    import subprocess
+
+    base_path = os.path.abspath(base_path)
+    roots: List[Dict[str, Any]] = []
+    skip_dirs = {"node_modules", ".trash", "dist", "build", "target", "out", ".next", "vendor"}
+
+    def _git(args: List[str], cwd: str) -> str:
+        try:
+            return subprocess.run(
+                ["git", *args], cwd=cwd, capture_output=True, text=True, timeout=10
+            ).stdout.strip()
+        except Exception:
+            return ""
+
+    def _record(repo_dir: str) -> None:
+        rel = os.path.relpath(repo_dir, base_path)
+        prefix = "" if rel == "." else rel.replace(os.sep, "/")
+        remote = _git(["remote", "get-url", "origin"], repo_dir)
+        web_url = _git_remote_to_web_url(remote)
+        head = _git(["rev-parse", "--abbrev-ref", "origin/HEAD"], repo_dir)
+        branch = head.split("/")[-1] if head else (_git(["rev-parse", "--abbrev-ref", "HEAD"], repo_dir) or "main")
+        roots.append({
+            "prefix": prefix,
+            "name": os.path.basename(repo_dir),
+            "remote": remote or None,
+            "webUrl": web_url,
+            "branch": branch or "main",
+        })
+
+    def _walk(current: str, depth: int) -> None:
+        if os.path.exists(os.path.join(current, ".git")):
+            _record(current)
+            # A repo root's own working tree is one git repo; don't descend
+            # into it looking for more (submodules aside, which we ignore).
+            return
+        if depth >= max_depth:
+            return
+        try:
+            entries = sorted(os.scandir(current), key=lambda e: e.name)
+        except OSError:
+            return
+        for entry in entries:
+            if entry.is_dir(follow_symlinks=False) and not entry.name.startswith(".") \
+               and entry.name not in skip_dirs:
+                _walk(entry.path, depth + 1)
+
+    _walk(base_path, 0)
+    return roots
+
+
+@app.get("/api/git_roots")
+async def get_git_roots(
+    owner: str = Query(...),
+    repo: str = Query(...),
+    repo_type: str = Query("local"),
+    language: str = Query("en"),
+    model: Optional[str] = Query(None),
+):
+    """Resolve the local source path for a wiki and return the git repository
+    roots under it (each subproject with its own .git), so the frontend can
+    build GitHub links rooted at the correct individual repository rather than
+    the bundling parent directory."""
+    cache_data = await read_wiki_cache(owner, repo, repo_type, language, model)
+    if cache_data is None and model:
+        cache_data = await read_wiki_cache(owner, repo, repo_type, language)
+
+    local_path = None
+    if cache_data and cache_data.repo:
+        local_path = cache_data.repo.localPath or cache_data.repo.repoUrl
+
+    if not local_path or not os.path.isdir(local_path):
+        return {"localPath": local_path, "roots": []}
+
+    roots = await asyncio.to_thread(_scan_git_roots, local_path)
+    return {"localPath": local_path, "roots": roots}
+
 
 @app.post("/api/wiki_cache")
 async def store_wiki_cache(request_data: WikiCacheRequest):

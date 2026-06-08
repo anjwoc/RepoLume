@@ -37,7 +37,7 @@ func (r *GeminiRunner) Available() bool {
 //
 //	gemini -p "PROMPT" [-m MODEL]
 func (r *GeminiRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
-	args := []string{"--prompt", ""}
+	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
 	model := r.resolveModel(req)
 	if model != "" {
 		args = append(args, "--model", model)
@@ -56,7 +56,7 @@ func (r *GeminiRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, e
 
 // RunCollect executes the prompt synchronously and collects full output.
 func (r *GeminiRunner) RunCollect(ctx context.Context, req RunRequest) (RunResult, error) {
-	args := []string{"--prompt", ""}
+	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
 	model := r.resolveModel(req)
 	if model != "" {
 		args = append(args, "--model", model)

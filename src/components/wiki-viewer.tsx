@@ -9,8 +9,11 @@ import {
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
+import { sanitizeMermaidChart } from "./Mermaid";
 import { regenerateWikiPage } from "@/lib/wiki-generator";
 import { WikiAskPanel } from "./WikiAskPanel";
+import { useJobStore } from "@/store/job-store";
+
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
 
@@ -30,6 +33,8 @@ interface WikiViewerProps {
   projectName: string;
   projectData: ProjectData | null;
   onGoHome: () => void;
+  repositoryBaseUrl?: string;
+  hoverBgColor?: string;
 }
 
 interface TreeItem {
@@ -61,7 +66,7 @@ interface WikiStructure {
   rootSections: string[];
 }
 
-export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, onGoHome }: WikiViewerProps) {
+export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, onGoHome, repositoryBaseUrl, hoverBgColor }: WikiViewerProps) {
   const t = getTheme(isDark);
   const [selectedPage, setSelectedPage] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -84,12 +89,45 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [wikiStructure, setWikiStructure] = useState<WikiStructure | null>(null);
 
   // Regeneration state
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [localLoadingPages, setLocalLoadingPages] = useState<Record<string, boolean>>({});
+  const activeJobId = useJobStore((state) => selectedPage ? state.getJob(selectedPage) : undefined);
+  const isRegenerating = (selectedPage ? localLoadingPages[selectedPage] : false) || !!activeJobId;
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [brokenDiagrams, setBrokenDiagrams] = useState<{pageId: string, chartCode: string}[]>([]);
   const [isBatchFixing, setIsBatchFixing] = useState(false);
   const [batchFixProgress, setBatchFixProgress] = useState({ current: 0, total: 0 });
+  // Per-subproject git roots (each dir with its own .git) used to build GitHub
+  // links rooted at the individual repository instead of the bundling parent.
+  const [gitRoots, setGitRoots] = useState<{ prefix: string; name: string; webUrl: string | null; branch: string }[]>([]);
   const regenPromptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Scan every mermaid block across all pages and return the ones that fail to
+  // parse. Parses the SAME sanitized input the <Mermaid> renderer uses, so a
+  // diagram that renders fine is not reported as broken. Reused on load and
+  // re-run after any fix so the "다이어그램 전체 수정 (N)" count stays accurate.
+  const detectBrokenDiagrams = async (
+    pages: Record<string, WikiPage>
+  ): Promise<{ pageId: string; chartCode: string }[]> => {
+    const broken: { pageId: string; chartCode: string }[] = [];
+    try {
+      const mermaid = (await import("mermaid")).default;
+      mermaid.initialize({ startOnLoad: false });
+      for (const [pageId, pageData] of Object.entries(pages)) {
+        const content = pageData?.content || "";
+        for (const match of content.matchAll(/```(?:mermaid)\n([\s\S]*?)\n```/gi)) {
+          const chartCode = match[1];
+          try {
+            await mermaid.parse(sanitizeMermaidChart(chartCode));
+          } catch (e) {
+            broken.push({ pageId, chartCode });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to check diagrams:", e);
+    }
+    return broken;
+  };
 
   // Export state
   const [showExportModal, setShowExportModal] = useState(false);
@@ -139,28 +177,24 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
           // 소스 기반 질의(P4)에 쓰일 원본 레포 경로 (생성 시 캐시에 저장됨)
           setRepoPath(cachedData.repo?.localPath || cachedData.repo?.repoUrl || "");
 
-          setTimeout(async () => {
-            try {
-              const mermaidModule = await import('mermaid');
-              const mermaid = mermaidModule.default;
-              mermaid.initialize({ startOnLoad: false });
-              const broken = [];
-              for (const [pageId, pageData] of Object.entries(cachedData.generated_pages)) {
-                const content = (pageData as WikiPage).content;
-                const matches = content.matchAll(/```(?:mermaid)\n([\s\S]*?)\n```/gi);
-                for (const match of matches) {
-                  const chartCode = match[1];
-                  try {
-                    await mermaid.parse(chartCode);
-                  } catch (e) {
-                    broken.push({ pageId, chartCode });
-                  }
-                }
-              }
-              setBrokenDiagrams(broken);
-            } catch (e) {
-              console.error("Failed to check diagrams:", e);
-            }
+          // Resolve per-subproject git roots so GitHub links point at each
+          // individual repository (.git root) rather than the parent directory.
+          if (!isShowcase) {
+            const gitParams = new URLSearchParams({
+              owner: projectData.owner,
+              repo: projectData.repo,
+              repo_type: projectData.repo_type,
+              language: currentLang,
+            });
+            if (projectData.model) gitParams.append("model", projectData.model);
+            fetch(`/api/git_roots?${gitParams.toString()}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(data => { if (data?.roots) setGitRoots(data.roots); })
+              .catch(() => {});
+          }
+
+          setTimeout(() => {
+            void detectBrokenDiagrams(cachedData.generated_pages).then(setBrokenDiagrams);
           }, 1000);
 
           // Build tree
@@ -231,7 +265,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     const currentPageData = generatedPages[pageIdToFix];
     if (!currentPageData) return;
 
-    setIsRegenerating(true);
+    setLocalLoadingPages(prev => ({ ...prev, [pageIdToFix]: true }));
     setShowRegenModal(false);
 
     try {
@@ -281,15 +315,15 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
           language: currentLang,
           wiki_structure: wikiStructure,
           generated_pages: newGeneratedPages,
-          provider: "google",
-          model: "local"
+          provider: (() => { try { return JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}').provider || 'google'; } catch { return 'google'; } })(),
+          model: projectData.model
         })
       });
 
     } catch (err: any) {
       alert(`재생성 실패: ${err.message}`);
     } finally {
-      setIsRegenerating(false);
+      setLocalLoadingPages(prev => ({ ...prev, [pageIdToFix]: false }));
       if (regenPromptRef.current) regenPromptRef.current.value = "";
     }
   };
@@ -299,23 +333,157 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     const currentPageData = generatedPages[selectedPage];
     if (!currentPageData) return;
 
+    let model = "gemini-2.5-flash";
+    let provider = "google";
+    let useCli = true;
+    let cliTool = "gemini";
+    let apiKey = "";
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem(APP_SETTINGS_KEY);
+      if (raw) {
+        try {
+          const settings = JSON.parse(raw);
+          model = settings.model || model;
+          provider = settings.provider || provider;
+          useCli = settings.useCli ?? true;
+          cliTool = provider === "google" ? "gemini"
+            : provider === "anthropic" ? "claude"
+            : provider === "antigravity" ? "antigravity"
+            : "codex";
+          apiKey = settings.apiKey || "";
+        } catch (e) {}
+      }
+    }
+
     try {
-      const fixPrompt = customInstruction
-        ? `Modify the following Mermaid diagram according to the user's instruction.
-User Instruction: ${customInstruction}
-Output ONLY the modified diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.
+      // Fire-and-forget: backend handles LLM call + cache save autonomously.
+      // The frontend does NOT need to stay on the page for the fix to complete.
+      const resp = await fetch('/api/fix_diagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: projectData.owner,
+          repo: projectData.repo,
+          repo_type: projectData.repo_type,
+          language: currentLang,
+          model,
+          provider,
+          use_cli: useCli,
+          cli_tool: cliTool,
+          page_id: targetPageId || selectedPage,
+          chart_code: chartCode,
+          custom_instruction: customInstruction || null,
+        }),
+      });
 
-Original Diagram:
-\`\`\`mermaid
-${chartCode}
-\`\`\``
-        : `The following Mermaid diagram has a syntax error.
-Fix the syntax error (e.g. unescaped parentheses, quotes in IDs, newline chars). Output ONLY the corrected diagram inside a \`\`\`mermaid ... \`\`\` block. Do not add any conversational text.
+      if (!resp.ok) throw new Error(`API 요청 실패 (${resp.status})`);
+      const { job_id } = await resp.json();
 
-Original Diagram:
-\`\`\`mermaid
-${chartCode}
-\`\`\``;
+      // Wait for the background task to complete so the UI loading spinner stays active
+      await new Promise<void>((resolve, reject) => {
+        const evtSource = new EventSource(`/api/task-streams/${job_id}/stream`);
+
+        const cleanup = () => {
+          evtSource.close();
+          resolve(); // Resolve the promise when cleaning up to stop the spinner
+        };
+
+        evtSource.addEventListener('complete', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.data?.page_id) {
+              // Reload the cache from server so the diagram shows the fixed version.
+              fetch(`/api/wiki_cache?owner=${projectData.owner}&repo=${projectData.repo}&repo_type=${projectData.repo_type}&language=${currentLang}&model=${model}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(cacheData => {
+                  if (cacheData?.generated_pages) {
+                    setGeneratedPages(cacheData.generated_pages);
+                    // Recompute so the broken-diagram count reflects the fix.
+                    void detectBrokenDiagrams(cacheData.generated_pages).then(setBrokenDiagrams);
+                  }
+                })
+                .catch(() => {});
+            }
+          } catch (_) {}
+          cleanup();
+        });
+
+        evtSource.addEventListener('error', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            console.warn('fix_diagram error:', data.message);
+            alert(`다이어그램 수정 중 오류 발생: ${data.message}`);
+          } catch (_) {}
+          cleanup();
+        });
+
+        evtSource.onerror = () => {
+          cleanup();
+        };
+      });
+
+    } catch (e: any) {
+      alert(`다이어그램 수정 요청 실패: ${e.message}`);
+      throw e;
+    }
+  };
+
+  const handleBlockAction = async (type: "fix" | "delete", blockContent: string, startLine?: number, endLine?: number, prompt?: string) => {
+    if (!selectedPage || !projectData || !wikiStructure) return;
+    const currentPageData = generatedPages[selectedPage];
+    if (!currentPageData) return;
+
+    if (type === "delete") {
+      // The startLine and endLine correspond to normalizedContent, NOT currentPageData.content.
+      // Therefore, string replacement is safer than line number slicing.
+      // We also replace it in the un-normalized content as best effort.
+      const blockContentNormalized = blockContent.trim();
+      let finalContent = currentPageData.content;
+      
+      if (finalContent.includes(blockContentNormalized)) {
+        finalContent = finalContent.replace(blockContentNormalized, '');
+      } else if (finalContent.includes(blockContent)) {
+        finalContent = finalContent.replace(blockContent, '');
+      } else {
+         // Fallback to line splicing if string matching fails
+         if (startLine !== undefined && endLine !== undefined) {
+          const lines = currentPageData.content.split('\n');
+          lines.splice(startLine, endLine - startLine + 1);
+          finalContent = lines.join('\n');
+        }
+      }
+
+      const updatedPage = { ...currentPageData, content: finalContent };
+      const newGeneratedPages = { ...generatedPages, [selectedPage]: updatedPage };
+      setGeneratedPages(newGeneratedPages);
+
+      await fetch('/api/wiki_cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: { owner: projectData.owner, repo: projectData.repo, type: projectData.repo_type },
+          language: currentLang,
+          wiki_structure: wikiStructure,
+          generated_pages: newGeneratedPages,
+          provider: (() => { try { return JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}').provider || 'google'; } catch { return 'google'; } })(),
+          model: projectData.model
+        })
+      });
+      return;
+    }
+
+    // type === "fix"
+    if (!prompt) return;
+    try {
+      const fixPrompt = `You are editing a section of a technical wiki page written in Markdown.
+Modify the following markdown block according to the user's instruction.
+
+User Instruction: ${prompt}
+
+Output ONLY the modified markdown block. Do not include any explanation or conversational text. Preserve markdown formatting.
+
+Original Block:
+${blockContent}`;
 
       let apiKey = "";
       let useCli = true;
@@ -326,17 +494,17 @@ ${chartCode}
         const raw = localStorage.getItem(APP_SETTINGS_KEY);
         if (raw) {
           try {
-            const settings = JSON.parse(raw);
-            apiKey = settings.apiKey || "";
-            useCli = settings.useCli ?? true;
-            cliTool = settings.provider === "google" ? "gemini" : settings.provider === "anthropic" ? "claude" : settings.provider === "antigravity" ? "antigravity" : "codex";
-            provider = settings.provider || "google";
-            model = settings.model || "gemini-2.5-flash";
+            const s = JSON.parse(raw);
+            apiKey = s.apiKey || "";
+            useCli = s.useCli ?? true;
+            cliTool = s.provider === "google" ? "gemini" : s.provider === "anthropic" ? "claude" : s.provider === "antigravity" ? "antigravity" : "codex";
+            provider = s.provider || "google";
+            model = s.model || "gemini-2.5-flash";
           } catch (e) {}
         }
       }
 
-      const pageReqBody = {
+      const reqBody = {
         repo_url: `${projectData.owner}/${projectData.repo}`,
         type: projectData.repo_type,
         stream_id: crypto.randomUUID(),
@@ -351,35 +519,40 @@ ${chartCode}
         ...(apiKey ? { api_key: apiKey } : {})
       };
 
-      const fixResp = await fetch(`/api/chat/stream`, {
+      const resp = await fetch(`/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pageReqBody)
+        body: JSON.stringify(reqBody)
       });
 
-      if (!fixResp.ok) throw new Error("API 요청 실패");
+      if (!resp.ok) throw new Error("API 요청 실패");
 
-      let fixedContent = '';
+      let newBlockContent = '';
       const decoder = new TextDecoder();
-      if (fixResp.body) {
-        const reader = fixResp.body.getReader();
+      if (resp.body) {
+        const reader = resp.body.getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          fixedContent += decoder.decode(value, { stream: true });
+          newBlockContent += decoder.decode(value, { stream: true });
         }
-        fixedContent += decoder.decode();
+        newBlockContent += decoder.decode();
       }
 
-      const match = fixedContent.match(/```mermaid\n([\s\S]*?)\n```/i) || fixedContent.match(/```\n([\s\S]*?)\n```/i);
-      let newDiagramCode = match ? match[1] : fixedContent.trim();
-      newDiagramCode = newDiagramCode.replace(/^```(mermaid)?\n/i, '').replace(/\n```$/, '').trim();
+      newBlockContent = newBlockContent.trim();
+      // Strip wrapping code fence if the LLM accidentally added one
+      newBlockContent = newBlockContent.replace(/^```(?:markdown)?\n/i, '').replace(/\n```$/, '').trim();
 
-      if (newDiagramCode) {
-        const newPageContent = currentPageData.content.replace(chartCode, newDiagramCode);
-        if (newPageContent === currentPageData.content) {
-          throw new Error("문서 내에서 해당 다이어그램 원본을 찾지 못했습니다.");
+      if (newBlockContent && newBlockContent !== blockContent) {
+        let newPageContent = currentPageData.content;
+        if (startLine !== undefined && endLine !== undefined) {
+          const lines = currentPageData.content.split('\n');
+          lines.splice(startLine, endLine - startLine + 1, newBlockContent);
+          newPageContent = lines.join('\n');
+        } else {
+          newPageContent = currentPageData.content.replace(blockContent, newBlockContent);
         }
+
         const updatedPage = { ...currentPageData, content: newPageContent };
         const newGeneratedPages = { ...generatedPages, [selectedPage]: updatedPage };
         setGeneratedPages(newGeneratedPages);
@@ -392,16 +565,13 @@ ${chartCode}
             language: currentLang,
             wiki_structure: wikiStructure,
             generated_pages: newGeneratedPages,
-            provider: "google",
-            model: "local"
+            provider: (() => { try { return JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}').provider || 'google'; } catch { return 'google'; } })(),
+            model: projectData.model
           })
         });
-      } else {
-        throw new Error("LLM 응답에서 다이어그램 코드를 추출하지 못했습니다.");
       }
     } catch (e: any) {
-      alert(`다이어그램 복구 실패: ${e.message}`);
-      throw e;
+      alert(`블록 수정 실패: ${e.message}`);
     }
   };
 
@@ -431,8 +601,8 @@ ${chartCode}
           language: currentLang,
           wiki_structure: wikiStructure,
           generated_pages: newGeneratedPages,
-          provider: "google",
-          model: "local"
+          provider: (() => { try { return JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}').provider || 'google'; } catch { return 'google'; } })(),
+          model: projectData.model
         })
       });
     } catch (e) {
@@ -521,12 +691,20 @@ ${chartCode}
           language: currentLang,
           wiki_structure: wikiStructure,
           generated_pages: currentGeneratedPages,
-          provider: "google",
-          model: "local"
+          provider: (() => { try { return JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}').provider || 'google'; } catch { return 'google'; } })(),
+          model: projectData.model
         })
       });
-      setBrokenDiagrams([]);
-      alert(`성공적으로 ${brokenDiagrams.length}개의 다이어그램 오류를 복구했습니다.`);
+      // Recompute against the patched content rather than assuming all fixed —
+      // some diagrams may still fail to parse after the LLM's attempt.
+      const remaining = await detectBrokenDiagrams(currentGeneratedPages);
+      setBrokenDiagrams(remaining);
+      const fixedCount = brokenDiagrams.length - remaining.length;
+      alert(
+        remaining.length === 0
+          ? `성공적으로 ${fixedCount}개의 다이어그램 오류를 복구했습니다.`
+          : `${fixedCount}개를 복구했습니다. ${remaining.length}개는 자동 복구에 실패하여 수동 수정이 필요합니다.`
+      );
     } catch (e: any) {
       alert(`다이어그램 일괄 복구 실패: ${e.message}`);
     } finally {
@@ -835,10 +1013,25 @@ ${chartCode}
                  <div style={{ textAlign: "center", padding: "60px 20px", color: t.textMuted }}>위키 데이터를 불러오는 중...</div>
               ) : error ? (
                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#f87171" }}>오류: {error}</div>
-              ) : currentPage ? (
+              ) : selectedPage ? (
                 <article style={{ color: t.text, lineHeight: 1.7, position: "relative" }}>
                   {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && (
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, paddingLeft: "2.5rem", paddingRight: "0.5rem" }}>
+                    <div>
+                      {brokenDiagrams.length > 0 && (
+                        <button
+                          onClick={handleFixAllDiagrams}
+                          disabled={isBatchFixing}
+                          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: isBatchFixing ? t.surface : "#7c3aed", border: `1px solid ${isBatchFixing ? t.divider : "#7c3aed"}`, borderRadius: 8, color: isBatchFixing ? t.textSecondary : "#fff", fontSize: 13, cursor: isBatchFixing ? "default" : "pointer", transition: "all 0.15s" }}
+                          title={`${projectData?.repo ?? ''} 위키 전체에서 렌더링되지 않는 다이어그램을 한 번에 복구합니다`}
+                        >
+                          <RefreshCw size={13} className={isBatchFixing ? "animate-spin" : ""} />
+                          {isBatchFixing
+                            ? `다이어그램 복구 중... (${batchFixProgress.current}/${batchFixProgress.total})`
+                            : `다이어그램 전체 수정 (${brokenDiagrams.length})`}
+                        </button>
+                      )}
+                    </div>
                     <button
                       onClick={() => setShowRegenModal(true)}
                       style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}
@@ -860,6 +1053,11 @@ ${chartCode}
                       content={currentPage.content}
                       onFixDiagram={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)}
                       onCodeChange={(oldCode, newCode) => handleManualCodeChange(oldCode, newCode, selectedPage)}
+                      onBlockAction={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : handleBlockAction}
+                      repositoryBaseUrl={repositoryBaseUrl}
+                      repoName={projectData?.repo}
+                      gitRoots={gitRoots}
+                      hoverBgColor={hoverBgColor}
                     />
                   )}
                 </article>

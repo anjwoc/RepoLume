@@ -76,6 +76,14 @@ const nextConfig: NextConfig = {
         source: '/api/fs/select_folder',
         destination: `${TARGET_SERVER_BASE_URL}/api/fs/select_folder`,
       },
+      {
+        source: '/api/fix_diagram',
+        destination: `${TARGET_SERVER_BASE_URL}/api/fix_diagram`,
+      },
+      {
+        source: '/api/task-streams/:path*',
+        destination: `${TARGET_SERVER_BASE_URL}/task-streams/:path*`,
+      },
     ];
   },
 };

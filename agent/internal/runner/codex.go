@@ -107,6 +107,9 @@ func (r *CodexRunner) buildArgs(req RunRequest) []string {
 	}
 	args = append(args, "-c", `sandbox_permissions=["`+perms+`"]`)
 
+	// Automatically approve permissions for non-interactive execution
+	args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+
 	// Do not append req.Prompt to args to avoid ARG_MAX "Argument list too long" errors.
 	// We will pass it via Stdin.
 	return args

@@ -36,7 +36,28 @@ async function exportShowcase() {
     // 1. Fetch project list
     const projectsUrl = `${BACKEND_URL}/api/processed_projects`;
     console.log(`Fetching projects from ${projectsUrl}...`);
-    const projects = await fetchJson(projectsUrl);
+    let projects = await fetchJson(projectsUrl);
+    
+    // CLI 인자로 특정 프로젝트 ID를 전달받은 경우, 해당 프로젝트만 필터링
+    const targetProjectIds = process.argv.slice(2);
+    if (targetProjectIds.length > 0) {
+      projects = projects.filter(p => targetProjectIds.includes(p.id));
+      console.log(`Filtered projects to: ${projects.map(p => p.id).join(', ')}`);
+      
+      // 기존 projects.json 파일이 있다면 읽어서 머지(Merge)합니다.
+      const projectsJsonPath = path.join(SHOWCASE_DIR, 'projects.json');
+      if (fs.existsSync(projectsJsonPath)) {
+        try {
+          const existingProjects = JSON.parse(fs.readFileSync(projectsJsonPath, 'utf8'));
+          const newProjectsMap = new Map(existingProjects.map(p => [p.id, p]));
+          projects.forEach(p => newProjectsMap.set(p.id, p));
+          projects = Array.from(newProjectsMap.values());
+          console.log(`Merged with existing projects. Total projects to keep in index: ${projects.length}`);
+        } catch (e) {
+          console.error("Failed to read existing projects.json, overwriting.", e);
+        }
+      }
+    }
     
     fs.writeFileSync(
       path.join(SHOWCASE_DIR, 'projects.json'),
@@ -44,8 +65,12 @@ async function exportShowcase() {
     );
     console.log(`Saved ${projects.length} projects to projects.json`);
 
-    // 2. Fetch cache for each project
-    for (const proj of projects) {
+    // 2. Fetch cache for each project (only the ones we explicitly want to export if specified)
+    const projectsToFetch = targetProjectIds.length > 0 
+      ? projects.filter(p => targetProjectIds.includes(p.id)) 
+      : projects;
+
+    for (const proj of projectsToFetch) {
       const qs = new URLSearchParams({
         owner: proj.owner,
         repo: proj.repo,

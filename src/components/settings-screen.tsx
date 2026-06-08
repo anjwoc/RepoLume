@@ -20,8 +20,8 @@ interface SettingsScreenProps {
   onBack: () => void;
   settings: MCPSettings;
   onSaveSettings: (settings: MCPSettings) => void;
-  appSettings: { language: string; languages?: string[]; provider: string; model: string; mode?: string; apiKey?: string };
-  onSaveAppSettings: (settings: Partial<{ language: string; languages: string[]; provider: string; model: string; mode: string; apiKey: string; setupComplete: boolean }>) => void;
+  appSettings: { language: string; languages?: string[]; provider: string; model: string; mode?: string; apiKey?: string; repositoryBaseUrl?: string; hoverBgColor?: string };
+  onSaveAppSettings: (settings: Partial<{ language: string; languages: string[]; provider: string; model: string; mode: string; apiKey: string; setupComplete: boolean; repositoryBaseUrl: string; hoverBgColor: string }>) => void;
 }
 
 // MCP 아이콘 컴포넌트
@@ -60,6 +60,8 @@ export function SettingsScreen({
     model: initialAppSettings.model || "gpt-5.5",
     mode: (initialAppSettings.mode as "cli" | "api") || "cli",
     apiKey: initialAppSettings.apiKey || "",
+    repositoryBaseUrl: initialAppSettings.repositoryBaseUrl || "",
+    hoverBgColor: initialAppSettings.hoverBgColor || "rgba(60,130,246,0.06)",
   });
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
@@ -422,6 +424,51 @@ export function SettingsScreen({
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Repository Base URL */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${t.divider}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div>
+                    <p style={{ color: t.text, fontSize: 14, fontWeight: 500, margin: 0 }}>Repository Web URL</p>
+                    <p style={{ color: t.textSecondary, fontSize: 12, margin: "4px 0 0 0" }}>사내망 Github 등 커스텀 링크 생성에 사용됩니다</p>
+                  </div>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={appSettings.repositoryBaseUrl}
+                    onChange={(e) => { setAppSettings(prev => ({ ...prev, repositoryBaseUrl: e.target.value })); setHasChanges(true); }}
+                    placeholder="https://github.company.com/org"
+                    style={{
+                      width: "100%", padding: "9px 12px", borderRadius: 8,
+                      border: `1.5px solid ${t.divider}`, background: t.bg, color: t.text,
+                      fontSize: 13, outline: "none", boxSizing: "border-box" as const,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${t.divider}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div>
+                    <p style={{ color: t.text, fontSize: 14, fontWeight: 500, margin: 0 }}>호버 배경 색상</p>
+                    <p style={{ color: t.textSecondary, fontSize: 12, margin: "4px 0 0 0" }}>문서 단락 호버 시 표시되는 배경 색상을 지정합니다.</p>
+                  </div>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={appSettings.hoverBgColor}
+                    onChange={(e) => { setAppSettings(prev => ({ ...prev, hoverBgColor: e.target.value })); setHasChanges(true); }}
+                    placeholder="예: rgba(60,130,246,0.06) 또는 #f0fdf4"
+                    style={{
+                      width: "100%", padding: "9px 12px", borderRadius: 8,
+                      border: `1.5px solid ${t.divider}`, background: t.bg, color: t.text,
+                      fontSize: 13, outline: "none", boxSizing: "border-box" as const,
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Antigravity CLI Auth UI */}

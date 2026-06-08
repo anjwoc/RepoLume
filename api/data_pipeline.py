@@ -711,6 +711,14 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
         return get_gitlab_file_content(repo_url, file_path, access_token)
     elif repo_type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
+    elif repo_type == "local":
+        import os
+        full_path = os.path.join(repo_url, file_path)
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            raise ValueError(f"Error reading local file {full_path}: {e}")
     else:
         raise ValueError("Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
 

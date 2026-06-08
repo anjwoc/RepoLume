@@ -13,6 +13,8 @@ export interface AppSettings {
   languages: string[];     // 다국어 동시 생성 목록
   apiKey: string;
   setupComplete: boolean;
+  repositoryBaseUrl?: string;
+  hoverBgColor?: string;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {

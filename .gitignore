@@ -86,3 +86,6 @@ screenshots/
 
 # local scratch / debug (not part of app)
 /scratch/
+
+# codegraph
+.codegraph/

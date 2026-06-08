@@ -209,6 +209,8 @@ export default function Page() {
             projectName={projectName}
             projectData={projectData}
             onGoHome={() => setScreen("home")}
+            repositoryBaseUrl={appSettings.repositoryBaseUrl}
+            hoverBgColor={appSettings.hoverBgColor}
           />
         )}
         {screen === "settings" && (

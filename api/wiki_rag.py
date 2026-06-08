@@ -26,7 +26,7 @@ from api.tools.embedder import get_embedder
 logger = logging.getLogger(__name__)
 
 # P3 uses the free/local Ollama embedder for the wiki index (user choice).
-WIKI_EMBEDDER_TYPE = "ollama"
+WIKI_EMBEDDER_TYPE = "none"
 
 # content-hash -> transformed documents (with .vector). Survives within the server process.
 _doc_cache: dict = {}
@@ -119,6 +119,17 @@ def retrieve_wiki_context(
     pages: List[dict], question: str, top_k: Optional[int] = None
 ) -> Tuple[str, List[str]]:
     """Return (context_text, cited_page_titles) for the most relevant wiki chunks."""
+    if WIKI_EMBEDDER_TYPE == "none":
+        chunks = []
+        titles = []
+        for p in pages:
+            title = p.get('title', '')
+            content = p.get('content', '')
+            if title and content:
+                chunks.append(f"## [[{title}]]\n{content}")
+                titles.append(title)
+        return "\n\n".join(chunks), titles
+
     docs = _get_wiki_docs(pages)
     if not docs:
         return "", []

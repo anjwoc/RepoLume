@@ -69,6 +69,8 @@ func (r *ClaudeRunner) buildArgs(req RunRequest) []string {
 	}
 	// Request plain text output (not JSON stream) for simpler parsing.
 	args = append(args, "--output-format", "text")
+	// Automatically approve permissions for non-interactive execution
+	args = append(args, "--dangerously-skip-permissions")
 	return args
 }
 

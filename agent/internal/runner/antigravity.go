@@ -36,10 +36,10 @@ func (r *AntigravityRunner) Available() bool {
 //	agy --print "PROMPT"
 func (r *AntigravityRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
 	// agy supports stdin if prompt is empty string according to test `echo "hello" | agy --prompt ""`
-	args := []string{"--prompt", ""}
+	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
 
 	// agy는 에이전트이므로 파일을 생성하지 않고 표준 출력으로 반환하도록 강제 지시문 추가
-	strictPrompt := req.Prompt + "\n\nCRITICAL INSTRUCTION: DO NOT use any tools to create files or save documents to the workspace or artifact directory. You MUST output the final requested content (e.g. markdown) directly as plain text to standard output so the caller can read it. Do not include any conversational filler, output ONLY the raw markdown content."
+	strictPrompt := req.Prompt + "\n\nCRITICAL INSTRUCTION: DO NOT use any tools to create files or save documents to the workspace or artifact directory. You MUST output the final requested content (e.g. markdown) directly as plain text to standard output so the caller can read it. DO NOT use the ask_question tool or prompt the user for input. Make reasonable assumptions. Do not include any conversational filler, output ONLY the raw markdown content."
 
 	cmd := exec.CommandContext(ctx, "agy", args...)
 	cmd.Dir = req.Cwd
@@ -54,9 +54,9 @@ func (r *AntigravityRunner) Run(ctx context.Context, req RunRequest) (<-chan Chu
 
 // RunCollect executes the prompt synchronously and collects full output.
 func (r *AntigravityRunner) RunCollect(ctx context.Context, req RunRequest) (RunResult, error) {
-	args := []string{"--prompt", ""}
+	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
 
-	strictPrompt := req.Prompt + "\n\nCRITICAL INSTRUCTION: DO NOT use any tools to create files or save documents to the workspace or artifact directory. You MUST output the final requested content (e.g. markdown) directly as plain text to standard output so the caller can read it. Do not include any conversational filler, output ONLY the raw markdown content."
+	strictPrompt := req.Prompt + "\n\nCRITICAL INSTRUCTION: DO NOT use any tools to create files or save documents to the workspace or artifact directory. You MUST output the final requested content (e.g. markdown) directly as plain text to standard output so the caller can read it. DO NOT use the ask_question tool or prompt the user for input. Make reasonable assumptions. Do not include any conversational filler, output ONLY the raw markdown content."
 
 	cmd := exec.CommandContext(ctx, "agy", args...)
 	cmd.Dir = req.Cwd

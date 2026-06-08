@@ -68,6 +68,7 @@ class ChatCompletionRequest(BaseModel):
     use_cli: Optional[bool] = Field(False, description="If True, use local CLI tool (gemini/codex/claude) instead of direct API call")
     cli_tool: Optional[str] = Field(None, description="Which CLI tool to use: 'gemini', 'codex', 'claude'")
     is_wiki_generation: Optional[bool] = Field(False, description="If True, skip chat-specific system prompts")
+    async_mode: Optional[bool] = Field(False, description="Run in background and return job_id immediately")
 
 async def chat_completions_stream(request: ChatCompletionRequest):
     """Stream a chat completion response directly using Google Generative AI"""
@@ -352,11 +353,43 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         file_content = ""
         if request.filePath:
             try:
-                file_content = get_file_content(request.repo_url, request.filePath, request.type, request.token)
+                file_content = f"<currentFileContent path=\"{request.filePath}\">\n"
+                file_content += get_file_content(request.repo_url, request.filePath, request.type, request.token)
+                file_content += "\n</currentFileContent>\n\n"
                 logger.info(f"Successfully retrieved content for file: {request.filePath}")
             except Exception as e:
                 logger.error(f"Error retrieving file content: {str(e)}")
-                # Continue without file content if there's an error
+
+        if getattr(request, "is_wiki_generation", False):
+            real_repo_path = request.repo_url
+            if request.type == "local" and not __import__("os").path.isabs(request.repo_url):
+                try:
+                    from api.server import get_wiki_cache_path
+                    import json, os
+                    owner, repo = request.repo_url.split("/", 1) if "/" in request.repo_url else ("local", request.repo_url)
+                    cache_path = get_wiki_cache_path(owner, repo, "local", request.language or "ko", request.model)
+                    if os.path.exists(cache_path):
+                        with open(cache_path, "r", encoding="utf-8") as f:
+                            cache_data = json.load(f)
+                            if "repo" in cache_data and "localPath" in cache_data["repo"] and cache_data["repo"]["localPath"]:
+                                real_repo_path = cache_data["repo"]["localPath"]
+                            elif "repo" in cache_data and "repoUrl" in cache_data["repo"] and cache_data["repo"]["repoUrl"]:
+                                real_repo_path = cache_data["repo"]["repoUrl"]
+                except Exception as e:
+                    logger.error(f"Failed to resolve local repo path: {e}")
+
+            import re as _re
+            match = _re.search(r"Source files to base content on:\n(.*?)\n\n", query, _re.DOTALL)
+            if match:
+                for fp in match.group(1).split('\n'):
+                    fp = fp.strip()
+                    if not fp: continue
+                    try:
+                        content_str = get_file_content(real_repo_path, fp, request.type, request.token)
+                        file_content += f"<file path=\"{fp}\">\n{content_str}\n</file>\n\n"
+                        logger.info(f"Successfully retrieved wiki source file: {fp}")
+                    except Exception as e:
+                        logger.error(f"Error retrieving wiki source file {fp}: {str(e)}")
 
         # Format conversation history
         conversation_history = ""
@@ -365,34 +398,43 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 if not isinstance(turn_id, int) and hasattr(turn, 'user_query') and hasattr(turn, 'assistant_response'):
                     conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
 
-        # Create the prompt with context
-        prompt = f"/no_think {system_prompt}\n\n"
-
-        if conversation_history:
-            prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
-
-        # Check if filePath is provided and fetch file content if it exists
-        if file_content:
-            # Add file content to the prompt after conversation history
-            prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
-
-        # Only include context if it's not empty
-        CONTEXT_START = "<START_OF_CONTEXT>"
-        CONTEXT_END = "<END_OF_CONTEXT>"
-        if context_text.strip():
-            prompt += f"{CONTEXT_START}\n{context_text}\n{CONTEXT_END}\n\n"
+        if getattr(request, "is_wiki_generation", False):
+            prompt = f"/no_think\n\n{query}\n\nAssistant: "
         else:
-            # Add a note that we're skipping RAG due to size constraints or because it's the isolated API
-            logger.info("No context available from RAG")
-            await emit_task_event(request.stream_id, "task_status", "Answering without retrieval augmentation", phase="rag")
-            prompt += "<note>Answering without retrieval augmentation.</note>\n\n"
+            # Create the prompt with context
+            prompt = f"/no_think {system_prompt}\n\n"
 
-        prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
+            if conversation_history:
+                prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
+
+            # Check if filePath is provided and fetch file content if it exists
+            if file_content:
+                # Add file content to the prompt after conversation history
+                prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
+
+            # Only include context if it's not empty
+            CONTEXT_START = "<START_OF_CONTEXT>"
+            CONTEXT_END = "<END_OF_CONTEXT>"
+            if context_text.strip():
+                prompt += f"{CONTEXT_START}\n{context_text}\n{CONTEXT_END}\n\n"
+            else:
+                # Add a note that we're skipping RAG due to size constraints or because it's the isolated API
+                logger.info("No context available from RAG")
+                await emit_task_event(request.stream_id, "task_status", "Answering without retrieval augmentation", phase="rag")
+                prompt += "<note>Answering without retrieval augmentation.</note>\n\n"
+
+            prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
 
         # ── CLI 모드: Go 바이너리(localwiki-agent)로 라우팅 ──────────────
         if request.use_cli:
             agent = request.cli_tool or "codex"
             model_override = request.model or ""
+
+            # Ensure agy models and gemini alias use antigravity agent explicitly
+            # Since gemini CLI is aliased to Antigravity IDE on this system, we must use antigravity agent
+            # to ensure the CRITICAL INSTRUCTION (non-interactive mode) is appended.
+            if agent == "gemini" or (model_override and model_override.startswith("agy-")):
+                agent = "antigravity"
 
             # CLI uses an internal endpoint that doesn't support gemini-3.1-flash
             if agent == "gemini" and model_override == "gemini-3.1-flash":
@@ -416,7 +458,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                 "--prompt-file", prompt_file,
                 "--cwd", request.repo_url if os.path.isdir(request.repo_url) else ".",
                 "--stream-jsonl",
-                "--timeout", "300",
+                "--timeout", "1200",
             ]
             if model_override:
                 cmd += ["--model", model_override]
@@ -489,217 +531,241 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         os.unlink(prompt_file)
                     except Exception:
                         pass
-
-            return StreamingResponse(cli_stream_generator(), media_type="text/plain")
         # ── CLI 모드 끝 ────────────────────────────────────────────────────
+        else:
+            model_config = get_model_config(request.provider, request.model)["model_kwargs"]
 
-        model_config = get_model_config(request.provider, request.model)["model_kwargs"]
+            if request.provider == "openrouter":
+                logger.info(f"Using OpenRouter with model: {request.model}")
 
-        if request.provider == "openrouter":
-            logger.info(f"Using OpenRouter with model: {request.model}")
+                # Check if OpenRouter API key is set
+                if not OPENROUTER_API_KEY:
+                    logger.warning("OPENROUTER_API_KEY not configured, but continuing with request")
+                    # We'll let the OpenRouterClient handle this and return a friendly error message
 
-            # Check if OpenRouter API key is set
-            if not OPENROUTER_API_KEY:
-                logger.warning("OPENROUTER_API_KEY not configured, but continuing with request")
-                # We'll let the OpenRouterClient handle this and return a friendly error message
+                model = OpenRouterClient()
+                model_kwargs = {
+                    "model": request.model,
+                    "stream": True,
+                    "temperature": model_config["temperature"]
+                }
+                # Only add top_p if it exists in the model config
+                if "top_p" in model_config:
+                    model_kwargs["top_p"] = model_config["top_p"]
 
-            model = OpenRouterClient()
-            model_kwargs = {
-                "model": request.model,
-                "stream": True,
-                "temperature": model_config["temperature"]
-            }
-            # Only add top_p if it exists in the model config
-            if "top_p" in model_config:
-                model_kwargs["top_p"] = model_config["top_p"]
+                api_kwargs = model.convert_inputs_to_api_kwargs(
+                    input=prompt,
+                    model_kwargs=model_kwargs,
+                    model_type=ModelType.LLM
+                )
+            elif request.provider == "openai" or request.litellm_base_url:
+                logger.info(f"Using OpenAI protocol with model: {request.model}")
 
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
-        elif request.provider == "openai" or request.litellm_base_url:
-            logger.info(f"Using OpenAI protocol with model: {request.model}")
+                if request.litellm_base_url:
+                    # Local CLI mode: route through litellm proxy — no real API key needed
+                    logger.info(f"Routing to litellm proxy: {request.litellm_base_url}")
+                    model = OpenAIClient(
+                        api_key="local",  # litellm doesn't need a real key
+                        base_url=request.litellm_base_url,
+                    )
+                else:
+                    # API direct mode
+                    effective_api_key = request.api_key or OPENAI_API_KEY
+                    if not effective_api_key:
+                        raise ValueError("OPENAI_API_KEY is not set. Please add it in Settings or set the environment variable.")
+                    model = OpenAIClient(api_key=effective_api_key)
 
-            if request.litellm_base_url:
-                # Local CLI mode: route through litellm proxy — no real API key needed
-                logger.info(f"Routing to litellm proxy: {request.litellm_base_url}")
-                model = OpenAIClient(
-                    api_key="local",  # litellm doesn't need a real key
-                    base_url=request.litellm_base_url,
+                model_kwargs = {
+                    "model": request.model,
+                    "stream": True,
+                    "temperature": model_config.get("temperature", 0.7)
+                }
+                if "top_p" in model_config:
+                    model_kwargs["top_p"] = model_config["top_p"]
+
+                api_kwargs = model.convert_inputs_to_api_kwargs(
+                    input=prompt,
+                    model_kwargs=model_kwargs,
+                    model_type=ModelType.LLM
                 )
             else:
-                # API direct mode
-                effective_api_key = request.api_key or OPENAI_API_KEY
-                if not effective_api_key:
-                    raise ValueError("OPENAI_API_KEY is not set. Please add it in Settings or set the environment variable.")
-                model = OpenAIClient(api_key=effective_api_key)
-
-            model_kwargs = {
-                "model": request.model,
-                "stream": True,
-                "temperature": model_config.get("temperature", 0.7)
-            }
-            if "top_p" in model_config:
-                model_kwargs["top_p"] = model_config["top_p"]
-
-            api_kwargs = model.convert_inputs_to_api_kwargs(
-                input=prompt,
-                model_kwargs=model_kwargs,
-                model_type=ModelType.LLM
-            )
-        else:
-            # Initialize Google Generative AI model (default provider)
-            model = genai.GenerativeModel(
-                model_name=model_config["model"],
-                generation_config={
-                    "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"],
-                },
-            )
-
-        # Create a streaming response
-        async def response_stream():
-            try:
-                await emit_task_event(
-                    request.stream_id,
-                    "phase_start",
-                    f"Calling provider {request.provider}",
-                    phase="provider",
-                    data={"provider": request.provider, "model": request.model},
+                # Initialize Google Generative AI model (default provider)
+                model = genai.GenerativeModel(
+                    model_name=model_config["model"],
+                    generation_config={
+                        "temperature": model_config["temperature"],
+                        "top_p": model_config["top_p"],
+                        "top_k": model_config["top_k"],
+                    },
                 )
-                if request.provider == "openrouter":
-                    try:
-                        # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making OpenRouter API call")
-                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle streaming response from OpenRouter
-                        async for chunk in response:
-                            yield chunk
-                    except Exception as e_openrouter:
-                        logger.error(f"Error with OpenRouter API: {str(e_openrouter)}")
-                        yield f"\nError with OpenRouter API: {str(e_openrouter)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
-                elif request.provider == "openai":
-                    try:
-                        # Get the response and handle it properly using the previously created api_kwargs
-                        logger.info("Making Openai API call")
-                        response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                        # Handle streaming response from Openai
-                        async for chunk in response:
-                           choices = getattr(chunk, "choices", [])
-                           if len(choices) > 0:
-                               delta = getattr(choices[0], "delta", None)
-                               if delta is not None:
-                                    text = getattr(delta, "content", None)
-                                    if text is not None:
+
+            # Create a streaming response
+            async def response_stream():
+                try:
+                    await emit_task_event(
+                        request.stream_id,
+                        "phase_start",
+                        f"Calling provider {request.provider}",
+                        phase="provider",
+                        data={"provider": request.provider, "model": request.model},
+                    )
+                    if request.provider == "openrouter":
+                        try:
+                            # Get the response and handle it properly using the previously created api_kwargs
+                            logger.info("Making OpenRouter API call")
+                            response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                            # Handle streaming response from OpenRouter
+                            async for chunk in response:
+                                yield chunk
+                        except Exception as e_openrouter:
+                            logger.error(f"Error with OpenRouter API: {str(e_openrouter)}")
+                            yield f"\nError with OpenRouter API: {str(e_openrouter)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
+                    elif request.provider == "openai":
+                        try:
+                            # Get the response and handle it properly using the previously created api_kwargs
+                            logger.info("Making Openai API call")
+                            response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
+                            # Handle streaming response from Openai
+                            async for chunk in response:
+                               choices = getattr(chunk, "choices", [])
+                               if len(choices) > 0:
+                                   delta = getattr(choices[0], "delta", None)
+                                   if delta is not None:
+                                        text = getattr(delta, "content", None)
+                                        if text is not None:
+                                            yield text
+                        except Exception as e_openai:
+                            logger.error(f"Error with Openai API: {str(e_openai)}")
+                            yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                    else:
+                        # Google Generative AI (default provider)
+                        response = model.generate_content(prompt, stream=True)
+                        for chunk in response:
+                            if hasattr(chunk, "text"):
+                                yield chunk.text
+
+                except Exception as e_outer:
+                    logger.error(f"Error in streaming response: {str(e_outer)}")
+                    await emit_task_event(request.stream_id, "error", f"Error in streaming response: {str(e_outer)}", phase="provider")
+                    error_message = str(e_outer)
+
+                    # Check for token limit errors
+                    if "maximum context length" in error_message or "token limit" in error_message or "too many tokens" in error_message:
+                        # If we hit a token limit error, try again without context
+                        logger.warning("Token limit exceeded, retrying without context")
+                        try:
+                            # Create a simplified prompt without context
+                            simplified_prompt = f"/no_think {system_prompt}\n\n"
+                            if conversation_history:
+                                simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
+
+                            # Include file content in the fallback prompt if it was retrieved
+                            if request.filePath and file_content:
+                                simplified_prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
+
+                            simplified_prompt += "<note>Answering without retrieval augmentation due to input size constraints.</note>\n\n"
+                            simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
+
+                            if request.provider == "openrouter":
+                                try:
+                                    # Create new api_kwargs with the simplified prompt
+                                    fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                        input=simplified_prompt,
+                                        model_kwargs=model_kwargs,
+                                        model_type=ModelType.LLM
+                                    )
+
+                                    # Get the response using the simplified prompt
+                                    logger.info("Making fallback OpenRouter API call")
+                                    fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+
+                                    # Handle streaming fallback_response from OpenRouter
+                                    async for chunk in fallback_response:
+                                        yield chunk
+                                except Exception as e_fallback:
+                                    logger.error(f"Error with OpenRouter API fallback: {str(e_fallback)}")
+                                    yield f"\nError with OpenRouter API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
+                            elif request.provider == "openai":
+                                try:
+                                    # Create new api_kwargs with the simplified prompt
+                                    fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
+                                        input=simplified_prompt,
+                                        model_kwargs=model_kwargs,
+                                        model_type=ModelType.LLM
+                                    )
+
+                                    # Get the response using the simplified prompt
+                                    logger.info("Making fallback Openai API call")
+                                    fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+
+                                    # Handle streaming fallback_response from Openai
+                                    async for chunk in fallback_response:
+                                        text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
                                         yield text
-                    except Exception as e_openai:
-                        logger.error(f"Error with Openai API: {str(e_openai)}")
-                        yield f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                else:
-                    # Google Generative AI (default provider)
-                    response = model.generate_content(prompt, stream=True)
-                    for chunk in response:
-                        if hasattr(chunk, "text"):
-                            yield chunk.text
-
-            except Exception as e_outer:
-                logger.error(f"Error in streaming response: {str(e_outer)}")
-                await emit_task_event(request.stream_id, "error", f"Error in streaming response: {str(e_outer)}", phase="provider")
-                error_message = str(e_outer)
-
-                # Check for token limit errors
-                if "maximum context length" in error_message or "token limit" in error_message or "too many tokens" in error_message:
-                    # If we hit a token limit error, try again without context
-                    logger.warning("Token limit exceeded, retrying without context")
-                    try:
-                        # Create a simplified prompt without context
-                        simplified_prompt = f"/no_think {system_prompt}\n\n"
-                        if conversation_history:
-                            simplified_prompt += f"<conversation_history>\n{conversation_history}</conversation_history>\n\n"
-
-                        # Include file content in the fallback prompt if it was retrieved
-                        if request.filePath and file_content:
-                            simplified_prompt += f"<currentFileContent path=\"{request.filePath}\">\n{file_content}\n</currentFileContent>\n\n"
-
-                        simplified_prompt += "<note>Answering without retrieval augmentation due to input size constraints.</note>\n\n"
-                        simplified_prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
-
-                        if request.provider == "openrouter":
-                            try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
+                                except Exception as e_fallback:
+                                    logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
+                                    yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
+                            else:
+                                # Google Generative AI fallback (default provider)
+                                model_config = get_model_config(request.provider, request.model)
+                                fallback_model = genai.GenerativeModel(
+                                    model_name=model_config["model_kwargs"]["model"],
+                                    generation_config={
+                                        "temperature": model_config["model_kwargs"].get("temperature", 0.7),
+                                        "top_p": model_config["model_kwargs"].get("top_p", 0.8),
+                                        "top_k": model_config["model_kwargs"].get("top_k", 40),
+                                    },
                                 )
 
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback OpenRouter API call")
-                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
-
-                                # Handle streaming fallback_response from OpenRouter
-                                async for chunk in fallback_response:
-                                    yield chunk
-                            except Exception as e_fallback:
-                                logger.error(f"Error with OpenRouter API fallback: {str(e_fallback)}")
-                                yield f"\nError with OpenRouter API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
-                        elif request.provider == "openai":
-                            try:
-                                # Create new api_kwargs with the simplified prompt
-                                fallback_api_kwargs = model.convert_inputs_to_api_kwargs(
-                                    input=simplified_prompt,
-                                    model_kwargs=model_kwargs,
-                                    model_type=ModelType.LLM
+                                fallback_response = fallback_model.generate_content(
+                                    simplified_prompt, stream=True
                                 )
+                                for chunk in fallback_response:
+                                    if hasattr(chunk, "text"):
+                                        yield chunk.text
+                        except Exception as e2:
+                            logger.error(f"Error in fallback streaming response: {str(e2)}")
+                            yield f"\nI apologize, but your request is too large for me to process. Please try a shorter query or break it into smaller parts."
+                    else:
+                        # For other errors, return the error message
+                        yield f"\nError: {error_message}"
+                finally:
+                    await emit_task_event(
+                        request.stream_id,
+                        "complete",
+                        "Chat completion stream finished",
+                        phase="chat",
+                        data={"provider": request.provider, "model": request.model},
+                    )
 
-                                # Get the response using the simplified prompt
-                                logger.info("Making fallback Openai API call")
-                                fallback_response = await model.acall(api_kwargs=fallback_api_kwargs, model_type=ModelType.LLM)
+        # Run in background if async_mode is True
+        if request.async_mode and request.stream_id:
+            async def background_task(gen):
+                try:
+                    async for chunk in gen:
+                        if chunk and isinstance(chunk, str):
+                            # The stream generators yield raw text strings
+                            await emit_task_event(request.stream_id, "chunk", data={"content": chunk})
+                except Exception as e_bg:
+                    logger.error(f"Background stream error: {e_bg}")
+                    await emit_task_event(request.stream_id, "error", f"Background stream error: {str(e_bg)}", phase="generation")
+                finally:
+                    # Always emit complete so the frontend EventSource can resolve cleanly
+                    await emit_task_event(
+                        request.stream_id,
+                        "complete",
+                        "Stream finished",
+                        phase="chat",
+                    )
 
-                                # Handle streaming fallback_response from Openai
-                                async for chunk in fallback_response:
-                                    text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
-                                    yield text
-                            except Exception as e_fallback:
-                                logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
-                                yield f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
-                        else:
-                            # Google Generative AI fallback (default provider)
-                            model_config = get_model_config(request.provider, request.model)
-                            fallback_model = genai.GenerativeModel(
-                                model_name=model_config["model_kwargs"]["model"],
-                                generation_config={
-                                    "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                    "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                    "top_k": model_config["model_kwargs"].get("top_k", 40),
-                                },
-                            )
+            stream_gen = cli_stream_generator() if request.use_cli else response_stream()
+            asyncio.create_task(background_task(stream_gen))
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"status": "queued", "job_id": request.stream_id})
 
-                            fallback_response = fallback_model.generate_content(
-                                simplified_prompt, stream=True
-                            )
-                            for chunk in fallback_response:
-                                if hasattr(chunk, "text"):
-                                    yield chunk.text
-                    except Exception as e2:
-                        logger.error(f"Error in fallback streaming response: {str(e2)}")
-                        yield f"\nI apologize, but your request is too large for me to process. Please try a shorter query or break it into smaller parts."
-                else:
-                    # For other errors, return the error message
-                    yield f"\nError: {error_message}"
-            finally:
-                await emit_task_event(
-                    request.stream_id,
-                    "complete",
-                    "Chat completion stream finished",
-                    phase="chat",
-                    data={"provider": request.provider, "model": request.model},
-                )
-
-        # Return streaming response
-        return StreamingResponse(response_stream(), media_type="text/event-stream")
+        # Return streaming response synchronously
+        stream_gen = cli_stream_generator() if request.use_cli else response_stream()
+        return StreamingResponse(stream_gen, media_type="text/plain" if request.use_cli else "text/event-stream")
 
     except HTTPException:
         raise
