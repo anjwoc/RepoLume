@@ -14,6 +14,7 @@ import time
 
 # Configure logging
 from api.logging_config import setup_logging
+from api import db as project_db
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -24,6 +25,12 @@ app = FastAPI(
     title="Streaming API",
     description="API for streaming chat completions"
 )
+
+# SQLite 프로젝트 레지스트리 초기화 (외부 의존성 없음 — Electron 포함 모든 환경)
+try:
+    project_db.init_db()
+except Exception as _db_init_err:
+    logger.warning(f"[db] 초기화 실패 (무시): {_db_init_err}")
 
 # Configure CORS
 app.add_middleware(
@@ -161,6 +168,8 @@ class AuthCodeSubmit(BaseModel):
     code: str
 
 app.include_router(task_stream_router)
+from api.mcp_api import router as mcp_api_router
+app.include_router(mcp_api_router)
 
 # --- Agent Endpoints (replaces localwiki-agent Go binary) ---
 
@@ -1100,6 +1109,21 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
             json.dump(payload.model_dump(), f, indent=2)
         logger.info(f"Wiki cache successfully saved to {cache_path}")
 
+        # SQLite 레지스트리에 프로젝트 메타데이터 기록
+        try:
+            _lp = data.repo.localPath or data.repo.repoUrl or None
+            project_db.upsert_project(
+                data.repo.owner, data.repo.repo, data.repo.type, _lp
+            )
+            project_db.upsert_wiki_run(
+                data.repo.owner, data.repo.repo,
+                data.language, data.model or "local",
+                provider=data.provider,
+                cache_path=cache_path,
+            )
+        except Exception as _dbe:
+            logger.warning(f"[db] wiki_run 기록 실패 (무시): {_dbe}")
+
         # Also write the generated pages to the wiki-out directory as .md files (separated by language)
         wiki_out_repo_name = f"{data.repo.repo}_{data.model}" if data.model else data.repo.repo
         wiki_out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out", wiki_out_repo_name, data.language)
@@ -1183,6 +1207,8 @@ async def read_wiki_out_cache(repo: str, language: str, model: Optional[str] = N
         rootSections=rootSections
     )
     
+    # wiki-out 디렉토리를 소스 경로로 노출하지 않음 (simple_chat.py가 오인 방지)
+    # 실제 localPath는 SQLite DB 또는 wikicache JSON에서 별도로 조회
     return WikiCacheData(
         wiki_structure=wiki_structure,
         generated_pages=generated_pages,
@@ -1190,8 +1216,8 @@ async def read_wiki_out_cache(repo: str, language: str, model: Optional[str] = N
             owner="local",
             repo=repo,
             type="local",
-            localPath=wiki_out_dir,
-            repoUrl=wiki_out_dir
+            localPath=None,
+            repoUrl=None
         ),
         provider="local",
         model="local"
@@ -1519,114 +1545,97 @@ async def root():
         "endpoints": endpoints
     }
 
-# --- Processed Projects Endpoint --- (New Endpoint)
+# --- Processed Projects Endpoint ---
 @app.get("/api/processed_projects", response_model=List[ProcessedProjectEntry])
 async def get_processed_projects():
     """
-    Lists all processed projects found in the wiki cache directory.
-    Projects are identified by files named like: localwiki_cache_{repo_type}_{owner}_{repo}_{language}.json
+    SQLite DB에서 처리된 프로젝트 목록을 반환합니다.
+    DB가 비어있을 경우 기존 JSON 캐시 파일 스캔으로 폴백합니다.
     """
-    project_entries: List[ProcessedProjectEntry] = []
-    existing_keys = set()
-    # WIKI_CACHE_DIR is already defined globally in the file
-
     try:
+        # ── 1차: SQLite DB에서 조회 ────────────────────────────────────────────
+        rows = await asyncio.to_thread(project_db.list_projects)
+        if rows:
+            # wiki_runs 기준으로 (project_id, language, model) 중복 제거
+            seen = set()
+            project_entries: List[ProcessedProjectEntry] = []
+            for r in rows:
+                key = (r["id"], r.get("language", ""), r.get("model", ""))
+                if key in seen:
+                    continue
+                seen.add(key)
+                project_entries.append(
+                    ProcessedProjectEntry(
+                        id=f"{r['id']}_{r.get('language', '')}_{r.get('model', '')}",
+                        owner=r["owner"],
+                        repo=r["repo"],
+                        name=f"{r['owner']}/{r['repo']}",
+                        repo_type=r.get("repo_type", "local"),
+                        submittedAt=(r.get("generated_at") or r.get("updated_at") or 0) * 1000,
+                        language=r.get("language") or "ko",
+                        model=r.get("model") or None,
+                    )
+                )
+            project_entries.sort(key=lambda p: p.submittedAt, reverse=True)
+            logger.info(f"Found {len(project_entries)} processed project entries (from DB).")
+            return project_entries
+
+        # ── 2차 폴백: JSON 캐시 파일 스캔 (DB가 비어있는 경우) ──────────────
+        logger.info(f"DB 비어있음 — JSON 캐시 스캔으로 폴백: {WIKI_CACHE_DIR}")
         if not os.path.exists(WIKI_CACHE_DIR):
-            logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
             return []
 
-        logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
-        filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
+        project_entries = []
+        existing_keys: set = set()
+        filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR)
 
         for filename in filenames:
-            if filename.startswith("localwiki_cache_") and filename.endswith(".json"):
-                file_path = os.path.join(WIKI_CACHE_DIR, filename)
-                try:
-                    stats = await asyncio.to_thread(os.stat, file_path)
-                    parts = filename.replace("localwiki_cache_", "").replace(".json", "").split('_')
-
-                    if len(parts) >= 4:
-                        repo_type = parts[0]
-                        owner = parts[1]
-                        
-                        # We no longer reliably parse repo, language, model from parts because of ambiguity.
-                        # Instead, let's load the JSON to get explicit properties
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                data = json.load(f)
-                                language = data.get("language")
-                                model = data.get("model")
-                                repo_obj = data.get("repo", {})
-                                if isinstance(repo_obj, dict) and "repo" in repo_obj:
-                                    repo = repo_obj.get("repo")
-                                else:
-                                    # Fallback
-                                    repo = "_".join(parts[2:-1])
-                                    if not language: language = parts[-1]
-                        except Exception:
-                            # Fallback to simple parsing if read fails
-                            repo = "_".join(parts[2:-1])
-                            language = parts[-1]
-                            model = None
-
-                        project_entries.append(
-                            ProcessedProjectEntry(
-                                id=filename,
-                                owner=owner,
-                                repo=repo,
-                                name=f"{owner}/{repo}",
-                                repo_type=repo_type,
-                                submittedAt=int(stats.st_mtime * 1000),
-                                language=language or "ko",
-                                model=model
-                            )
-                        )
-                        # 추적: wiki-out 순회 시 중복 방지
-                        existing_keys.add((repo, language or "ko"))
-                        if model:
-                            existing_keys.add((f"{repo}_{model}", language or "ko"))
-                except Exception as e:
-                    logger.error(f"Error processing file {file_path}: {e}")
-                    continue
-
-        # Add items from wiki-out
-        wiki_out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki-out")
-        if os.path.exists(wiki_out_dir):
+            if not (filename.startswith("localwiki_cache_") and filename.endswith(".json")):
+                continue
+            file_path = os.path.join(WIKI_CACHE_DIR, filename)
             try:
-                repo_dirs = await asyncio.to_thread(os.listdir, wiki_out_dir)
-                for repo_dirname in repo_dirs:
-                    repo_path = os.path.join(wiki_out_dir, repo_dirname)
-                    if os.path.isdir(repo_path) and not repo_dirname.startswith("."):
-                        lang_dirs = await asyncio.to_thread(os.listdir, repo_path)
-                        for lang_dirname in lang_dirs:
-                            if (repo_dirname, lang_dirname) in existing_keys:
-                                continue
-                            lang_path = os.path.join(repo_path, lang_dirname)
-                            if os.path.isdir(lang_path) and not lang_dirname.startswith("."):
-                                try:
-                                    stats = await asyncio.to_thread(os.stat, lang_path)
-                                    project_entries.append(
-                                        ProcessedProjectEntry(
-                                            id=f"wiki-out-{repo_dirname}-{lang_dirname}",
-                                            owner="local",
-                                            repo=repo_dirname,
-                                            name=f"local/{repo_dirname}",
-                                            repo_type="local",
-                                            submittedAt=int(stats.st_mtime * 1000),
-                                            language=lang_dirname
-                                        )
-                                    )
-                                except Exception as e:
-                                    logger.error(f"Error processing wiki-out {lang_path}: {e}")
-                                    continue
-            except Exception as e:
-                logger.error(f"Error listing wiki-out directory: {e}")
+                stats = await asyncio.to_thread(os.stat, file_path)
+                parts = filename.replace("localwiki_cache_", "").replace(".json", "").split("_")
+                if len(parts) < 4:
+                    continue
+                repo_type = parts[0]
+                owner = parts[1]
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    language = data.get("language")
+                    model = data.get("model")
+                    repo_obj = data.get("repo", {})
+                    repo = repo_obj.get("repo") if isinstance(repo_obj, dict) and "repo" in repo_obj else "_".join(parts[2:-1])
+                    if not language:
+                        language = parts[-1]
+                except Exception:
+                    repo = "_".join(parts[2:-1])
+                    language = parts[-1]
+                    model = None
 
-        # Sort by most recent first
+                project_entries.append(
+                    ProcessedProjectEntry(
+                        id=filename,
+                        owner=owner,
+                        repo=repo,
+                        name=f"{owner}/{repo}",
+                        repo_type=repo_type,
+                        submittedAt=int(stats.st_mtime * 1000),
+                        language=language or "ko",
+                        model=model,
+                    )
+                )
+                existing_keys.add((repo, language or "ko"))
+                if model:
+                    existing_keys.add((f"{repo}_{model}", language or "ko"))
+            except Exception as e:
+                logger.error(f"Error processing file {file_path}: {e}")
+
         project_entries.sort(key=lambda p: p.submittedAt, reverse=True)
-        logger.info(f"Found {len(project_entries)} processed project entries.")
+        logger.info(f"Found {len(project_entries)} processed project entries (from JSON cache).")
         return project_entries
 
     except Exception as e:
-        logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")
+        logger.error(f"Error listing processed projects: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list processed projects.")

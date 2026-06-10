@@ -58,6 +58,15 @@ export default function Page() {
       return;
     }
     
+    fetch("/api/mcp/config")
+      .then(res => res.json())
+      .then(data => {
+         if (data && data.providers) {
+            setMcpSettings(data);
+         }
+      })
+      .catch(err => console.error("Failed to load MCP config:", err));
+    
     // Check URL for deep linking
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);

@@ -363,24 +363,64 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if getattr(request, "is_wiki_generation", False):
             real_repo_path = request.repo_url
             if request.type == "local" and not __import__("os").path.isabs(request.repo_url):
+                import os, json, glob
+
+                owner, repo = request.repo_url.split("/", 1) if "/" in request.repo_url else ("local", request.repo_url)
+                resolved = None
+
+                # ── 1순위: SQLite DB 조회 (항상 정확한 절대 경로 보장) ──────────
                 try:
-                    from api.server import get_wiki_cache_path
-                    import json, os
-                    owner, repo = request.repo_url.split("/", 1) if "/" in request.repo_url else ("local", request.repo_url)
-                    cache_path = get_wiki_cache_path(owner, repo, "local", request.language or "ko", request.model)
-                    if os.path.exists(cache_path):
-                        with open(cache_path, "r", encoding="utf-8") as f:
-                            cache_data = json.load(f)
-                            if "repo" in cache_data and "localPath" in cache_data["repo"] and cache_data["repo"]["localPath"]:
-                                real_repo_path = cache_data["repo"]["localPath"]
-                            elif "repo" in cache_data and "repoUrl" in cache_data["repo"] and cache_data["repo"]["repoUrl"]:
-                                real_repo_path = cache_data["repo"]["repoUrl"]
-                except Exception as e:
-                    logger.error(f"Failed to resolve local repo path: {e}")
+                    from api.db import get_project_local_path
+                    resolved = get_project_local_path(owner, repo)
+                    if resolved:
+                        logger.info(f"[db] 소스 경로 확인: {owner}/{repo} → {resolved}")
+                except Exception as _dbe:
+                    logger.debug(f"[db] DB 조회 실패, 캐시 폴백: {_dbe}")
+
+                # ── 2순위: JSON 캐시 파일 폴백 (DB miss 또는 DB 미초기화) ──────
+                if not resolved:
+                    try:
+                        from api.server import get_wiki_cache_path, WIKI_CACHE_DIR
+
+                        def _extract_local_path(cache_file: str):
+                            try:
+                                with open(cache_file, "r", encoding="utf-8") as f:
+                                    d = json.load(f)
+                                r = d.get("repo", {})
+                                for key in ("localPath", "repoUrl"):
+                                    v = r.get(key, "")
+                                    if v and os.path.isabs(v) and os.path.isdir(v):
+                                        return v
+                            except Exception:
+                                pass
+                            return None
+
+                        for lang_try in [request.language, "en", "ko"]:
+                            if not lang_try:
+                                continue
+                            cp = get_wiki_cache_path(owner, repo, "local", lang_try, request.model)
+                            if os.path.exists(cp):
+                                resolved = _extract_local_path(cp)
+                                if resolved:
+                                    break
+                        if not resolved:
+                            pattern = os.path.join(WIKI_CACHE_DIR, f"localwiki_cache_local_{owner}_{repo}_*.json")
+                            for cp in glob.glob(pattern):
+                                resolved = _extract_local_path(cp)
+                                if resolved:
+                                    break
+                    except Exception as e:
+                        logger.error(f"Failed to resolve local repo path from cache: {e}")
+
+                if resolved:
+                    real_repo_path = resolved
+                else:
+                    logger.warning(f"Could not resolve absolute localPath for {owner}/{repo}; skipping source file injection")
 
             import re as _re
             match = _re.search(r"Source files to base content on:\n(.*?)\n\n", query, _re.DOTALL)
-            if match:
+            # 절대 경로를 확보한 경우에만 소스 파일 첨부 (상대 경로면 건너뜀)
+            if match and __import__("os").path.isabs(real_repo_path):
                 for fp in match.group(1).split('\n'):
                     fp = fp.strip()
                     if not fp: continue
@@ -487,6 +527,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         env=env
                     )
                     full_content = []
+                    text_buffer = ""
                     async for raw_line in proc.stdout:
                         line = raw_line.decode("utf-8", errors="replace").strip()
                         if not line:
@@ -506,18 +547,34 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                                 await emit_task_event(request.stream_id, "error", f"CLI 실패: {err_msg}", phase="generation")
                         elif etype == "chunk":
                             chunk_text = event.get("content", "")
-                            full_content.append(chunk_text)
-                            yield chunk_text
-                            if request.stream_id:
-                                await emit_task_event(request.stream_id, "agent_log", chunk_text, phase="generation")
+                            text_buffer += chunk_text
+
+                            while "\n" in text_buffer:
+                                line_str, text_buffer = text_buffer.split("\n", 1)
+                                if line_str.startswith("[NOTE]") or line_str.startswith("Received message:"):
+                                    logger.debug(f"Filtered agent internal log: {line_str}")
+                                    continue
+                                
+                                valid_chunk = line_str + "\n"
+                                full_content.append(valid_chunk)
+                                yield valid_chunk
+                                if request.stream_id:
+                                    await emit_task_event(request.stream_id, "agent_log", valid_chunk, phase="generation")
+
                         elif etype == "complete":
-                            content = event.get("content", "")
-                            if content and not full_content:
-                                yield content
+                            pass # We handle full content directly
                         elif etype == "status":
                             logger.info(f"CLI status: {event.get('content', '')}")
 
                     await proc.wait()
+                    
+                    if text_buffer:
+                        if not (text_buffer.startswith("[NOTE]") or text_buffer.startswith("Received message:")):
+                            full_content.append(text_buffer)
+                            yield text_buffer
+                            if request.stream_id:
+                                await emit_task_event(request.stream_id, "agent_log", text_buffer, phase="generation")
+
                     stderr_out = await proc.stderr.read()
                     err_str = stderr_out.decode().strip()
 

@@ -88,10 +88,10 @@ async function exportShowcase() {
       try {
         const cacheData = await fetchJson(cacheUrl);
         fs.writeFileSync(
-          path.join(SHOWCASE_DIR, `wiki_${proj.id}.json`),
+          path.join(SHOWCASE_DIR, `wiki_${proj.id.replace(/\//g, '_')}.json`),
           JSON.stringify(cacheData, null, 2)
         );
-        console.log(`  -> Saved wiki_${proj.id}.json`);
+        console.log(`  -> Saved wiki_${proj.id.replace(/\//g, '_')}.json`);
       } catch (err) {
         console.error(`  -> Failed to fetch cache for ${proj.id}: ${err.message}`);
       }

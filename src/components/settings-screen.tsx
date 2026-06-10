@@ -160,10 +160,22 @@ export function SettingsScreen({
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    onSaveSettings(settings);
-    onSaveAppSettings(appSettings);
-    setHasChanges(false);
+  const handleSave = async () => {
+    try {
+      const res = await fetch("http://localhost:8001/mcp/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
+      if (!res.ok) throw new Error("설정 저장 실패");
+      
+      onSaveSettings(settings);
+      onSaveAppSettings(appSettings);
+      setHasChanges(false);
+      alert("설정이 저장되었습니다.");
+    } catch(e) {
+      alert("저장 오류: " + String(e));
+    }
   };
 
 
@@ -1008,70 +1020,63 @@ function ProviderCard({
               {(provider.type === "jira" || provider.type === "confluence") && (
                 <>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        color: t.textSecondary,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                      }}
-                    >
-                      API URL
+                    <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                      연결 모드
                     </label>
-                    <input
-                      type="text"
-                      value={provider.config.apiUrl || ""}
-                      onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
-                      placeholder="https://your-domain.atlassian.net"
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        background: t.bg,
-                        border: `1px solid ${t.divider}`,
-                        borderRadius: 10,
-                        color: t.text,
-                        fontSize: 13,
-                        fontFamily: "inherit",
-                        outline: "none",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        color: t.textSecondary,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                      }}
+                    <select
+                      value={provider.config.options?.mode || "datacenter"}
+                      onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), mode: e.target.value } })}
+                      style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
                     >
-                      Username (Email)
-                    </label>
-                    <input
-                      type="text"
-                      value={provider.config.username || ""}
-                      onChange={(e) => onUpdateConfig({ username: e.target.value })}
-                      placeholder="your-email@company.com"
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        background: t.bg,
-                        border: `1px solid ${t.divider}`,
-                        borderRadius: 10,
-                        color: t.text,
-                        fontSize: 13,
-                        fontFamily: "inherit",
-                        outline: "none",
-                      }}
-                    />
+                      <option value="datacenter">DataCenter (PAT)</option>
+                      <option value="cloud">Cloud (OAuth - atlassian.com)</option>
+                    </select>
                   </div>
+                  {(!provider.config.options?.mode || provider.config.options?.mode === "datacenter") && (
+                    <>
+                      <div>
+                        <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                          Jira URL
+                        </label>
+                        <input
+                          type="text"
+                          value={provider.config.apiUrl || ""}
+                          onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
+                          placeholder="https://jira.your-domain.com"
+                          style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                          Confluence URL (선택)
+                        </label>
+                        <input
+                          type="text"
+                          value={provider.config.options?.confluence_url || ""}
+                          onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), confluence_url: e.target.value } })}
+                          placeholder="https://confluence.your-domain.com"
+                          style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
               {(provider.type === "postgresql" || provider.type === "mysql" || provider.type === "mongodb") && (
                 <>
+                  <div>
+                    <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                      Connection String (단일 입력 시 Host/Port 대신 사용)
+                    </label>
+                    <input
+                      type="text"
+                      value={provider.config.options?.connection_string || ""}
+                      onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), connection_string: e.target.value } })}
+                      placeholder={`${provider.type}://user:password@localhost:${provider.type === "postgresql" ? "5432" : provider.type === "mysql" ? "3306" : "27017"}/mydb`}
+                      style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
+                    />
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 12 }}>
                     <div>
                       <label
@@ -1170,6 +1175,23 @@ function ProviderCard({
               {/* Test Connection Button */}
               <div style={{ display: "flex", gap: 8 }}>
                 <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`http://localhost:8001/mcp/test/${provider.type}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(provider.config)
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        alert(data.message || "연결에 성공했습니다!");
+                      } else {
+                        alert("연결 실패: " + (data.detail || data.error || "알 수 없는 오류"));
+                      }
+                    } catch(e) {
+                      alert("테스트 요청 실패: " + String(e));
+                    }
+                  }}
                   style={{
                     padding: "10px 16px",
                     background: t.bg,

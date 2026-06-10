@@ -84,6 +84,10 @@ const nextConfig: NextConfig = {
         source: '/api/task-streams/:path*',
         destination: `${TARGET_SERVER_BASE_URL}/task-streams/:path*`,
       },
+      {
+        source: '/api/mcp/:path*',
+        destination: `${TARGET_SERVER_BASE_URL}/mcp/:path*`,
+      },
     ];
   },
 };

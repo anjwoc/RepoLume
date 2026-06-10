@@ -307,12 +307,14 @@ const Markdown: React.FC<MarkdownProps> = ({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-md bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-mono font-medium hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors shadow-sm"
-            style={{ textDecoration: 'none', verticalAlign: 'middle', border: '1px solid rgba(128,128,128,0.2)' }}
-            title={`View ${filePath} on GitHub`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-gray-100/80 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700/80 text-gray-500 dark:text-gray-400 text-[11px] font-mono hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            style={{ textDecoration: 'none', verticalAlign: 'middle' }}
+            title={`${filePath} (Click to view)`}
           >
-            <FaGithub size={12} className="opacity-80" />
-            {filePath}
+            <FaGithub size={10} className="opacity-60 flex-shrink-0" />
+            <span className="truncate max-w-[160px]">
+              {filePath}
+            </span>
           </a>
         );
       }
