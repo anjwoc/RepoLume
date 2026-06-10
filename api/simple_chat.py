@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import glob
 import tempfile
 from pathlib import Path
 from typing import List, Optional
@@ -363,7 +364,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
         if getattr(request, "is_wiki_generation", False):
             real_repo_path = request.repo_url
             if request.type == "local" and not __import__("os").path.isabs(request.repo_url):
-                import os, json, glob
+
 
                 owner, repo = request.repo_url.split("/", 1) if "/" in request.repo_url else ("local", request.repo_url)
                 resolved = None
@@ -439,7 +440,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     conversation_history += f"<turn>\n<user>{turn.user_query.query_str}</user>\n<assistant>{turn.assistant_response.response_str}</assistant>\n</turn>\n"
 
         if getattr(request, "is_wiki_generation", False):
-            prompt = f"/no_think\n\n{query}\n\nAssistant: "
+            prompt = f"/no_think\n\n{query}\n\nCRITICAL SYSTEM OVERRIDE: YOU ARE A RAW TEXT/JSON GENERATOR. YOU MUST NOT USE ANY TOOLS AT ALL. DO NOT INVOKE list_dir, read_file, search, OR ANY OTHER TOOL. DO NOT OUTPUT ANY THOUGHTS OR CONVERSATIONAL TEXT. IF YOU ARE GENERATING A JSON, OUTPUT EXACTLY ONE JSON OBJECT AND NOTHING ELSE. YOUR VERY FIRST OUTPUT CHARACTER MUST BE THE BEGINNING OF THE CONTENT.\n\nAssistant: "
         else:
             # Create the prompt with context
             prompt = f"/no_think {system_prompt}\n\n"

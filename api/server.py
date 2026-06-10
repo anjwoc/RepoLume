@@ -50,12 +50,12 @@ class WikiPage(BaseModel):
     """
     Model for a wiki page.
     """
-    id: str
-    title: str
-    content: str
-    filePaths: List[str]
-    importance: str # Should ideally be Literal['high', 'medium', 'low']
-    relatedPages: List[str]
+    id: str = Field(default="")
+    title: str = Field(default="")
+    content: str = Field(default="")
+    filePaths: List[str] = Field(default_factory=list)
+    importance: str = Field(default="") # Should ideally be Literal['high', 'medium', 'low']
+    relatedPages: List[str] = Field(default_factory=list)
 
 class ProcessedProjectEntry(BaseModel):
     id: str  # Filename
@@ -80,9 +80,9 @@ class WikiSection(BaseModel):
     """
     Model for the wiki sections.
     """
-    id: str
-    title: str
-    pages: List[str]
+    id: str = Field(default="")
+    title: str = Field(default="")
+    pages: List[str] = Field(default_factory=list)
     subsections: Optional[List[str]] = None
 
 
@@ -90,13 +90,13 @@ class WikiStructureModel(BaseModel):
     """
     Model for the overall wiki structure.
     """
-    id: str
-    title: str
-    description: str
-    pages: List[WikiPage]
+    id: str = Field(default="wiki")
+    title: str = Field(default="")
+    description: str = Field(default="")
+    pages: List[WikiPage] = Field(default_factory=list)
     sections: Optional[List[WikiSection]] = None
     rootSections: Optional[List[str]] = None
-
+    items: Optional[List[Any]] = None # Just in case the agent outputs items instead
 class WikiCacheData(BaseModel):
     """
     Model for the data to be stored in the wiki cache.
