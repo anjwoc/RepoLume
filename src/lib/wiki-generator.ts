@@ -193,7 +193,8 @@ Create a structured Table of Contents (wiki structure) with the following main s
 - Deployment/Infrastructure (how to deploy)
 
 ${showcaseMode ? `### SHOWCASE EXTRACTION MODE (ADMIN)
-This is a SHOWCASE EXTRACTION. Do NOT generate a full wiki structure. ONLY extract 3 to 5 core architectural modules and create a maximum of 10 pages total for a deep dive comparison.` : ''}
+This is a SHOWCASE EXTRACTION. Do NOT generate a full wiki structure. Based solely on the <file_tree> provided above, deduce 3 to 5 core architectural modules and create a maximum of 10 pages total.
+CRITICAL: DO NOT use any tools to search or read files. You MUST guess the structure entirely from the file tree and output the JSON immediately.` : ''}
 
 CRITICAL INSTRUCTION: DO NOT write the actual wiki page content! You are ONLY generating the Table of Contents structure.
 Your entire output MUST be a single, valid JSON object matching this exact structure (do not include markdown formatting or backticks around the JSON):
