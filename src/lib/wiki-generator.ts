@@ -103,6 +103,7 @@ export async function runWikiGeneration(
   apiKey?: string,
   mode: "cli" | "api" = "cli",
   cliTool?: string,
+  showcaseMode?: boolean,
 ) {
   const owner = "local";
   // 경로 끝 슬래시 제거 후 디렉토리명 추출
@@ -157,7 +158,13 @@ export async function runWikiGeneration(
     const t2 = Date.now();
     await emitStep(streamId, 'phase_start', 'structure', '🧠 AI 위키 구조 분석 중...');
 
-    const structurePrompt = `Analyze this repository and create a wiki structure for it.
+    // Payload 크기 제한 (Next.js API Route 한도 및 에러 방지)
+    const MAX_FILE_TREE_LENGTH = 50000;
+    if (file_tree.length > MAX_FILE_TREE_LENGTH) {
+      file_tree = file_tree.substring(0, MAX_FILE_TREE_LENGTH) + "\n... (truncated for payload size limit)";
+    }
+
+    let structurePrompt = `Analyze this repository and create a wiki structure for it.
 1. The complete file tree of the project:
 <file_tree>
 ${file_tree}
@@ -184,6 +191,9 @@ Create a structured Table of Contents (wiki structure) with the following main s
 - Frontend Components (UI elements, if applicable.)
 - Backend Systems (server-side components)
 - Deployment/Infrastructure (how to deploy)
+
+${showcaseMode ? `### SHOWCASE EXTRACTION MODE (ADMIN)
+This is a SHOWCASE EXTRACTION. Do NOT generate a full wiki structure. ONLY extract 3 to 5 core architectural modules and create a maximum of 10 pages total for a deep dive comparison.` : ''}
 
 CRITICAL INSTRUCTION: DO NOT write the actual wiki page content! You are ONLY generating the Table of Contents structure.
 Your entire output MUST be a single, valid JSON object matching this exact structure (do not include markdown formatting or backticks around the JSON):
@@ -282,8 +292,8 @@ OUTPUT RULES (STRICT): Respond with ONLY the JSON object — nothing else.
       throw new Error(`위키 구조 파싱 실패: ${lastErr}`);
     }
 
-    const pageCount = (wikiStructure.pages || []).length;
-    const sectionCount = (wikiStructure.sections || []).length;
+    const pageCount = (wikiStructure.pages || []).length + (wikiStructure.items ? wikiStructure.items.reduce((acc: number, item: any) => acc + (item.children?.length || 1), 0) : 0);
+    const sectionCount = (wikiStructure.sections || []).length + (wikiStructure.items?.length || 0);
     await emitStep(streamId, 'phase_complete', 'structure',
       `✅ 위키 구조 분석 완료 — ${sectionCount}개 섹션, ${pageCount}개 페이지 (${elapsed(t2)}ms)`,
       { page_count: pageCount, section_count: sectionCount, elapsed_ms: elapsed(t2) }
@@ -293,7 +303,49 @@ OUTPUT RULES (STRICT): Respond with ONLY the JSON object — nothing else.
     // Phase 3: 페이지 콘텐츠 생성
     // ──────────────────────────────────────────────────────────
     const t3 = Date.now();
-    await emitStep(streamId, 'phase_start', 'generation', `📝 ${pageCount}개 페이지 콘텐츠 생성 시작...`);
+    
+    // Normalize agent output if it returned 'items' instead of 'pages'/'sections'
+    if (!wikiStructure.pages && wikiStructure.items) {
+      wikiStructure.pages = [];
+      wikiStructure.sections = [];
+      wikiStructure.rootSections = [];
+      wikiStructure.items.forEach((item: any, i: number) => {
+          const secId = item.name || `section_${i}`;
+          wikiStructure.rootSections.push(secId);
+          
+          const secPages: string[] = [];
+          if (item.children && item.children.length > 0) {
+              item.children.forEach((child: any, j: number) => {
+                  const pageId = child.name || `${secId}_page_${j}`;
+                  secPages.push(pageId);
+                  wikiStructure.pages.push({
+                      id: pageId,
+                      title: child.title || pageId,
+                      filePaths: child.filePaths || [],
+                      content: child.prompt || ""
+                  });
+              });
+          } else {
+              const pageId = item.name || `page_${i}`;
+              secPages.push(pageId);
+              wikiStructure.pages.push({
+                  id: pageId,
+                  title: item.title || pageId,
+                  filePaths: item.filePaths || [],
+                  content: item.prompt || ""
+              });
+          }
+          
+          wikiStructure.sections.push({
+              id: secId,
+              title: item.title || secId,
+              pages: secPages
+          });
+      });
+    }
+
+    const actualPageCount = (wikiStructure.pages || []).length;
+    await emitStep(streamId, 'phase_start', 'generation', `📝 ${actualPageCount}개 페이지 콘텐츠 생성 시작...`);
 
     const generatedPages: Record<string, any> = {};
     let pagesToGenerate = wikiStructure.pages || [];
