@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Settings, ArrowLeft, Database, MessageSquare,
+  Settings, ArrowLeft, Database,
   FolderKanban, Check, X, Eye, EyeOff, RefreshCw,
   ChevronRight, Zap, Shield, Clock, ExternalLink,
   Plus, Trash2, Terminal, AlertCircle
@@ -33,11 +33,7 @@ function MCPIcon({ type, size = 20 }: { type: string; size?: number }) {
       return <Database size={size} />;
     case "jira":
     case "confluence":
-    case "notion":
-    case "linear":
       return <FolderKanban size={size} />;
-    case "slack":
-      return <MessageSquare size={size} />;
     default:
       return <Database size={size} />;
   }
@@ -62,10 +58,48 @@ export function SettingsScreen({
     apiKey: initialAppSettings.apiKey || "",
     repositoryBaseUrl: initialAppSettings.repositoryBaseUrl || "",
     hoverBgColor: initialAppSettings.hoverBgColor || "rgba(60,130,246,0.06)",
+    pageConcurrency: (initialAppSettings as any).pageConcurrency ?? 3,
   });
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({});
+  const [customProviders, setCustomProviders] = useState<MCPProvider[]>([]);
+  const [localSources, setLocalSources] = useState<Record<string, string[]>>({});
+
+  // Load custom (internal) MCP providers from backend config on mount
+  useEffect(() => {
+    fetch("/api/mcp/custom-providers")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: MCPProvider[]) => setCustomProviders(data))
+      .catch(() => {});
+  }, []);
+
+  // Auto-populate provider configs from local AI tool configs on mount
+  useEffect(() => {
+    fetch("/api/mcp/local-config")
+      .then((r) => r.ok ? r.json() : { providers: {}, sources: {} })
+      .then((data: { providers: Record<string, Record<string, string>>; sources: Record<string, string[]> }) => {
+        if (!data.providers || Object.keys(data.providers).length === 0) return;
+        if (data.sources) setLocalSources(data.sources);
+        setSettings((prev) => ({
+          ...prev,
+          providers: prev.providers.map((p) => {
+            const local = data.providers[p.id];
+            if (!local) return p;
+            const merged: typeof p.config = { ...p.config };
+            for (const [k, v] of Object.entries(local)) {
+              if (v && !merged[k as keyof typeof merged]) {
+                (merged as Record<string, string>)[k] = v;
+              }
+            }
+            return { ...p, config: merged };
+          }),
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   // Antigravity CLI Auth States
   const [agyAuthStatus, setAgyAuthStatus] = useState<"idle" | "checking" | "needs_auth" | "authenticating" | "success" | "error">("idle");
@@ -166,6 +200,30 @@ export function SettingsScreen({
     setHasChanges(false);
   };
 
+  const handleTestConnection = async (provider: MCPProvider) => {
+    setTestingProvider(provider.id);
+    setTestResults((prev) => ({ ...prev, [provider.id]: { ok: false, message: "" } }));
+    try {
+      const res = await fetch("/api/mcp/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider_type: provider.type, config: provider.config }),
+      });
+      const data = await res.json();
+      setTestResults((prev) => ({ ...prev, [provider.id]: { ok: data.ok, message: data.message } }));
+      if (data.ok) {
+        updateProvider(provider.id, { isConnected: true });
+      }
+    } catch (e) {
+      setTestResults((prev) => ({
+        ...prev,
+        [provider.id]: { ok: false, message: `연결 테스트 실패: ${String(e)}` },
+      }));
+    } finally {
+      setTestingProvider(null);
+    }
+  };
+
 
 
 
@@ -173,12 +231,20 @@ export function SettingsScreen({
     setShowTokens((prev) => ({ ...prev, [providerId]: !prev[providerId] }));
   };
 
-  const groupedProviders = settings.providers.reduce((acc, provider) => {
-    const category = provider.category;
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(provider);
-    return acc;
-  }, {} as Record<string, MCPProvider[]>);
+  const groupByCategory = (providers: MCPProvider[]) =>
+    providers.reduce((acc, provider) => {
+      const category = provider.category;
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(provider);
+      return acc;
+    }, {} as Record<string, MCPProvider[]>);
+
+  const groupedOfficial = groupByCategory(
+    settings.providers.filter((p) => p.edition === "official")
+  );
+  const groupedCommunity = groupByCategory(
+    settings.providers.filter((p) => p.edition === "community")
+  );
 
   return (
     <motion.div
@@ -471,6 +537,33 @@ export function SettingsScreen({
                 </div>
               </div>
 
+              {/* Page concurrency */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 16, paddingTop: 12, borderTop: `1px solid ${t.divider}` }}>
+                <div>
+                  <p style={{ color: t.text, fontSize: 14, fontWeight: 500, margin: 0 }}>페이지 동시 생성 수</p>
+                  <p style={{ color: t.textSecondary, fontSize: 12, margin: "4px 0 0 0" }}>
+                    한 번에 병렬로 생성할 페이지 수입니다. 높을수록 빠르지만 API 레이트 리밋에 걸릴 수 있습니다.
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={appSettings.pageConcurrency}
+                    onChange={(e) => { setAppSettings(prev => ({ ...prev, pageConcurrency: Number(e.target.value) })); setHasChanges(true); }}
+                    style={{ width: 100, accentColor: t.primary }}
+                  />
+                  <span style={{
+                    minWidth: 28, textAlign: "center", fontSize: 14, fontWeight: 700,
+                    color: t.primary, fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {appSettings.pageConcurrency}
+                  </span>
+                </div>
+              </div>
+
               {/* Antigravity CLI Auth UI */}
               {appSettings.provider === "antigravity" && appSettings.mode === "cli" && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${t.divider}` }}>
@@ -666,8 +759,131 @@ export function SettingsScreen({
               MCP 데이터 소스
             </h2>
 
-            {Object.entries(groupedProviders).map(([category, providers]) => (
-              <div key={category} style={{ marginBottom: 24 }}>
+            {/* ── 공식 (Official) MCP ────────────────────────────── */}
+            {[
+              {
+                label: "공식",
+                badge: { bg: "rgba(59,130,246,0.12)", color: "#3b82f6", text: "Official" },
+                grouped: groupedOfficial,
+              },
+              {
+                label: "커뮤니티",
+                badge: { bg: "rgba(245,158,11,0.12)", color: "#f59e0b", text: "Community" },
+                grouped: groupedCommunity,
+              },
+            ].map(({ label, badge, grouped }) => {
+              const allProviders = Object.values(grouped).flat();
+              if (allProviders.length === 0) return null;
+              return (
+                <div key={label} style={{ marginBottom: 28 }}>
+                  {/* Section header */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 16,
+                      paddingBottom: 8,
+                      borderBottom: `1px solid ${t.divider}`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: t.text,
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {label}
+                    </span>
+                    <span
+                      style={{
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        background: badge.bg,
+                        color: badge.color,
+                        border: `1px solid ${badge.color}40`,
+                      }}
+                    >
+                      {badge.text}
+                    </span>
+                    <span style={{ color: t.textMuted, fontSize: 11 }}>
+                      ({allProviders.filter((p) => p.isEnabled).length}/{allProviders.length})
+                    </span>
+                  </div>
+
+                  {/* Category sub-groups */}
+                  {Object.entries(grouped).map(([category, providers]) => (
+                    <div key={category} style={{ marginBottom: 20 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          marginBottom: 10,
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: t.textMuted,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          {MCP_CATEGORIES[category as keyof typeof MCP_CATEGORIES]?.name || category}
+                        </span>
+                        <span style={{ color: t.textMuted, fontSize: 11 }}>
+                          ({providers.filter((p) => p.isEnabled).length}/{providers.length})
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          background: t.surface,
+                          borderRadius: 16,
+                          overflow: "hidden",
+                        }}
+                      >
+                        {providers.map((provider, index) => (
+                          <ProviderCard
+                            key={provider.id}
+                            provider={provider}
+                            isExpanded={expandedProvider === provider.id}
+                            onToggleExpand={() =>
+                              setExpandedProvider(
+                                expandedProvider === provider.id ? null : provider.id
+                              )
+                            }
+                            onToggleEnabled={(enabled) =>
+                              updateProvider(provider.id, { isEnabled: enabled })
+                            }
+                            onUpdateConfig={(config) =>
+                              updateProviderConfig(provider.id, config)
+                            }
+                            showToken={showTokens[provider.id] || false}
+                            onToggleToken={() => toggleTokenVisibility(provider.id)}
+                            onTestConnection={() => handleTestConnection(provider)}
+                            isTesting={testingProvider === provider.id}
+                            testResult={testResults[provider.id] ?? null}
+                            theme={t}
+                            isLast={index === providers.length - 1}
+                            localSources={localSources[provider.id] ?? []}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+
+            {/* ── 커스텀 (내부/사내) MCP ──────────────────────────── */}
+            {customProviders.length > 0 && (
+              <div style={{ marginTop: 8 }}>
                 <div
                   style={{
                     display: "flex",
@@ -685,50 +901,62 @@ export function SettingsScreen({
                       letterSpacing: "0.5px",
                     }}
                   >
-                    {MCP_CATEGORIES[category as keyof typeof MCP_CATEGORIES]?.name || category}
+                    커스텀 (내부)
                   </span>
                   <span
                     style={{
-                      color: t.textMuted,
-                      fontSize: 11,
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      background: "rgba(245,158,11,0.12)",
+                      color: "#f59e0b",
+                      border: "1px solid rgba(245,158,11,0.25)",
                     }}
                   >
-                    ({providers.filter((p) => p.isEnabled).length}/{providers.length})
+                    커스텀
+                  </span>
+                  <span style={{ color: t.textMuted, fontSize: 11 }}>
+                    ({customProviders.filter((p) => p.isEnabled).length}/{customProviders.length})
                   </span>
                 </div>
-
                 <div
                   style={{
                     background: t.surface,
                     borderRadius: 16,
                     overflow: "hidden",
+                    border: "1px solid rgba(245,158,11,0.18)",
                   }}
                 >
-                  {providers.map((provider, index) => (
+                  {customProviders.map((provider, index) => (
                     <ProviderCard
                       key={provider.id}
                       provider={provider}
                       isExpanded={expandedProvider === provider.id}
                       onToggleExpand={() =>
-                        setExpandedProvider(
-                          expandedProvider === provider.id ? null : provider.id
-                        )
+                        setExpandedProvider(expandedProvider === provider.id ? null : provider.id)
                       }
                       onToggleEnabled={(enabled) =>
-                        updateProvider(provider.id, { isEnabled: enabled })
+                        setCustomProviders((prev) =>
+                          prev.map((p) => p.id === provider.id ? { ...p, isEnabled: enabled } : p)
+                        )
                       }
-                      onUpdateConfig={(config) =>
-                        updateProviderConfig(provider.id, config)
-                      }
+                      onUpdateConfig={() => {}}
                       showToken={showTokens[provider.id] || false}
                       onToggleToken={() => toggleTokenVisibility(provider.id)}
+                      onTestConnection={() => handleTestConnection(provider)}
+                      isTesting={testingProvider === provider.id}
+                      testResult={testResults[provider.id] ?? null}
                       theme={t}
-                      isLast={index === providers.length - 1}
+                      isLast={index === customProviders.length - 1}
                     />
                   ))}
                 </div>
+                <p style={{ color: t.textMuted, fontSize: 11, marginTop: 8, marginLeft: 4 }}>
+                  커스텀 MCP는 <code style={{ fontFamily: "monospace" }}>~/.localwiki/mcp-config.yaml</code> 의 <code style={{ fontFamily: "monospace" }}>custom_mcps</code> 섹션에서 관리됩니다.
+                </p>
               </div>
-            ))}
+            )}
           </section>
         </div>
       </div>
@@ -786,8 +1014,12 @@ function ProviderCard({
   onUpdateConfig,
   showToken,
   onToggleToken,
+  onTestConnection,
+  isTesting,
+  testResult,
   theme,
   isLast,
+  localSources,
 }: {
   provider: MCPProvider;
   isExpanded: boolean;
@@ -796,8 +1028,12 @@ function ProviderCard({
   onUpdateConfig: (config: Partial<MCPConfig>) => void;
   showToken: boolean;
   onToggleToken: () => void;
+  onTestConnection: () => void;
+  isTesting: boolean;
+  testResult: { ok: boolean; message: string } | null;
   theme: ReturnType<typeof getTheme>;
   isLast: boolean;
+  localSources?: string[];
 }) {
   const t = theme;
 
@@ -833,22 +1069,18 @@ function ProviderCard({
         </div>
 
         <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span style={{ color: t.text, fontSize: 14, fontWeight: 500 }}>
               {provider.name}
             </span>
             {provider.isConnected && (
-              <span
-                style={{
-                  padding: "2px 8px",
-                  background: t.successLight,
-                  color: t.success,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  borderRadius: 4,
-                }}
-              >
+              <span style={{ padding: "2px 8px", background: t.successLight, color: t.success, fontSize: 10, fontWeight: 600, borderRadius: 4 }}>
                 연결됨
+              </span>
+            )}
+            {localSources && localSources.length > 0 && (
+              <span style={{ padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600, background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}>
+                {localSources.join(" · ")}
               </span>
             )}
           </div>
@@ -909,8 +1141,8 @@ function ProviderCard({
                 marginLeft: 52,
               }}
             >
-              {/* API Token */}
-              <div>
+              {/* API Token — hidden for community MCPs with their own config UI */}
+              <div style={{ display: (provider.type === "devdb" || provider.type === "oracle" || provider.type === "meta") ? "none" : undefined }}>
                 <label
                   style={{
                     display: "block",
@@ -928,7 +1160,7 @@ function ProviderCard({
                       type={showToken ? "text" : "password"}
                       value={provider.config.apiToken || ""}
                       onChange={(e) => onUpdateConfig({ apiToken: e.target.value })}
-                      placeholder="sk-xxxx-xxxx-xxxx"
+                      placeholder={provider.type === "github" ? "ghp_xxxxxxxxxxxx" : "sk-xxxx-xxxx-xxxx"}
                       style={{
                         width: "100%",
                         padding: "10px 40px 10px 12px",
@@ -972,24 +1204,16 @@ function ProviderCard({
               </div>
 
               {/* Provider-specific fields */}
-              {(provider.type === "github") && (
+              {provider.type === "github" && (
                 <div>
-                  <label
-                    style={{
-                      display: "block",
-                      color: t.textSecondary,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                    }}
-                  >
-                    Repository (선택)
+                  <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                    GitHub Enterprise URL
                   </label>
                   <input
                     type="text"
-                    value={provider.config.repository || ""}
-                    onChange={(e) => onUpdateConfig({ repository: e.target.value })}
-                    placeholder="owner/repo"
+                    value={provider.config.apiUrl || ""}
+                    onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
+                    placeholder="https://github.company.com"
                     style={{
                       width: "100%",
                       padding: "10px 12px",
@@ -1000,30 +1224,40 @@ function ProviderCard({
                       fontSize: 13,
                       fontFamily: "inherit",
                       outline: "none",
+                      transition: "border-color 0.15s",
                     }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = t.primary; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = t.divider; }}
                   />
                 </div>
               )}
 
-              {(provider.type === "jira" || provider.type === "confluence") && (
+              {/* ── devdb: HTTP/SSE endpoint URL ── */}
+              {provider.type === "devdb" && (
                 <>
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      background: t.bg,
+                      border: `1px solid ${t.divider}`,
+                      borderRadius: 10,
+                      fontSize: 12,
+                      color: t.textMuted,
+                    }}
+                  >
+                    <strong style={{ color: t.textSecondary }}>설정 방식</strong>: HTTP/SSE 타입 MCP — serverURL만 지정합니다.
+                    <br />
+                    <code style={{ fontSize: 11, color: t.primary }}>{`{ "type": "http", "url": "<serverURL>" }`}</code>
+                  </div>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        color: t.textSecondary,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                      }}
-                    >
-                      API URL
+                    <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                      Server URL (SSE endpoint)
                     </label>
                     <input
                       type="text"
                       value={provider.config.apiUrl || ""}
                       onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
-                      placeholder="https://your-domain.atlassian.net"
+                      placeholder="https://mcp-sqlserver-explore-dawi.d3.clouz.io/sse"
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -1032,42 +1266,170 @@ function ProviderCard({
                         borderRadius: 10,
                         color: t.text,
                         fontSize: 13,
-                        fontFamily: "inherit",
-                        outline: "none",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        color: t.textSecondary,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                      }}
-                    >
-                      Username (Email)
-                    </label>
-                    <input
-                      type="text"
-                      value={provider.config.username || ""}
-                      onChange={(e) => onUpdateConfig({ username: e.target.value })}
-                      placeholder="your-email@company.com"
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        background: t.bg,
-                        border: `1px solid ${t.divider}`,
-                        borderRadius: 10,
-                        color: t.text,
-                        fontSize: 13,
-                        fontFamily: "inherit",
+                        fontFamily: "var(--font-mono), monospace",
                         outline: "none",
                       }}
                     />
                   </div>
                 </>
+              )}
+
+              {/* ── oracle: uvx mcp-alchemy + DB_URL ── */}
+              {provider.type === "oracle" && (
+                <>
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      background: t.bg,
+                      border: `1px solid ${t.divider}`,
+                      borderRadius: 10,
+                      fontSize: 12,
+                      color: t.textMuted,
+                    }}
+                  >
+                    <strong style={{ color: t.textSecondary }}>설정 방식</strong>: stdio — <code style={{ fontSize: 11, color: t.primary }}>uvx --with oracledb mcp-alchemy</code>
+                    <br />
+                    DB_URL 환경변수로 연결합니다. uvx가 설치되어 있으면 별도 설치 불필요.
+                  </div>
+                  <div>
+                    <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                      DB_URL <span style={{ color: t.textMuted, fontWeight: 400 }}>(SQLAlchemy 연결 문자열)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={provider.config.dbUrl || ""}
+                      onChange={(e) => onUpdateConfig({ dbUrl: e.target.value })}
+                      placeholder="oracle+oracledb://USER:PASS@HOST:1521/?service_name=SERVICE"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        background: t.bg,
+                        border: `1px solid ${t.divider}`,
+                        borderRadius: 10,
+                        color: t.text,
+                        fontSize: 13,
+                        fontFamily: "var(--font-mono), monospace",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* ── meta: uv run local script + AD credentials ── */}
+              {provider.type === "meta" && (
+                <>
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      background: t.bg,
+                      border: `1px solid ${t.divider}`,
+                      borderRadius: 10,
+                      fontSize: 12,
+                      color: t.textMuted,
+                    }}
+                  >
+                    <strong style={{ color: t.textSecondary }}>설정 방식</strong>: stdio — <code style={{ fontSize: 11, color: t.primary }}>uv run --directory &lt;dir&gt; main.py</code>
+                    <br />
+                    GMARKET_AD_ID / GMARKET_AD_PWD 환경변수로 인증합니다.
+                  </div>
+                  <div>
+                    <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                      Script Directory
+                    </label>
+                    <input
+                      type="text"
+                      value={provider.config.scriptDir || ""}
+                      onChange={(e) => onUpdateConfig({ scriptDir: e.target.value })}
+                      placeholder="/Users/yourname/toolbox/skills/oh-my-rebuild/mcp/meta"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        background: t.bg,
+                        border: `1px solid ${t.divider}`,
+                        borderRadius: 10,
+                        color: t.text,
+                        fontSize: 13,
+                        fontFamily: "var(--font-mono), monospace",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                        AD ID <span style={{ color: t.textMuted, fontWeight: 400 }}>(GMARKET_AD_ID)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={provider.config.username || ""}
+                        onChange={(e) => onUpdateConfig({ username: e.target.value })}
+                        placeholder="gmarket-id"
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          background: t.bg,
+                          border: `1px solid ${t.divider}`,
+                          borderRadius: 10,
+                          color: t.text,
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                        AD Password <span style={{ color: t.textMuted, fontWeight: 400 }}>(GMARKET_AD_PWD)</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={provider.config.password || ""}
+                        onChange={(e) => onUpdateConfig({ password: e.target.value })}
+                        placeholder="••••••••"
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          background: t.bg,
+                          border: `1px solid ${t.divider}`,
+                          borderRadius: 10,
+                          color: t.text,
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {(provider.type === "jira" || provider.type === "confluence") && (
+                <div>
+                  <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                    {provider.type === "jira" ? "Jira Host URL" : "Confluence Host URL"}
+                  </label>
+                  <input
+                    type="text"
+                    value={provider.config.apiUrl || ""}
+                    onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
+                    placeholder={provider.type === "jira" ? "https://jira.company.com" : "https://wiki.company.com"}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      background: t.bg,
+                      border: `1px solid ${t.divider}`,
+                      borderRadius: 10,
+                      color: t.text,
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      outline: "none",
+                      transition: "border-color 0.15s",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = t.primary; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = t.divider; }}
+                  />
+                </div>
               )}
 
               {(provider.type === "postgresql" || provider.type === "mysql" || provider.type === "mongodb") && (
@@ -1168,50 +1530,73 @@ function ProviderCard({
               )}
 
               {/* Test Connection Button */}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  style={{
-                    padding: "10px 16px",
-                    background: t.bg,
-                    border: `1px solid ${t.divider}`,
-                    borderRadius: 10,
-                    color: t.text,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontFamily: "inherit",
-                    transition: "all 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = t.primary;
-                    e.currentTarget.style.color = t.primary;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = t.divider;
-                    e.currentTarget.style.color = t.text;
-                  }}
-                >
-                  <RefreshCw size={14} />
-                  연결 테스트
-                </button>
-                <a
-                  href="#"
-                  style={{
-                    padding: "10px 16px",
-                    color: t.textSecondary,
-                    fontSize: 13,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    textDecoration: "none",
-                  }}
-                >
-                  <ExternalLink size={14} />
-                  문서 보기
-                </a>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    onClick={onTestConnection}
+                    disabled={isTesting}
+                    style={{
+                      padding: "10px 16px",
+                      background: t.bg,
+                      border: `1px solid ${t.divider}`,
+                      borderRadius: 10,
+                      color: isTesting ? t.textMuted : t.text,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: isTesting ? "default" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "inherit",
+                      transition: "all 0.15s",
+                      opacity: isTesting ? 0.7 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isTesting) {
+                        e.currentTarget.style.borderColor = t.primary;
+                        e.currentTarget.style.color = t.primary;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = t.divider;
+                      e.currentTarget.style.color = isTesting ? t.textMuted : t.text;
+                    }}
+                  >
+                    <RefreshCw size={14} style={{ animation: isTesting ? "spin 1s linear infinite" : "none" }} />
+                    {isTesting ? "테스트 중..." : "연결 테스트"}
+                  </button>
+                  <a
+                    href="#"
+                    style={{
+                      padding: "10px 16px",
+                      color: t.textSecondary,
+                      fontSize: 13,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      textDecoration: "none",
+                    }}
+                  >
+                    <ExternalLink size={14} />
+                    문서 보기
+                  </a>
+                </div>
+                {testResult && testResult.message && (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      background: testResult.ok ? t.successLight : "rgba(239,68,68,0.08)",
+                      border: `1px solid ${testResult.ok ? t.success : "rgba(239,68,68,0.3)"}`,
+                      color: testResult.ok ? t.success : "#ef4444",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {testResult.message}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

@@ -1,15 +1,17 @@
 // AI 통신 로그의 타입 정의
 
-export type LogType = 
-  | "system"      // 시스템 메시지 (분석 시작, 완료 등)
-  | "thinking"    // AI가 생각하는 중
-  | "question"    // AI가 질문
-  | "answer"      // 답변/응답
-  | "tool_call"   // 도구 호출
-  | "tool_result" // 도구 결과
-  | "progress"    // 진행 상황
-  | "error"       // 에러
-  | "info";       // 일반 정보
+export type LogType =
+  | "system"          // 시스템 메시지 (분석 시작, 완료 등)
+  | "thinking"        // AI가 생각하는 중
+  | "question"        // AI가 질문
+  | "answer"          // 답변/응답
+  | "tool_call"       // 도구 호출
+  | "tool_result"     // 도구 결과
+  | "progress"        // 진행 상황
+  | "error"           // 에러
+  | "info"            // 일반 정보
+  | "agent.request"   // LLM 프롬프트 (debug 모드에서만)
+  | "agent.response"; // LLM 최종 응답
 
 export interface StreamLog {
   id: string;
@@ -49,9 +51,24 @@ export const ANALYSIS_PHASES: Omit<AnalysisPhase, "status" | "progress" | "logs"
     description: "AI가 위키 구조(섹션/페이지)를 결정합니다",
   },
   {
+    id: "extract",
+    name: "엔티티 추출",
+    description: "코드에서 DB 테이블, 프로시저, 서비스명 등을 추출합니다",
+  },
+  {
+    id: "mcp",
+    name: "MCP 크로스체크",
+    description: "연결된 MCP 소스에서 실제 스키마/이슈 데이터를 조회합니다",
+  },
+  {
     id: "generation",
     name: "페이지 생성",
     description: "각 페이지의 콘텐츠를 AI가 작성합니다",
+  },
+  {
+    id: "synthesis",
+    name: "종합 인사이트",
+    description: "Business Flow, Data Flow 등 종합 분석 페이지를 생성합니다",
   },
   {
     id: "save",

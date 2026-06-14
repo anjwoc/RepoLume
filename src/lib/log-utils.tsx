@@ -96,6 +96,8 @@ export function getLogLabel(type: LogType): string {
     system: "시스템",
     info: "정보",
     progress: "진행",
+    "agent.request": "프롬프트",
+    "agent.response": "응답",
   };
   return labels[type] || "로그";
 }

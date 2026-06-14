@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { FolderOpen, ChevronRight, Clock, Folder, Moon, Sun, Settings, ClipboardList, Trash2 } from "lucide-react";
+import { FolderOpen, ChevronRight, Clock, Folder, Moon, Sun, Settings, ClipboardList, Trash2, FlaskConical } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 
 interface ApiProcessedProject {
@@ -17,17 +17,31 @@ interface ApiProcessedProject {
   model?: string;
 }
 
+interface InterruptedJob {
+  job_id: string;
+  project_id: string;
+  owner: string;
+  repo: string;
+  language: string;
+  model?: string;
+  page_done: number;
+  page_total: number;
+  started_at: string;
+  error?: string;
+}
+
 interface HomeScreenProps {
   isDark: boolean;
   onToggleTheme: () => void;
   onSelectProject: (path: string, testMode: boolean, enableBusiness: boolean, paths?: string[]) => void;
   onOpenWiki: (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string, id?: string) => void;
+  onResumeProject?: (owner: string, repo: string, repo_type: string, language: string, parentJobId: string) => void;
   onOpenSettings?: () => void;
   onOpenAdmin?: () => void;
   appSettings?: { model: string; language: string; setupComplete: boolean; provider?: string; mode?: string };
 }
 
-export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki, onOpenSettings, onOpenAdmin, appSettings }: HomeScreenProps) {
+export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki, onResumeProject, onOpenSettings, onOpenAdmin, appSettings }: HomeScreenProps) {
   const t = getTheme(isDark);
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
@@ -35,10 +49,20 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
   // Business analysis is always on by default — no opt-in checkbox.
   const [enableBusiness] = useState(true);
   const [projectPath, setProjectPath] = useState<string>("");
-  
+
   const [recentProjects, setRecentProjects] = useState<ApiProcessedProject[]>([]);
+  const [interruptedJobs, setInterruptedJobs] = useState<InterruptedJob[]>([]);
+  const [resumingJobId, setResumingJobId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAgyAuthed, setIsAgyAuthed] = useState<boolean>(true);
+
+  type CacheCheckState =
+    | null
+    | { status: 'checking' }
+    | { status: 'done'; exists: true; valid: boolean; page_count: number; total_pages: number }
+    | { status: 'done'; exists: false };
+  const [cacheCheck, setCacheCheck] = useState<CacheCheckState>(null);
+  const [pendingPaths, setPendingPaths] = useState<{ paths: string[]; primary: string; repo: string } | null>(null);
 
   const parseProjectPaths = (value: string) => (
     value
@@ -66,25 +90,25 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         const response = await fetch(url);
         if (response.ok) {
           const data: ApiProcessedProject[] = await response.json();
-          // Group by owner + repo + model
+          // Group by owner + repo only — same project with different models = one card
           const grouped = data.reduce((acc, curr) => {
-            const key = `${curr.owner}/${curr.repo}/${curr.model || 'default'}`;
+            const key = `${curr.owner}/${curr.repo}`;
             if (!acc[key]) {
               acc[key] = { ...curr, languages: [curr.language] };
             } else {
               if (!acc[key].languages!.includes(curr.language)) {
                 acc[key].languages!.push(curr.language);
               }
-              // Keep the latest submittedAt
+              // Keep the latest run's data
               if (curr.submittedAt > acc[key].submittedAt) {
                 acc[key].submittedAt = curr.submittedAt;
-                acc[key].id = curr.id; // Keep the latest id just in case
-                acc[key].model = curr.model; // Update model to latest
+                acc[key].id = curr.id;
+                acc[key].model = curr.model;
               }
             }
             return acc;
           }, {} as Record<string, ApiProcessedProject>);
-          
+
           setRecentProjects(Object.values(grouped).sort((a, b) => b.submittedAt - a.submittedAt));
         } else {
           setRecentProjects([]);
@@ -98,9 +122,112 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
     fetchProjects();
   }, []);
 
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true') return;
+    fetch('/api/wiki/interrupted-projects')
+      .then(r => r.ok ? r.json() : [])
+      .then((jobs: InterruptedJob[]) => setInterruptedJobs(jobs))
+      .catch(() => setInterruptedJobs([]));
+  }, []);
+
   const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
+    const date = new Date(timestamp); // submittedAt is already in ms
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const sanitizeRepoName = (path: string) => {
+    const raw = path.replace(/\/+$/, '').split('/').pop() || 'project';
+    return raw.replace(/[^a-zA-Z0-9가-힣\-_.]/g, '_').replace(/_+/g, '_').replace(/^[_.\-]+|[_.\-]+$/g, '') || 'project';
+  };
+
+  const handleStartWithCacheCheck = async () => {
+    if (!isAgyAuthed) return;
+    const paths = parseProjectPaths(projectPath);
+    if (paths.length === 0) { alert("프로젝트 경로를 입력해주세요."); return; }
+    const primary = paths[0];
+    const repo = sanitizeRepoName(primary);
+    const language = appSettings?.language || 'ko';
+
+    setPendingPaths({ paths, primary, repo });
+    setCacheCheck({ status: 'checking' });
+
+    try {
+      const params = new URLSearchParams({ owner: 'local', repo, repo_type: 'local', language });
+      if (appSettings?.model) params.set('model', appSettings.model);
+      const res = await fetch(`/api/wiki/cache-status?${params}`);
+      const data = res.ok ? await res.json() : { exists: false };
+
+      if (!data.exists) {
+        setCacheCheck(null); setPendingPaths(null);
+        onSelectProject(primary, testMode, enableBusiness, paths);
+      } else {
+        setCacheCheck({ status: 'done', ...data });
+      }
+    } catch {
+      setCacheCheck(null); setPendingPaths(null);
+      onSelectProject(primary, testMode, enableBusiness, paths);
+    }
+  };
+
+  const handleOpenExistingWiki = () => {
+    if (!pendingPaths) return;
+    const language = appSettings?.language || 'ko';
+    onOpenWiki('local', pendingPaths.repo, 'local', language, [language], appSettings?.model);
+    setCacheCheck(null); setPendingPaths(null);
+  };
+
+  const handleGenerateNew = () => {
+    if (!pendingPaths) return;
+    onSelectProject(pendingPaths.primary, testMode, enableBusiness, pendingPaths.paths);
+    setCacheCheck(null); setPendingPaths(null);
+  };
+
+  const handleResumeFromCache = async () => {
+    if (!pendingPaths) return;
+    const { primary, paths, repo } = pendingPaths;
+    const language = appSettings?.language || 'ko';
+    try {
+      const params = new URLSearchParams({ owner: 'local', repo, repo_type: 'local', language });
+      if (appSettings?.model) params.set('model', appSettings.model);
+      const cacheRes = await fetch(`/api/wiki_cache?${params}`);
+      if (!cacheRes.ok) { handleGenerateNew(); return; }
+      const cacheData = await cacheRes.json();
+
+      const generatedPages = cacheData.generated_pages || {};
+      const completedPageIds = Object.entries(generatedPages)
+        .filter(([, page]) => ((page as any)?.content || '').length >= 50)
+        .map(([id]) => id);
+
+      sessionStorage.setItem('localwiki_resume_pending', JSON.stringify({
+        streamId: '',
+        completedPageIds,
+        wikiStructure: cacheData.wiki_structure || {},
+        generatedPages,
+      }));
+      onSelectProject(primary, testMode, enableBusiness, paths);
+    } catch {
+      handleGenerateNew();
+    }
+    setCacheCheck(null); setPendingPaths(null);
+  };
+
+  const handleResumeJob = async (e: React.MouseEvent, job: InterruptedJob) => {
+    e.stopPropagation();
+    if (!onResumeProject) return;
+    setResumingJobId(job.job_id);
+    try {
+      onResumeProject(job.owner, job.repo, 'local', job.language, job.job_id);
+    } finally {
+      setResumingJobId(null);
+    }
+  };
+
+  const handleDismissJob = async (e: React.MouseEvent, jobId: string) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/wiki/interrupted-job?job_id=${encodeURIComponent(jobId)}`, { method: 'DELETE' });
+    } catch { /* best-effort */ }
+    setInterruptedJobs(prev => prev.filter(j => j.job_id !== jobId));
   };
 
   const handleDeleteProject = async (e: React.MouseEvent, proj: ApiProcessedProject) => {
@@ -110,11 +237,11 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
     try {
       const langsToDelete = proj.languages && proj.languages.length > 0 ? proj.languages : [proj.language];
       
-      const promises = langsToDelete.map(lang => 
-        fetch(`/api/wiki_cache?owner=${proj.owner}&repo=${proj.repo}&repo_type=${proj.repo_type}&language=${lang}`, {
-          method: 'DELETE',
-        })
-      );
+      const promises = langsToDelete.map(lang => {
+        const params = new URLSearchParams({ owner: proj.owner, repo: proj.repo, repo_type: proj.repo_type, language: lang });
+        if (proj.model) params.set('model', proj.model);
+        return fetch(`/api/wiki_cache?${params}`, { method: 'DELETE' });
+      });
       
       const results = await Promise.all(promises);
       const allOk = results.every(r => r.ok);
@@ -139,12 +266,14 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
       transition={{ duration: 0.35 }}
       style={{
         width: "100%",
-        height: "100vh",
+        minHeight: "100dvh",
         background: t.bg,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        overflowY: "auto",
+        paddingTop: 80,
+        paddingBottom: 60,
         position: "relative",
         fontFamily: "var(--font-sans), Pretendard, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
@@ -182,9 +311,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
               {appSettings.model}
             </span>
             <span style={{ fontSize: 11, color: t.textMuted }}>·</span>
-            <span style={{ fontSize: 11, color: t.textSecondary }}>
-              {appSettings.language === "ko" ? "한국어" : appSettings.language === "en" ? "English" : "Bilingual"}
-            </span>
+            <span style={{ fontSize: 11, color: t.textSecondary }}>한국어</span>
           </div>
         )}
         {!appSettings?.setupComplete && (
@@ -226,6 +353,30 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           >
             <Settings size={18} />
           </button>
+        )}
+        {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && (
+          <a
+            href="/benchmark"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: t.surface,
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: t.textSecondary,
+              transition: "background 0.2s",
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = t.surface)}
+            title="Benchmark 비교"
+          >
+            <FlaskConical size={18} />
+          </a>
         )}
         {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && onOpenAdmin && (
           <button
@@ -425,17 +576,58 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           </span>
         </div>
 
+        {/* Cache status panel — shown when cache found */}
+        {cacheCheck?.status === 'done' && cacheCheck.exists && (
+          <div style={{
+            width: '100%', marginBottom: 16, padding: '12px 16px',
+            borderRadius: 12, border: `1px solid ${cacheCheck.valid ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+            background: cacheCheck.valid ? 'rgba(34,197,94,0.06)' : 'rgba(245,158,11,0.06)',
+          }}>
+            <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: t.text }}>
+              {cacheCheck.valid
+                ? `완성된 위키가 있어요 (${cacheCheck.page_count}페이지)`
+                : `미완성 위키가 있어요 (${cacheCheck.page_count}/${cacheCheck.total_pages}페이지)`}
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {cacheCheck.valid ? (
+                <>
+                  <button onClick={handleOpenExistingWiki} style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'rgba(34,197,94,0.15)', color: '#16a34a',
+                    border: '1px solid rgba(34,197,94,0.3)', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>기존 위키 보기</button>
+                  <button onClick={handleGenerateNew} style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: t.surface, color: t.textSecondary,
+                    border: `1px solid ${t.divider}`, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>새로 생성</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={handleResumeFromCache} style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'rgba(245,158,11,0.15)', color: '#d97706',
+                    border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>이어서 생성</button>
+                  <button onClick={handleGenerateNew} style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: t.surface, color: t.textSecondary,
+                    border: `1px solid ${t.divider}`, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>처음부터 재생성</button>
+                </>
+              )}
+              <button onClick={() => { setCacheCheck(null); setPendingPaths(null); }} style={{
+                padding: '8px 12px', borderRadius: 10, fontSize: 13,
+                background: 'transparent', color: t.textMuted,
+                border: `1px solid ${t.divider}`, cursor: 'pointer', fontFamily: 'inherit',
+              }}>취소</button>
+            </div>
+          </div>
+        )}
+
         <button
-          onClick={() => {
-            if (!isAgyAuthed) return;
-            const paths = parseProjectPaths(projectPath);
-            if (paths.length > 0) {
-              onSelectProject(paths[0], testMode, enableBusiness, paths);
-            } else {
-              alert("프로젝트 경로를 입력해주세요.");
-            }
-          }}
-          disabled={!isAgyAuthed}
+          onClick={cacheCheck?.status === 'done' && cacheCheck.exists ? undefined : handleStartWithCacheCheck}
+          disabled={!isAgyAuthed || cacheCheck?.status === 'checking' || (cacheCheck?.status === 'done' && cacheCheck.exists)}
           style={{
             background: isAgyAuthed ? t.primary : t.divider,
             color: isAgyAuthed ? "white" : t.textMuted,
@@ -465,7 +657,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           title={!isAgyAuthed ? "설정(우측 상단 톱니바퀴)에서 구글 로그인을 먼저 진행해주세요" : ""}
         >
           <FolderOpen size={18} />
-          위키 생성 시작
+          {cacheCheck?.status === 'checking' ? '확인 중...' : '위키 생성 시작'}
         </button>
         {!isAgyAuthed && (
           <p style={{ color: "#ef4444", fontSize: 13, marginTop: 12, fontWeight: 500 }}>
@@ -487,9 +679,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           <span style={{ color: t.textMuted, fontSize: 12, letterSpacing: "0.2px" }}>최근 프로젝트</span>
         </div>
 
-        <div style={{ 
-          maxHeight: "38vh", 
-          overflowY: "auto", 
+        <div style={{
           paddingRight: "6px",
           display: "flex",
           flexDirection: "column",
@@ -497,107 +687,177 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         }}>
           {isLoading ? (
              <div style={{ color: t.textMuted, padding: "12px", textAlign: "center", fontSize: 13 }}>로딩 중...</div>
-          ) : recentProjects.length === 0 ? (
+          ) : (interruptedJobs.length === 0 && recentProjects.length === 0) ? (
              <div style={{ color: t.textMuted, padding: "12px", textAlign: "center", fontSize: 13 }}>최근 프로젝트가 없습니다.</div>
-        ) : recentProjects.map((proj) => (
-          <div
-            key={proj.id}
-            onClick={() => onOpenWiki(proj.owner, proj.repo, proj.repo_type, proj.languages?.[0] || proj.language, proj.languages, proj.model, proj.id)}
-            onMouseEnter={() => setHoveredProject(proj.id)}
-            onMouseLeave={() => setHoveredProject(null)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 12,
-              background: hoveredProject === proj.id ? t.surfaceHover : "transparent",
-              border: "none",
-              cursor: "pointer",
-              textAlign: "left",
-              transition: "background 0.15s ease",
-              fontFamily: "inherit",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  background: t.surface,
-                  borderRadius: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Folder size={18} color={t.textSecondary} />
-              </div>
-              <div>
-                <div style={{ color: t.text, fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{proj.repo}</div>
-                <div style={{ color: t.textMuted, fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
-                  <span>{proj.repo_type}</span>
-                  {proj.languages && proj.languages.length > 0 ? (
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {proj.languages.map(l => (
-                        <span key={l} style={{ 
-                          background: t.surfaceHover, 
-                          padding: "1px 5px", 
-                          borderRadius: 4, 
-                          fontSize: 10,
-                          textTransform: "uppercase" 
-                        }}>
-                          {l}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span>· {proj.language}</span>
-                  )}
-                  {proj.model && (
-                    <span style={{
-                      background: "rgba(99, 102, 241, 0.15)",
-                      color: t.primary,
-                      padding: "1px 5px", 
-                      borderRadius: 4, 
-                      fontSize: 10,
-                    }}>
-                      {proj.model.replace("agy-", "").replace("claude-", "")}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <span style={{ color: t.textMuted, fontSize: 12 }}>{formatTime(proj.submittedAt)}</span>
-              {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && hoveredProject === proj.id ? (
-                <button
-                  onClick={(e) => handleDeleteProject(e, proj)}
+          ) : (
+            <>
+              {/* Interrupted jobs — resumable */}
+              {interruptedJobs.map((job) => (
+                <div
+                  key={job.job_id}
+                  onMouseEnter={() => setHoveredProject(job.job_id)}
+                  onMouseLeave={() => setHoveredProject(null)}
                   style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    padding: 4,
-                    color: t.textMuted,
-                    transition: "color 0.2s"
+                    justifyContent: "space-between",
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: hoveredProject === job.job_id ? t.surfaceHover : "transparent",
+                    border: `1px solid rgba(245,158,11,0.25)`,
+                    cursor: "default",
+                    transition: "background 0.15s ease",
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = "red"}
-                  onMouseLeave={(e) => e.currentTarget.style.color = t.textMuted}
-                  title="삭제"
                 >
-                  <Trash2 size={15} />
-                </button>
-              ) : (
-                <ChevronRight size={15} color={t.textMuted} />
-              )}
-            </div>
-          </div>
-        ))}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{
+                      width: 38, height: 38, background: "rgba(245,158,11,0.12)",
+                      borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <Folder size={18} color="#f59e0b" />
+                    </div>
+                    <div>
+                      <div style={{ color: t.text, fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{job.repo}</div>
+                      <div style={{ color: t.textMuted, fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{
+                          background: "rgba(245,158,11,0.15)", color: "#d97706",
+                          padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600,
+                        }}>
+                          재개 가능
+                        </span>
+                        <span style={{ color: t.textMuted }}>
+                          {job.page_done}/{job.page_total > 0 ? job.page_total : "?"} 페이지
+                        </span>
+                        {job.model && (
+                          <span style={{
+                            background: "rgba(99,102,241,0.15)", color: t.primary,
+                            padding: "1px 5px", borderRadius: 4, fontSize: 10,
+                          }}>
+                            {job.model.replace("agy-", "").replace("claude-", "")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    {onResumeProject && (
+                      <button
+                        onClick={(e) => handleResumeJob(e, job)}
+                        disabled={resumingJobId === job.job_id}
+                        style={{
+                          background: "#f59e0b",
+                          color: "#fff",
+                          border: "none",
+                          padding: "5px 10px",
+                          borderRadius: 8,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: resumingJobId === job.job_id ? "not-allowed" : "pointer",
+                          opacity: resumingJobId === job.job_id ? 0.6 : 1,
+                          fontFamily: "inherit",
+                          transition: "opacity 0.15s",
+                        }}
+                      >
+                        {resumingJobId === job.job_id ? "준비 중..." : "이어서 생성"}
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => handleDismissJob(e, job.job_id)}
+                      title="항목 삭제"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: t.textMuted,
+                        cursor: "pointer",
+                        padding: "4px 6px",
+                        borderRadius: 6,
+                        fontSize: 14,
+                        lineHeight: 1,
+                        transition: "color 0.15s",
+                        fontFamily: "inherit",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = t.text}
+                      onMouseLeave={(e) => e.currentTarget.style.color = t.textMuted}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Completed projects */}
+              {recentProjects.map((proj) => (
+                <div
+                  key={proj.id}
+                  onClick={() => onOpenWiki(proj.owner, proj.repo, proj.repo_type, proj.languages?.[0] || proj.language, proj.languages, proj.model, proj.id)}
+                  onMouseEnter={() => setHoveredProject(proj.id)}
+                  onMouseLeave={() => setHoveredProject(null)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: hoveredProject === proj.id ? t.surfaceHover : "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.15s ease",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{
+                      width: 38, height: 38, background: t.surface,
+                      borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <Folder size={18} color={t.textSecondary} />
+                    </div>
+                    <div>
+                      <div style={{ color: t.text, fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{proj.repo}</div>
+                      <div style={{ color: t.textMuted, fontSize: 12, display: "flex", gap: 6, alignItems: "center" }}>
+                        <span>{proj.repo_type}</span>
+                        {proj.model && (
+                          <span style={{
+                            background: "rgba(99, 102, 241, 0.15)", color: t.primary,
+                            padding: "1px 5px", borderRadius: 4, fontSize: 10,
+                          }}>
+                            {proj.model.replace("agy-", "").replace("claude-", "")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <span style={{
+                      background: "rgba(34,197,94,0.12)", color: "#16a34a",
+                      padding: "1px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                    }}>완료</span>
+                    <span style={{ color: t.textMuted, fontSize: 12 }}>{formatTime(proj.submittedAt)}</span>
+                    {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && hoveredProject === proj.id ? (
+                      <button
+                        onClick={(e) => handleDeleteProject(e, proj)}
+                        style={{
+                          background: "transparent", border: "none", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          padding: 4, color: t.textMuted, transition: "color 0.2s",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = "red"}
+                        onMouseLeave={(e) => e.currentTarget.style.color = t.textMuted}
+                        title="삭제"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    ) : (
+                      <ChevronRight size={15} color={t.textMuted} />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </motion.div>
     </motion.div>
