@@ -84,6 +84,11 @@ const nextConfig: NextConfig = {
         source: '/api/task-streams/:path*',
         destination: `${TARGET_SERVER_BASE_URL}/task-streams/:path*`,
       },
+      // catch-all: proxy remaining /api/* to backend (must be last)
+      {
+        source: '/api/:path*',
+        destination: `${TARGET_SERVER_BASE_URL}/api/:path*`,
+      },
     ];
   },
 };

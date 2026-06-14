@@ -5,14 +5,13 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Search, Moon, Sun, ChevronRight,
   FileText, Folder, FolderOpen, X, Home,
-  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles,
+  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles, ArrowUp,
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
 import { sanitizeMermaidChart } from "./Mermaid";
 import { regenerateWikiPage, wikiLanguageInstruction } from "@/lib/wiki-generator";
 import { WikiAskPanel } from "./WikiAskPanel";
-import { useJobStore } from "@/store/job-store";
 
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
@@ -44,6 +43,30 @@ interface TreeItem {
   children?: TreeItem[];
 }
 
+function formatDisplayTitle(title: string): string {
+  if (!title) return title;
+  // kebab-case → "Title Case" (primary format going forward)
+  if (/^[a-z][a-z0-9]*(-[a-z0-9]+)+$/.test(title)) {
+    return title.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+  // snake_case → "Title Case" (legacy)
+  if (/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(title)) {
+    return title.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+  // camelCase / PascalCase → "Title Case With Spaces" (legacy)
+  if (/^[a-zA-Z][a-zA-Z0-9]*$/.test(title) && /[A-Z]/.test(title)) {
+    return title
+      .replace(/([A-Z])/g, ' $1')
+      .trim()
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+  // plain lowercase word → capitalize first letter
+  if (/^[a-z]/.test(title)) {
+    return title.charAt(0).toUpperCase() + title.slice(1);
+  }
+  return title;
+}
+
 interface WikiSection {
   id: string;
   title: string;
@@ -66,6 +89,8 @@ interface WikiStructure {
   rootSections: string[];
 }
 
+const isShowcase = process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true';
+
 export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, onGoHome, repositoryBaseUrl, hoverBgColor }: WikiViewerProps) {
   const t = getTheme(isDark);
   const [selectedPage, setSelectedPage] = useState("");
@@ -77,8 +102,10 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [showAsk, setShowAsk] = useState(false); // "위키에 질문하기" 우측 패널
   const [repoPath, setRepoPath] = useState(""); // 원본 레포 로컬 경로 (소스 기반 질의용)
   const searchRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
-  const [currentLang, setCurrentLang] = useState(projectData?.language || "ko");
+  const currentLang = "ko";
 
   // Dynamic state from backend
   const [isLoading, setIsLoading] = useState(true);
@@ -90,8 +117,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
   // Regeneration state
   const [localLoadingPages, setLocalLoadingPages] = useState<Record<string, boolean>>({});
-  const activeJobId = useJobStore((state) => selectedPage ? state.getJob(selectedPage) : undefined);
-  const isRegenerating = (selectedPage ? localLoadingPages[selectedPage] : false) || !!activeJobId;
+  const isRegenerating = selectedPage ? !!localLoadingPages[selectedPage] : false;
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [brokenDiagrams, setBrokenDiagrams] = useState<{pageId: string, chartCode: string}[]>([]);
   const [isBatchFixing, setIsBatchFixing] = useState(false);
@@ -105,6 +131,14 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [sectionRegenProgress, setSectionRegenProgress] = useState({ current: 0, total: 0 });
   const [isGeneratingBusiness, setIsGeneratingBusiness] = useState(false);
   const regenPromptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Scroll to top when selected page changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0 });
+      setShowScrollTop(false);
+    }
+  }, [selectedPage]);
 
   // Scan every mermaid block across all pages and return the ones that fail to
   // parse. Parses the SAME sanitized input the <Mermaid> renderer uses, so a
@@ -159,7 +193,6 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         if (projectData.model) {
           params.append("model", projectData.model);
         }
-        const isShowcase = process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true';
         let fetchUrl = `/api/wiki_cache?${params.toString()}`;
         if (isShowcase && projectData.id) {
           fetchUrl = `/showcase-data/wiki_${projectData.id}.json`;
@@ -227,7 +260,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
               for (const pageId of section.pages) {
                 const page = structure.pages.find(p => p.id === pageId);
                 if (page) {
-                  const item: TreeItem = { id: page.id, title: page.title, icon: "file" };
+                  const item: TreeItem = { id: page.id, title: formatDisplayTitle(page.title || page.id), icon: "file" };
                   children.push(item);
                   newAllPages.push(item);
                 }
@@ -236,7 +269,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
             return {
               id: section.id,
-              title: section.title,
+              title: formatDisplayTitle(section.title || section.id),
               icon: "folder",
               children
             };
@@ -534,7 +567,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
           repo: projectData.repo,
           repo_type: projectData.repo_type,
           language: currentLang,
-          model,
+          model: projectData.model ?? model,
           provider,
           use_cli: useCli,
           cli_tool: cliTool,
@@ -1037,7 +1070,7 @@ ${chartCode}
           )}
         </button>
 
-        {isFolder && (
+        {isFolder && !isShowcase && (
           <button
             onClick={(e) => { e.stopPropagation(); handleRegenerateSection(item.id, item.title); }}
             disabled={!!regeneratingSectionId}
@@ -1060,7 +1093,7 @@ ${chartCode}
         )}
 
         {isFolder && item.children && (
-          <div style={{ overflow: "hidden", maxHeight: isExpanded ? 2000 : 0, opacity: isExpanded ? 1 : 0, transition: "max-height 0.22s ease, opacity 0.18s ease" }}>
+          <div style={{ overflow: "hidden", maxHeight: isExpanded ? 99999 : 0, opacity: isExpanded ? 1 : 0, transition: "max-height 0.3s ease, opacity 0.18s ease" }}>
             {item.children.map((child) => (
               <TreeNode key={child.id} item={child} depth={depth + 1} />
             ))}
@@ -1123,26 +1156,30 @@ ${chartCode}
         {/* Right */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
 
-          <button
-            onClick={() => setShowAsk((v) => !v)}
-            title="위키 문서에 질문하기"
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: showAsk ? t.ai : t.aiLight, border: "none", cursor: "pointer", color: showAsk ? "#fff" : t.ai, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
-          >
-            <Sparkles size={14} />
-            <span>질문</span>
-          </button>
+          {!isShowcase && (
+            <button
+              onClick={() => setShowAsk((v) => !v)}
+              title="위키 문서에 질문하기"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: showAsk ? t.ai : t.aiLight, border: "none", cursor: "pointer", color: showAsk ? "#fff" : t.ai, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+            >
+              <Sparkles size={14} />
+              <span>질문</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setShowExportModal(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.primaryLight, border: "none", cursor: "pointer", color: t.primary, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
-          >
-            <Share size={14} />
-            <span>내보내기</span>
-          </button>
+          {!isShowcase && (
+            <button
+              onClick={() => setShowExportModal(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.primaryLight, border: "none", cursor: "pointer", color: t.primary, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+            >
+              <Share size={14} />
+              <span>내보내기</span>
+            </button>
+          )}
 
           <button
             onClick={() => { setShowSearch(true); setTimeout(() => searchRef.current?.focus(), 40); }}
@@ -1208,7 +1245,11 @@ ${chartCode}
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "32px 0" }}>
+        <div
+          ref={contentRef}
+          onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
+          style={{ flex: 1, overflowY: "auto", padding: "32px 0", position: "relative" }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedPage}
@@ -1229,7 +1270,7 @@ ${chartCode}
                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#f87171" }}>오류: {error}</div>
               ) : selectedPage ? (
                 <article style={{ color: t.text, lineHeight: 1.7, position: "relative" }}>
-                  {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && (
+                  {!isShowcase && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, paddingLeft: "2.5rem", paddingRight: "0.5rem" }}>
                     <div>
                       {brokenDiagrams.length > 0 && (
@@ -1278,9 +1319,9 @@ ${chartCode}
                   ) : (
                     <Markdown
                       content={currentPage.content}
-                      onFixDiagram={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)}
+                      onFixDiagram={isShowcase ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)}
                       onCodeChange={(oldCode, newCode) => handleManualCodeChange(oldCode, newCode, selectedPage)}
-                      onBlockAction={process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true' ? undefined : handleBlockAction}
+                      onBlockAction={isShowcase ? undefined : handleBlockAction}
                       repositoryBaseUrl={repositoryBaseUrl}
                       repoName={projectData?.repo}
                       gitRoots={gitRoots}
@@ -1297,6 +1338,35 @@ ${chartCode}
               )}
             </motion.div>
           </AnimatePresence>
+
+          {/* Scroll to Top */}
+          {showScrollTop && (
+            <button
+              onClick={() => contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+              style={{
+                position: "sticky",
+                bottom: 24,
+                float: "right",
+                marginRight: 24,
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: t.primary,
+                border: "none",
+                color: "#fff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                zIndex: 10,
+                transition: "opacity 0.2s, transform 0.2s",
+              }}
+              title="맨 위로"
+            >
+              <ArrowUp size={18} />
+            </button>
+          )}
         </div>
 
         <WikiAskPanel

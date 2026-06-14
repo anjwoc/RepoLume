@@ -15,6 +15,7 @@ export interface AppSettings {
   setupComplete: boolean;
   repositoryBaseUrl?: string;
   hoverBgColor?: string;
+  pageConcurrency?: number; // 동시 페이지 생성 수 (1-10, 기본 3)
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
