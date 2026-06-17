@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, startTransition, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search, Moon, Sun, ChevronRight,
   FileText, Folder, FolderOpen, X, Home,
-  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles, ArrowUp,
+  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles, ArrowUp, Link,
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import Markdown from "./Markdown";
@@ -91,6 +91,183 @@ interface WikiStructure {
 
 const isShowcase = process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true';
 
+// ── TocPanel ─────────────────────────────────────────────────────────────────
+// Isolated component — owns tocOpen/activeTocIdx state entirely.
+// isDark (boolean, primitive) passed instead of t (object ref) to prevent
+// React.memo from re-rendering on every WikiViewer render.
+interface TocHeading { level: number; text: string; domIdx: number; }
+interface TocPanelProps {
+  headings: TocHeading[];
+  contentRef: React.RefObject<HTMLDivElement | null>;
+  selectedPage: string;
+  isDark: boolean;
+}
+
+const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, isDark }: TocPanelProps) {
+  // Compute theme inside the component so the object stays local — never leaks as a prop.
+  const t = useMemo(() => getTheme(isDark), [isDark]);
+
+  const [tocOpen, setTocOpen] = useState(false);
+  const [activeTocIdx, setActiveTocIdx] = useState(-1);
+
+  useEffect(() => {
+    setActiveTocIdx(-1);
+    const container = contentRef.current;
+    if (!container || headings.length === 0) return;
+    const handleScroll = () => {
+      const els = container.querySelectorAll('h1, h2, h3');
+      const containerTop = container.getBoundingClientRect().top;
+      let active = -1;
+      els.forEach((el, i) => {
+        if (el.getBoundingClientRect().top - containerTop <= 96) active = i;
+      });
+      // Near bottom: snap to last heading so it's never stuck in the middle.
+      const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+      if (nearBottom && els.length > 0) active = els.length - 1;
+      setActiveTocIdx(active);
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [selectedPage, headings, contentRef]);
+
+  const scrollToHeadingByIdx = useCallback((domIdx: number) => {
+    const container = contentRef.current;
+    if (!container) return;
+    const el = container.querySelectorAll('h1, h2, h3')[domIdx] as HTMLElement | undefined;
+    if (!el) return;
+    const offset = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
+    container.scrollTo({ top: offset, behavior: 'smooth' });
+  }, [contentRef]);
+
+  if (headings.length === 0) return null;
+
+  // Notion-style: hover zone covers the full right strip so the panel stays
+  // open while the user reads/clicks items.
+  return (
+    <div
+      onMouseEnter={() => setTocOpen(true)}
+      onMouseLeave={() => setTocOpen(false)}
+      style={{ position: "fixed", right: 0, top: 52, bottom: 0, width: 24, zIndex: 30 }}
+    >
+      {/* Sliding ToC panel */}
+      <div style={{
+        position: "absolute", right: 0, top: 0, bottom: 0, width: 224,
+        transform: `translateX(${tocOpen ? 0 : 225}px)`,
+        transition: "transform 0.18s cubic-bezier(0.4,0,0.2,1)",
+        background: isDark ? "rgba(15,15,18,0.96)" : "rgba(251,251,253,0.97)",
+        backdropFilter: "blur(12px)",
+        borderLeft: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"}`,
+        display: "flex", flexDirection: "column",
+        overflowY: "auto", overflowX: "hidden",
+        paddingBottom: 24,
+      }}>
+        {/* "ON THIS PAGE" label — Notion style */}
+        <div style={{
+          padding: "18px 16px 8px",
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.28)",
+          flexShrink: 0,
+          userSelect: "none",
+        }}>
+          On this page
+        </div>
+
+        {headings.map((h, i) => {
+          const isActive = activeTocIdx === i;
+          const indent = (h.level - 1) * 12;
+          return (
+            <button
+              key={h.domIdx}
+              onClick={() => scrollToHeadingByIdx(h.domIdx)}
+              title={h.text}
+              style={{
+                display: "block",
+                textAlign: "left",
+                background: isActive
+                  ? (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)")
+                  : "none",
+                border: "none",
+                cursor: "pointer",
+                padding: `4px 12px 4px ${16 + indent}px`,
+                fontSize: 12.5,
+                fontWeight: isActive ? 500 : 400,
+                color: isActive
+                  ? (isDark ? "rgba(255,255,255,0.88)" : "rgba(0,0,0,0.88)")
+                  : (isDark ? "rgba(255,255,255,0.44)" : "rgba(0,0,0,0.44)"),
+                lineHeight: 1.55,
+                fontFamily: "inherit",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                borderRadius: 4,
+                margin: "0 6px",
+                width: "calc(100% - 12px)",
+                boxSizing: "border-box",
+                transition: "background 0.1s, color 0.1s",
+                // Notion-style: subtle left accent only on active
+                boxShadow: isActive
+                  ? `inset 2px 0 0 ${isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)"}`
+                  : "none",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)";
+                  el.style.color = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "none";
+                  el.style.color = isDark ? "rgba(255,255,255,0.44)" : "rgba(0,0,0,0.44)";
+                }
+              }}
+            >
+              {h.text}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Collapsed state — minimap-style bar indicators */}
+      {!tocOpen && (
+        <div style={{
+          position: "absolute",
+          right: 0, top: 0, bottom: 0, width: 24,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          paddingTop: 48, paddingBottom: 48, gap: 3.5,
+        }}>
+          {headings.map((h, i) => {
+            const isActive = activeTocIdx === i;
+            return (
+              <div
+                key={h.domIdx}
+                onClick={() => scrollToHeadingByIdx(h.domIdx)}
+                style={{
+                  width: isActive ? 12 : 8,
+                  height: 1.5,
+                  borderRadius: 999,
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  transition: "width 0.18s ease, background 0.18s ease",
+                  background: isActive
+                    ? (isDark ? "rgba(255,255,255,0.82)" : "rgba(0,0,0,0.58)")
+                    : (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.13)"),
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+
 export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, onGoHome, repositoryBaseUrl, hoverBgColor }: WikiViewerProps) {
   const t = getTheme(isDark);
   const [selectedPage, setSelectedPage] = useState("");
@@ -103,9 +280,12 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [repoPath, setRepoPath] = useState(""); // 원본 레포 로컬 경로 (소스 기반 질의용)
   const searchRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const savedSidebarScrollRef = useRef(0);
+  const selectedPageRef = useRef("");
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  const currentLang = "ko";
+  const currentLang = projectData?.language || "ko";
 
   // Dynamic state from backend
   const [isLoading, setIsLoading] = useState(true);
@@ -124,12 +304,17 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [batchFixProgress, setBatchFixProgress] = useState({ current: 0, total: 0 });
   // Per-subproject git roots (each dir with its own .git) used to build GitHub
   // links rooted at the individual repository instead of the bundling parent.
-  const [gitRoots, setGitRoots] = useState<{ prefix: string; name: string; webUrl: string | null; branch: string }[]>([]);
+  // null = still loading (don't generate any GitHub links yet); [] = loaded but no roots
+  const [gitRoots, setGitRoots] = useState<{ prefix: string; name: string; webUrl: string | null; branch: string }[] | null>(null);
+  const [isResyncingLinks, setIsResyncingLinks] = useState(false);
+  const [resyncResult, setResyncResult] = useState<{ links_fixed: number } | null>(null);
   // Section(directory)-level regeneration + business-analysis generation.
   const [refreshKey, setRefreshKey] = useState(0);
   const [regeneratingSectionId, setRegeneratingSectionId] = useState<string | null>(null);
   const [sectionRegenProgress, setSectionRegenProgress] = useState({ current: 0, total: 0 });
   const [isGeneratingBusiness, setIsGeneratingBusiness] = useState(false);
+  const [isBulkRegening, setIsBulkRegening] = useState(false);
+  const [bulkRegenProgress, setBulkRegenProgress] = useState({ current: 0, total: 0 });
   const regenPromptRef = useRef<HTMLTextAreaElement>(null);
 
   // Scroll to top when selected page changes
@@ -137,6 +322,13 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     if (contentRef.current) {
       contentRef.current.scrollTo({ top: 0 });
       setShowScrollTop(false);
+    }
+  }, [selectedPage]);
+
+  // Restore sidebar scroll after page transition (prevents LNB jumping to top)
+  useLayoutEffect(() => {
+    if (sidebarRef.current) {
+      sidebarRef.current.scrollTop = savedSidebarScrollRef.current;
     }
   }, [selectedPage]);
 
@@ -229,8 +421,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             if (projectData.model) gitParams.append("model", projectData.model);
             fetch(`/api/git_roots?${gitParams.toString()}`)
               .then(r => r.ok ? r.json() : null)
-              .then(data => { if (data?.roots) setGitRoots(data.roots); })
-              .catch(() => {});
+              .then(data => { setGitRoots(data?.roots ?? []); })
+              .catch(() => { setGitRoots([]); });
           }
 
           setTimeout(() => {
@@ -280,13 +472,20 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             if (node) newTree.push(node);
           }
 
-          setTree(newTree);
-          setExpanded(newExpanded);
-          setAllPages(newAllPages);
-
-          if (newAllPages.length > 0) {
-            setSelectedPage(newAllPages[0].id);
+          // Select the first page immediately so content shows before tree animates in
+          const firstPageId = newAllPages[0]?.id ?? "";
+          if (firstPageId) {
+            selectedPageRef.current = firstPageId;
+            setSelectedPage(firstPageId);
           }
+          setIsLoading(false);
+
+          // Build tree in a non-blocking transition — LNB renders after first page is visible
+          startTransition(() => {
+            setTree(newTree);
+            setExpanded(newExpanded);
+            setAllPages(newAllPages);
+          });
         } else {
           console.error("No valid wiki structure or pages found in the cached response.");
         }
@@ -298,6 +497,35 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     }
     loadWiki();
   }, [projectData, currentLang, refreshKey]);
+
+  const handleResyncLinks = async () => {
+    if (!projectData || isResyncingLinks) return;
+    setIsResyncingLinks(true);
+    setResyncResult(null);
+    try {
+      const res = await fetch('/api/wiki/resync_links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: projectData.owner,
+          repo: projectData.repo,
+          repo_type: projectData.repo_type,
+          language: currentLang,
+          model: projectData.model || null,
+        }),
+      });
+      const data = await res.json();
+      setResyncResult({ links_fixed: data.links_fixed || 0 });
+      if (data.links_fixed > 0) {
+        // Reload cache to pick up the fixed content
+        setRefreshKey(k => k + 1);
+      }
+    } catch {
+      setResyncResult({ links_fixed: -1 });
+    } finally {
+      setIsResyncingLinks(false);
+    }
+  };
 
   const handleRegenerate = async (targetPageId?: string) => {
     if (!selectedPage || !projectData || !wikiStructure) return;
@@ -370,20 +598,17 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
   // Read generation settings from localStorage (shared by page/section regen).
   const readGenSettings = () => {
-    let apiKey = "", mode = "api", provider = "google", model = "gemini-2.5-flash";
+    let s: Record<string, any> = {};
     if (typeof window !== "undefined") {
-      const raw = localStorage.getItem(APP_SETTINGS_KEY);
-      if (raw) {
-        try {
-          const s = JSON.parse(raw);
-          apiKey = s.apiKey || "";
-          mode = (s.useCli ?? true) ? "cli" : "api";
-          provider = s.provider || "google";
-          model = s.model || "gemini-2.5-flash";
-        } catch (e) {}
-      }
+      try { s = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || "{}"); } catch {}
     }
-    return { apiKey, mode, provider, model };
+    return {
+      apiKey:          s.apiKey          || "",
+      mode:            (s.useCli ?? true) ? "cli" : "api",
+      provider:        s.provider        || "",
+      model:           s.model           || "",
+      pageConcurrency: s.pageConcurrency ?? 3,
+    };
   };
 
   // Collect all page ids belonging to a section, recursing into subsections.
@@ -457,6 +682,91 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     } finally {
       setRegeneratingSectionId(null);
       setSectionRegenProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // Find all pages whose content is empty or contains a generation error.
+  const getFailedPageIds = (): string[] => {
+    if (!wikiStructure) return [];
+    return (wikiStructure.pages || [])
+      .map((p: any) => p.id)
+      .filter((id: string) => {
+        if (id.startsWith("__business")) return false;
+        const page = generatedPages[id];
+        if (!page) return true;
+        const c = (page.content || "").trim();
+        // Match the exact stub format written by wiki-generator on failure: "> ⚠️ 생성 실패: ..."
+        // Don't match bare "CLI Error" / "생성 실패" — those strings legitimately appear in docs.
+        if (!c) return true;
+        if (c.includes("> ⚠️ 생성 실패")) return true;
+        // Edge-case: raw error text stored without the stub wrapper (very short content only)
+        if (c.length < 400 && (c.includes("CLI Error:") || c.includes("SSE connection error"))) return true;
+        return false;
+      });
+  };
+
+  // Bulk-regenerate all failed/empty pages in parallel (respects pageConcurrency setting).
+  const handleBulkRegenFailed = async () => {
+    if (!projectData || !wikiStructure || isBulkRegening) return;
+    const failedIds = getFailedPageIds();
+    if (failedIds.length === 0) return;
+    const { apiKey, mode, provider, model, pageConcurrency } = readGenSettings();
+    if (!window.confirm(`실패한 ${failedIds.length}개 페이지를 재생성합니다.\n동시 ${pageConcurrency}개 병렬 처리됩니다. 계속할까요?`)) return;
+
+    setIsBulkRegening(true);
+    setBulkRegenProgress({ current: 0, total: failedIds.length });
+
+    try {
+      const queue = [...failedIds];
+      let completed = 0;
+      let working = { ...generatedPages };
+
+      const worker = async () => {
+        while (true) {
+          const pid = queue.shift();
+          if (!pid) break;
+          const pageData = working[pid] ?? (wikiStructure.pages || []).find((p: any) => p.id === pid);
+          if (!pageData) { completed++; setBulkRegenProgress({ current: completed, total: failedIds.length }); continue; }
+          try {
+            const newContent = await regenerateWikiPage({
+              streamId: crypto.randomUUID(),
+              projectPath: `${projectData.owner}/${projectData.repo}`,
+              repo_type: projectData.repo_type,
+              model, provider, mode, apiKey,
+              language: currentLang,
+              page: pageData,
+              customPrompt: "",
+            });
+            if (newContent && newContent.trim() !== "") {
+              working = { ...working, [pid]: { ...pageData, content: newContent } };
+              setGeneratedPages({ ...working });
+            }
+          } catch (e) {
+            console.error(`bulk regen: '${pid}' 실패`, e);
+          }
+          completed++;
+          setBulkRegenProgress({ current: completed, total: failedIds.length });
+        }
+      };
+
+      await Promise.all(Array.from({ length: Math.min(pageConcurrency, failedIds.length) }, () => worker()));
+
+      await fetch('/api/wiki_cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: { owner: projectData.owner, repo: projectData.repo, type: projectData.repo_type },
+          language: currentLang,
+          wiki_structure: wikiStructure,
+          generated_pages: working,
+          provider, model: projectData.model,
+        })
+      });
+    } catch (err: any) {
+      console.error("bulk regen 실패:", err);
+    } finally {
+      setIsBulkRegening(false);
+      setBulkRegenProgress({ current: 0, total: 0 });
     }
   };
 
@@ -1019,12 +1329,46 @@ ${chartCode}
       return next;
     });
 
-  const navigate = (id: string) => {
+  const navigate = useCallback((id: string) => {
+    if (sidebarRef.current) {
+      savedSidebarScrollRef.current = sidebarRef.current.scrollTop;
+    }
+    selectedPageRef.current = id;
     setSelectedPage(id);
     setActiveSection("");
     setShowSearch(false);
     setQuery("");
-  };
+  }, []);
+
+  // Stable callbacks for Markdown props — selectedPageRef avoids recreating on every selectedPage change
+  const handleFixDiagramStable = useCallback((chartCode: string, customPrompt?: string) => {
+    return handleFixDiagram(chartCode, customPrompt, selectedPageRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCodeChangeStable = useCallback((oldCode: string, newCode: string) => {
+    return handleManualCodeChange(oldCode, newCode, selectedPageRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const navigateToPageByTarget = useCallback((target: string) => {
+    // Extract page name from file:///abs/path/PageTitle.md or relative PageTitle.md
+    const rawName = target
+      .replace(/^file:\/\/\/.*?([^/]+)$/, '$1')  // keep last path segment from file:///
+      .replace(/\.md$/i, '')
+      .replace(/^_/, '')
+      .trim();
+
+    const pages = Object.values(generatedPages);
+    let match = pages.find(p => p.title.toLowerCase() === rawName.toLowerCase());
+    if (!match) {
+      match = pages.find(p =>
+        p.title.toLowerCase().includes(rawName.toLowerCase()) ||
+        rawName.toLowerCase().includes(p.title.toLowerCase())
+      );
+    }
+    if (match) navigate(match.id);
+  }, [generatedPages, navigate]);
 
   function TreeNode({ item, depth = 0 }: { item: TreeItem; depth?: number }) {
     const isSelected = selectedPage === item.id;
@@ -1104,7 +1448,13 @@ ${chartCode}
   }
 
   const filtered = allPages.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()));
-  const currentPage = generatedPages[selectedPage];
+  const currentPage = useMemo(() => generatedPages[selectedPage], [generatedPages, selectedPage]);
+
+  const tocHeadings = useMemo(() => {
+    const content = currentPage?.content || '';
+    const matches = [...content.matchAll(/^(#{1,3})\s+(.+)$/gm)];
+    return matches.map((m, i) => ({ level: m[1].length, text: m[2].trim(), domIdx: i }));
+  }, [currentPage]);
 
   return (
     <motion.div
@@ -1155,6 +1505,24 @@ ${chartCode}
 
         {/* Right */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+
+          {!isShowcase && (() => {
+            const failedCount = getFailedPageIds().length;
+            if (failedCount === 0 && !isBulkRegening) return null;
+            return (
+              <button
+                onClick={handleBulkRegenFailed}
+                disabled={isBulkRegening}
+                title={`실패한 ${failedCount}개 페이지를 한번에 재생성`}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: isBulkRegening ? t.surface : "#fef2f2", border: "1px solid #fecaca", cursor: isBulkRegening ? "default" : "pointer", color: "#dc2626", fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}
+                onMouseEnter={(e) => { if (!isBulkRegening) e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+              >
+                <RefreshCw size={14} className={isBulkRegening ? "animate-spin" : ""} />
+                <span>{isBulkRegening ? `${bulkRegenProgress.current}/${bulkRegenProgress.total} 재생성 중…` : `실패 ${failedCount}개 재생성`}</span>
+              </button>
+            );
+          })()}
 
           {!isShowcase && (
             <button
@@ -1213,6 +1581,18 @@ ${chartCode}
           </button>
 
           <button
+            onClick={handleResyncLinks}
+            disabled={isResyncingLinks}
+            title={resyncResult ? `링크 재동기화 완료 (${resyncResult.links_fixed}개 수정)` : "저장된 file:// 링크를 GitHub URL로 변환"}
+            style={{ height: 36, padding: "0 10px", borderRadius: 10, background: resyncResult ? t.surfaceHover : t.surface, border: "none", cursor: isResyncingLinks ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, color: resyncResult?.links_fixed === -1 ? "#ef4444" : t.textSecondary, fontSize: 12, transition: "background 0.15s", opacity: isResyncingLinks ? 0.6 : 1 }}
+            onMouseEnter={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
+            onMouseLeave={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
+          >
+            <Link size={14} style={{ flexShrink: 0, animation: isResyncingLinks ? "spin 1s linear infinite" : "none" }} />
+            <span>{isResyncingLinks ? "동기화 중..." : resyncResult ? `${resyncResult.links_fixed}개 수정됨` : "링크 재동기화"}</span>
+          </button>
+
+          <button
             onClick={onGoHome}
             title="홈으로"
             style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.textSecondary, transition: "background 0.15s" }}
@@ -1238,7 +1618,7 @@ ${chartCode}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
         {/* Sidebar */}
-        <div style={{ width: 236, flexShrink: 0, background: t.sidebarBg, padding: "12px 10px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+        <div ref={sidebarRef} style={{ width: 236, flexShrink: 0, background: t.sidebarBg, padding: "12px 10px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {tree.map((item) => (
             <TreeNode key={item.id} item={item} />
           ))}
@@ -1319,13 +1699,14 @@ ${chartCode}
                   ) : (
                     <Markdown
                       content={currentPage.content}
-                      onFixDiagram={isShowcase ? undefined : (chartCode, customPrompt) => handleFixDiagram(chartCode, customPrompt, selectedPage)}
-                      onCodeChange={(oldCode, newCode) => handleManualCodeChange(oldCode, newCode, selectedPage)}
+                      onFixDiagram={isShowcase ? undefined : handleFixDiagramStable}
+                      onCodeChange={handleCodeChangeStable}
                       onBlockAction={isShowcase ? undefined : handleBlockAction}
                       repositoryBaseUrl={repositoryBaseUrl}
                       repoName={projectData?.repo}
                       gitRoots={gitRoots}
                       hoverBgColor={hoverBgColor}
+                      onNavigateToPage={navigateToPageByTarget}
                     />
                   )}
                 </article>
@@ -1368,6 +1749,14 @@ ${chartCode}
             </button>
           )}
         </div>
+
+        {/* Right ToC — isolated component, state changes don't re-render WikiViewer */}
+        <TocPanel
+          headings={tocHeadings}
+          contentRef={contentRef}
+          selectedPage={selectedPage}
+          isDark={isDark}
+        />
 
         <WikiAskPanel
           open={showAsk}

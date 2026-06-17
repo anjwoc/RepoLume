@@ -26,8 +26,9 @@ interface MarkdownProps {
   onBlockAction?: (type: BlockActionType, blockContent: string, startLine?: number, endLine?: number, prompt?: string) => Promise<void>;
   repositoryBaseUrl?: string;
   repoName?: string;
-  gitRoots?: GitRoot[];
+  gitRoots?: GitRoot[] | null;
   hoverBgColor?: string;
+  onNavigateToPage?: (target: string) => void;
 }
 
 // Extract raw markdown text for a node using its position info
@@ -48,17 +49,38 @@ const Markdown: React.FC<MarkdownProps> = ({
   repoName,
   gitRoots,
   hoverBgColor,
+  onNavigateToPage,
 }) => {
   const normalizedContent = normalizeMarkdownContent(content);
 
-  // Build a GitHub link for a source file path. When git roots are known
-  // (a bundling parent directory whose subprojects each have their own .git),
-  // root the link at the matching individual repository using its origin
-  // remote URL; otherwise fall back to repositoryBaseUrl + repoName.
+  // Build a GitHub link for a path. `linkType` is 'blob' for files, 'tree' for directories/modules.
+  // When git roots are known (a bundling parent directory whose subprojects each have their own .git),
+  // root the link at the matching individual repository using its origin remote URL.
+  const buildGithubHref = (rawPath: string, linkType: 'blob' | 'tree' = 'blob'): string => {
+    const path = rawPath.replace(/^\.\//, '').replace(/^\/+/, '');
+    if (!path) return '';
+    // null = loading, [] = localPath missing/no git → both cases: defer, don't guess with repoName
+    if (!gitRoots) return '';
+    if (gitRoots.length > 0) {
+      const match = gitRoots
+        .filter(r => r.webUrl && (r.prefix === '' || path === r.prefix || path.startsWith(r.prefix + '/')))
+        .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+      if (match && match.webUrl) {
+        const rel = match.prefix ? path.slice(match.prefix.length).replace(/^\/+/, '') : path;
+        return `${match.webUrl.replace(/\/$/, '')}/${linkType}/${match.branch}/${rel}`;
+      }
+      return ''; // gitRoots loaded but no prefix match → polyrepo parent is not a GitHub repo
+    }
+    // gitRoots loaded and empty → localPath not configured; repoName fallback only if repositoryBaseUrl set
+    const base = (repositoryBaseUrl || '').replace(/\/$/, '');
+    if (!base || !repoName) return '';
+    return `${base}/${repoName}/${linkType}/main/${path}`;
+  };
+
   const buildSourceHref = (filePath: string): string => {
     const path = filePath.replace(/^\/+/, '');
-    if (gitRoots && gitRoots.length > 0) {
-      // Longest-prefix match: pick the most specific git root containing the file.
+    if (!gitRoots) return '';
+    if (gitRoots.length > 0) {
       const match = gitRoots
         .filter(r => r.webUrl && (r.prefix === '' || path === r.prefix || path.startsWith(r.prefix + '/')))
         .sort((a, b) => b.prefix.length - a.prefix.length)[0];
@@ -66,6 +88,7 @@ const Markdown: React.FC<MarkdownProps> = ({
         const rel = match.prefix ? path.slice(match.prefix.length).replace(/^\/+/, '') : path;
         return `${match.webUrl.replace(/\/$/, '')}/blob/${match.branch}/${rel}`;
       }
+      return '';
     }
     const base = (repositoryBaseUrl || 'https://github.com').replace(/\/$/, '');
     return repoName ? `${base}/${repoName}/blob/main/${path}` : `${base}/blob/main/${path}`;
@@ -163,17 +186,77 @@ const Markdown: React.FC<MarkdownProps> = ({
       return <li className="mb-2 text-sm leading-relaxed dark:text-white" {...props}>{children}</li>;
     },
     a({ children, href, ...props }: { children?: React.ReactNode; href?: string }) {
-      return (
-        <a
-          href={href}
-          className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
-          target="_blank"
-          rel="noopener noreferrer"
-          {...props}
-        >
-          {children}
-        </a>
+      // 1. Internal wiki navigation (file:/// or relative .md)
+      const isInternal = href && (
+        href.startsWith('file:///') ||
+        (href.endsWith('.md') && !href.startsWith('http'))
       );
+      if (isInternal && onNavigateToPage) {
+        return (
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); onNavigateToPage(href!); }}
+            className="text-purple-600 dark:text-purple-400 hover:underline font-medium cursor-pointer"
+            {...props}
+          >
+            {children}
+          </a>
+        );
+      }
+
+      // 2. Absolute URL → external tab
+      if (href?.startsWith('http://') || href?.startsWith('https://')) {
+        return (
+          <a href={href} className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
+            target="_blank" rel="noopener noreferrer" {...props}>
+            {children}
+          </a>
+        );
+      }
+
+      // 3. Non-empty relative path (e.g. "affiliate-gateway" or "./src/Foo.java") → GitHub URL
+      if (href) {
+        const hasFileExt = /\.[a-zA-Z0-9]{1,6}$/.test(href);
+        const ghUrl = buildGithubHref(href, hasFileExt ? 'blob' : 'tree');
+        if (ghUrl) {
+          return (
+            <a href={ghUrl} target="_blank" rel="noopener noreferrer"
+              className="text-purple-600 dark:text-purple-400 hover:underline font-medium" {...props}>
+              {children}
+            </a>
+          );
+        }
+      }
+
+      // 4. Empty href — children may already be a self-navigating element (e.g. file pill span).
+      // Render children without an <a> wrapper to avoid opening same-page in a new tab.
+      // If children is plain text matching a module name, try to build a GitHub tree link.
+      const hasElementChild = React.Children.toArray(children).some(c => React.isValidElement(c));
+      if (!hasElementChild) {
+        const extractText = (node: React.ReactNode): string => {
+          if (typeof node === 'string') return node;
+          if (Array.isArray(node)) return node.map(extractText).join('');
+          if (React.isValidElement(node) && (node.props as any).children)
+            return extractText((node.props as any).children);
+          return '';
+        };
+        const text = extractText(children).trim();
+        if (text && !text.includes(' ')) {
+          const hasFileExt = /\.[a-zA-Z0-9]{1,6}$/.test(text);
+          const ghUrl = buildGithubHref(text, hasFileExt ? 'blob' : 'tree');
+          if (ghUrl) {
+            return (
+              <a href={ghUrl} target="_blank" rel="noopener noreferrer"
+                className="text-purple-600 dark:text-purple-400 hover:underline font-medium" {...props}>
+                {children}
+              </a>
+            );
+          }
+        }
+      }
+
+      // No URL available — render children as-is (file pill or plain styled text)
+      return <>{children}</>;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     blockquote({ children, node, ...props }: { children?: React.ReactNode; node?: any }) {
@@ -291,29 +374,42 @@ const Markdown: React.FC<MarkdownProps> = ({
       }
 
       // Handle inline code — file path pill or plain code
+      const sourceExtRegex = /\.(java|ts|tsx|js|jsx|kt|kts|py|go|xml|yaml|yml|json|properties|gradle|sql|rs|c|cpp|h|hpp|cs|swift|rb|php|sh|bash|toml)$/i;
       const isFilePath = (text: string) => {
         if (!text) return false;
         const stripped = text.replace(/^Source:\s*/i, '');
         if (stripped.includes(' ')) return false;
-        const fileExtRegex = /\.[a-zA-Z0-9]+$/;
-        return stripped.includes('/') && fileExtRegex.test(stripped);
+        return (stripped.includes('/') || sourceExtRegex.test(stripped)) && /\.[a-zA-Z0-9]+$/.test(stripped);
       };
 
       if (!isBlock && isFilePath(codeContent)) {
         const filePath = codeContent.replace(/^Source:\s*/i, '');
         const href = buildSourceHref(filePath);
+        if (href) {
+          return (
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); window.open(href, '_blank', 'noopener,noreferrer'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.open(href, '_blank', 'noopener,noreferrer'); } }}
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-md bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-mono font-medium hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors shadow-sm cursor-pointer"
+              style={{ textDecoration: 'none', verticalAlign: 'middle', border: '1px solid rgba(128,128,128,0.2)' }}
+              title={`View ${filePath} on GitHub`}
+            >
+              <FaGithub size={12} className="opacity-80" />
+              {filePath}
+            </span>
+          );
+        }
+        // href unavailable (polyrepo — path missing service prefix): show as plain code pill
         return (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-md bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-mono font-medium hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors shadow-sm"
-            style={{ textDecoration: 'none', verticalAlign: 'middle', border: '1px solid rgba(128,128,128,0.2)' }}
-            title={`View ${filePath} on GitHub`}
+          <span
+            className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-mono"
+            style={{ verticalAlign: 'middle', border: '1px solid rgba(128,128,128,0.15)' }}
+            title={filePath}
           >
-            <FaGithub size={12} className="opacity-80" />
             {filePath}
-          </a>
+          </span>
         );
       }
 
@@ -342,4 +438,4 @@ const Markdown: React.FC<MarkdownProps> = ({
   );
 };
 
-export default Markdown;
+export default React.memo(Markdown);

@@ -217,13 +217,13 @@ def load_lang_config():
             "zh": "Mandarin Chinese (中文)",
             "zh-tw": "Traditional Chinese (繁體中文)",
             "es": "Spanish (Español)",
-            "kr": "Korean (한국어)",
+            "ko": "Korean (한국어)",
             "vi": "Vietnamese (Tiếng Việt)",
             "pt-br": "Brazilian Portuguese (Português Brasileiro)",
             "fr": "Français (French)",
             "ru": "Русский (Russian)"
         },
-        "default": "en"
+        "default": "ko"
     }
 
     loaded_config = load_json_config("lang.json") # Let load_json_config handle path and loading

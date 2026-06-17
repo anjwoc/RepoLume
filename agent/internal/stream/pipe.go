@@ -10,7 +10,6 @@ import (
 
 // PipeCmd starts cmd, reads stdout line-by-line and sends each line as a
 // string on the returned channel. The channel is closed when the process exits.
-// Stderr is inherited (passes through to terminal for CLI progress output).
 func PipeCmd(cmd *exec.Cmd) (<-chan string, error) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -49,4 +48,3 @@ func CollectOutput(cmd *exec.Cmd) (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
-

@@ -1,6 +1,7 @@
 // Package runner — Antigravity CLI runner.
 //
-// Uses `agy --print "prompt"`.
+// agy reads from stdin when --prompt "" is given:
+//   echo "PROMPT" | agy --prompt ""
 package runner
 
 import (
@@ -21,7 +22,7 @@ func NewAntigravityRunner() *AntigravityRunner {
 }
 
 func (r *AntigravityRunner) Name() string        { return "antigravity" }
-func (r *AntigravityRunner) DefaultModel() string { return "gemini-3.1-flash" } // Antigravity uses gemini under the hood
+func (r *AntigravityRunner) DefaultModel() string { return "gemini-3.1-flash" }
 func (r *AntigravityRunner) FlashModel() string   { return "gemini-3.1-flash" }
 func (r *AntigravityRunner) ProModel() string     { return "gemini-3.1-pro" }
 
@@ -31,19 +32,12 @@ func (r *AntigravityRunner) Available() bool {
 	return err == nil
 }
 
-// Run executes the prompt in headless mode and returns a streaming channel.
-//
-//	agy --print "PROMPT"
+// Run executes the prompt via stdin (agy reads stdin when --prompt "" is set)
+// and returns a streaming channel of output lines.
 func (r *AntigravityRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
-	// agy supports stdin if prompt is empty string according to test `echo "hello" | agy --prompt ""`
-	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
-
-	// agy는 에이전트이므로 파일을 생성하지 않고 표준 출력으로 반환하도록 강제 지시문 추가
-	strictPrompt := req.Prompt + "\n\nCRITICAL INSTRUCTION: DO NOT use any tools to create files or save documents to the workspace or artifact directory. You MUST output the final requested content (e.g. markdown) directly as plain text to standard output so the caller can read it. DO NOT use the ask_question tool or prompt the user for input. Make reasonable assumptions. Do not include any conversational filler, output ONLY the raw markdown content."
-
-	cmd := exec.CommandContext(ctx, "agy", args...)
+	cmd := exec.CommandContext(ctx, "agy", "--prompt", "")
 	cmd.Dir = req.Cwd
-	cmd.Stdin = strings.NewReader(strictPrompt)
+	cmd.Stdin = strings.NewReader(req.Prompt)
 
 	lines, err := stream.PipeCmd(cmd)
 	if err != nil {
@@ -54,13 +48,9 @@ func (r *AntigravityRunner) Run(ctx context.Context, req RunRequest) (<-chan Chu
 
 // RunCollect executes the prompt synchronously and collects full output.
 func (r *AntigravityRunner) RunCollect(ctx context.Context, req RunRequest) (RunResult, error) {
-	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
-
-	strictPrompt := req.Prompt + "\n\nCRITICAL INSTRUCTION: DO NOT use any tools to create files or save documents to the workspace or artifact directory. You MUST output the final requested content (e.g. markdown) directly as plain text to standard output so the caller can read it. DO NOT use the ask_question tool or prompt the user for input. Make reasonable assumptions. Do not include any conversational filler, output ONLY the raw markdown content."
-
-	cmd := exec.CommandContext(ctx, "agy", args...)
+	cmd := exec.CommandContext(ctx, "agy", "--prompt", "")
 	cmd.Dir = req.Cwd
-	cmd.Stdin = strings.NewReader(strictPrompt)
+	cmd.Stdin = strings.NewReader(req.Prompt)
 
 	out, err := stream.CollectOutput(cmd)
 	if err != nil {

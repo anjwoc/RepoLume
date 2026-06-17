@@ -1,0 +1,37 @@
+{
+  "timestamp": "20260612_133443",
+  "repo": "/Users/jaecjeong/lab/vscode",
+  "module": "/Users/jaecjeong/lab/vscode/src/vs/workbench/api/test/browser/extHostDocumentData.test.perf-data.ts",
+  "results": [
+    {
+      "provider": "gemini",
+      "status": "OK",
+      "error": "",
+      "duration_s": 29.2
+    },
+    {
+      "provider": "claude",
+      "status": "ERROR",
+      "error": "[Errno 8] Exec format error: 'claude'",
+      "duration_s": 0.0
+    },
+    {
+      "provider": "codex",
+      "status": "ERROR",
+      "error": "Timeout after 180s",
+      "duration_s": 180.0
+    },
+    {
+      "provider": "antigravity",
+      "status": "OK",
+      "error": "",
+      "duration_s": 19.6
+    },
+    {
+      "provider": "openrouter/deepseek-v4-flash",
+      "status": "SKIPPED",
+      "error": "OPENROUTER_API_KEY not set",
+      "duration_s": 0
+    }
+  ]
+}

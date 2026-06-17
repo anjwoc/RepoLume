@@ -63,6 +63,7 @@ export function SettingsScreen({
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [urlSyncResult, setUrlSyncResult] = useState<{ pages: number; links: number } | null>(null);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({});
   const [customProviders, setCustomProviders] = useState<MCPProvider[]>([]);
@@ -194,7 +195,43 @@ export function SettingsScreen({
     setHasChanges(true);
   };
 
+  const syncRepositoryBaseUrl = (oldUrl: string, newUrl: string) => {
+    if (typeof window === "undefined") return { pages: 0, links: 0 };
+    const old = oldUrl.replace(/\/$/, "");
+    const next = newUrl.replace(/\/$/, "");
+    let pages = 0, links = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith("localwiki_cache_")) continue;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        if (!data.generatedPages) continue;
+        let modified = false;
+        for (const page of Object.values(data.generatedPages) as Array<{ content?: string }>) {
+          if (!page.content) continue;
+          const count = (page.content.split(old).length - 1);
+          if (count > 0) {
+            page.content = page.content.split(old).join(next);
+            links += count;
+            pages++;
+            modified = true;
+          }
+        }
+        if (modified) localStorage.setItem(key, JSON.stringify(data));
+      } catch {}
+    }
+    return { pages, links };
+  };
+
   const handleSave = () => {
+    const oldUrl = (initialAppSettings.repositoryBaseUrl || "").trim();
+    const newUrl = (appSettings.repositoryBaseUrl || "").trim();
+    if (oldUrl && newUrl && oldUrl !== newUrl) {
+      const result = syncRepositoryBaseUrl(oldUrl, newUrl);
+      if (result.links > 0) setUrlSyncResult(result);
+    }
     onSaveSettings(settings);
     onSaveAppSettings(appSettings);
     setHasChanges(false);
@@ -499,12 +536,19 @@ export function SettingsScreen({
                     <p style={{ color: t.text, fontSize: 14, fontWeight: 500, margin: 0 }}>Repository Web URL</p>
                     <p style={{ color: t.textSecondary, fontSize: 12, margin: "4px 0 0 0" }}>사내망 Github 등 커스텀 링크 생성에 사용됩니다</p>
                   </div>
+                  {(initialAppSettings.repositoryBaseUrl || "").trim() &&
+                   (appSettings.repositoryBaseUrl || "").trim() &&
+                   (initialAppSettings.repositoryBaseUrl || "").trim() !== (appSettings.repositoryBaseUrl || "").trim() && (
+                    <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "3px 8px", borderRadius: 6 }}>
+                      저장 시 기존 위키 링크가 일괄 업데이트됩니다
+                    </span>
+                  )}
                 </div>
                 <div>
                   <input
                     type="text"
                     value={appSettings.repositoryBaseUrl}
-                    onChange={(e) => { setAppSettings(prev => ({ ...prev, repositoryBaseUrl: e.target.value })); setHasChanges(true); }}
+                    onChange={(e) => { setAppSettings(prev => ({ ...prev, repositoryBaseUrl: e.target.value })); setHasChanges(true); setUrlSyncResult(null); }}
                     placeholder="https://github.company.com/org"
                     style={{
                       width: "100%", padding: "9px 12px", borderRadius: 8,
@@ -513,6 +557,12 @@ export function SettingsScreen({
                     }}
                   />
                 </div>
+                {urlSyncResult && (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, color: "#22c55e", fontSize: 12 }}>
+                    <Check size={13} />
+                    {urlSyncResult.pages}개 페이지 · {urlSyncResult.links}개 링크가 새 URL로 업데이트되었습니다
+                  </div>
+                )}
               </div>
 
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${t.divider}` }}>

@@ -1,0 +1,37 @@
+{
+  "timestamp": "20260612_134222",
+  "repo": "/Users/jaecjeong/lab/vscode",
+  "module": "/Users/jaecjeong/lab/vscode/extensions/copilot/src/extension/prompts/node/inline/pythonCookbookData.ts",
+  "results": [
+    {
+      "provider": "gemini",
+      "status": "OK",
+      "error": "",
+      "duration_s": 37.3
+    },
+    {
+      "provider": "claude",
+      "status": "SKIPPED",
+      "error": "binary not executable (stub or wrong arch)",
+      "duration_s": 0.0
+    },
+    {
+      "provider": "codex",
+      "status": "ERROR",
+      "error": "ERROR: {\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-5.5-mini' model is not supported when using Codex with a ChatGPT account.\"}}",
+      "duration_s": 7.7
+    },
+    {
+      "provider": "antigravity",
+      "status": "OK",
+      "error": "",
+      "duration_s": 13.5
+    },
+    {
+      "provider": "openrouter/deepseek-v4-flash",
+      "status": "SKIPPED",
+      "error": "OPENROUTER_API_KEY not set",
+      "duration_s": 0
+    }
+  ]
+}
