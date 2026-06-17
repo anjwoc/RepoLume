@@ -12,12 +12,13 @@ type ProjectType =
   | 'frontend-web'  // React/Vue/Next.js web app
   | 'fullstack'     // frontend + backend in one repo
   | 'cli-tool'      // command-line tool (Commander, Cobra, Click…)
-  | 'library-sdk'   // reusable library / SDK / npm package
-  | 'compiler'      // compiler, bundler, AST transformer
-  | 'monorepo'      // Turborepo / Nx / Lerna multi-package repo
-  | 'mobile'        // iOS / Android / React Native
-  | 'data-platform' // data pipelines, dbt, Airflow, Spark
-  | 'general';      // fallback
+  | 'library-sdk'      // reusable library / SDK / npm package
+  | 'compiler'         // compiler, bundler, AST transformer
+  | 'monorepo'         // Turborepo / Nx / Lerna multi-package repo
+  | 'multi-project'    // directory containing 2+ independent sub-projects (MSA, polyrepo, multi-module)
+  | 'mobile'           // iOS / Android / React Native
+  | 'data-platform'    // data pipelines, dbt, Airflow, Spark
+  | 'general';         // fallback
 
 function classifyProject(fileTree: string, readme: string): ProjectType {
   const text = `${fileTree}\n${readme}`.toLowerCase();
@@ -27,6 +28,14 @@ function classifyProject(fileTree: string, readme: string): ProjectType {
   if (has('src/vs/', '/workbench/', 'extensionhost', 'extension host',
           'contribution point', 'language-features/', 'textmate', '/code/node/'))
     return 'ide';
+
+  // Multi-project — root directory contains 2+ independent sub-projects each with their own build config.
+  // Rationale: if the user pointed to THIS directory and it has multiple independent projects inside,
+  // those projects are organically related (they're siblings for a reason). Treat as a system.
+  // Detects: pom.xml, build.gradle, go.mod, Cargo.toml, package.json at depth-1 sub-dirs.
+  const mpMatches = text.match(/\b([\w-]+)\/(pom\.xml|build\.gradle|go\.mod|cargo\.toml)/gi) || [];
+  const mpServiceDirs = new Set(mpMatches.map(p => p.split('/')[0].toLowerCase()));
+  if (mpServiceDirs.size >= 2) return 'multi-project';
 
   // Monorepo — unambiguous config files
   if (has('turbo.json', 'nx.json', 'lerna.json', 'pnpm-workspace.yaml',
@@ -83,8 +92,9 @@ function projectTypeLabel(type: ProjectType): string {
     'cli-tool':     'CLI 도구',
     'library-sdk':  '라이브러리 / SDK',
     compiler:       '컴파일러 / 빌드도구',
-    monorepo:       '모노레포',
-    mobile:         '모바일 앱',
+    monorepo:          '모노레포',
+    'multi-project':   '멀티 프로젝트 시스템',
+    mobile:            '모바일 앱',
     'data-platform':'데이터 플랫폼',
     general:        '일반 소프트웨어',
   };
@@ -272,6 +282,34 @@ DECOMPOSITION RULES:
 - Transformation Passes: if there are 5+ distinct passes, each major pass gets its own page.
 - If the tool supports multiple output targets (e.g., ESM, CJS, WASM), each target gets coverage.`,
 
+    // ─── Multi-Project System (MSA / Polyrepo / Multi-module) ────────────────
+    // Triggered when the analyzed root dir contains 2+ sub-projects each with
+    // their own build config. The sub-projects are siblings for a reason —
+    // they form an organic system and must be analyzed both individually AND
+    // in terms of how they communicate and share data.
+    'multi-project': `
+### PROJECT TYPE: Multi-Project System — MANDATORY SECTION TEMPLATE
+The analyzed directory contains multiple independent sub-projects that form a cohesive system.
+Each area below MUST become its own rootSection. DO NOT merge or omit any.
+
+REQUIRED SECTIONS (minimum = 3 cross-cutting + 1 per detected sub-project):
+1. System Overview — full service/component map, network topology, shared infrastructure, deployment architecture
+2. Business Flows — ONE PAGE PER major end-to-end business flow: trace user requests across projects (HTTP + events + DB writes) with sequenceDiagram per flow showing exact call chains
+3. [Sub-Project Name] (one rootSection PER detected sub-project — NEVER merge two projects):
+   - API Contract: endpoints/interfaces this project exposes, who calls it (inbound), what it calls (outbound)
+   - Domain Model: core entities, aggregate roots, DB schema/tables owned by this project
+   - Internal Architecture: project layers, key business logic, events published/consumed
+4. Communication & Integration Backbone — how projects talk to each other: HTTP clients, event bus topics, shared schemas, message contracts
+5. Cross-Cutting Concerns — auth propagation across projects, distributed tracing/log correlation, error handling, shared config
+
+DECOMPOSITION RULES:
+- EVERY detected sub-project becomes its own rootSection with minimum 3 pages. NEVER merge two sub-projects.
+- System Overview MUST include Mermaid graph TD: all sub-project nodes + HTTP arrows + event/queue arrows + external DB/cache nodes.
+- Business Flows: include sequenceDiagram per flow. Each arrow must show the HTTP method+endpoint OR event topic name.
+- API Contract page for each sub-project MUST document: inbound callers (which other projects call this one) AND outbound calls (which projects/services this one calls).
+- Communication Backbone: include a producer-consumer table if events/queues are used: Topic | Producer Project | Consumer Projects | Schema summary.
+- NEVER create a flat "All APIs" page covering all sub-projects — each sub-project API is its own page.`,
+
     // ─── Monorepo ─────────────────────────────────────────────────────────────
     monorepo: `
 ### PROJECT TYPE: Monorepo — MANDATORY SECTION TEMPLATE
@@ -429,6 +467,44 @@ function projectTypeTopicRequirements(type: ProjectType, sectionTitle: string, p
 - 패키지 간 의존 관계를 보여주는 \`graph LR\` 포함 (어떤 패키지가 어떤 패키지를 import하는지).
 - 패키지 테이블: Package / Path / 목적 / Consumers.
 - 내부 import 컨벤션 설명 (workspace: 프로토콜, tsconfig paths 등).`;
+  }
+
+  if (type === 'multi-project') {
+    if (has('system overview', 'service map', 'system map', '시스템 개요', '서비스 맵', '전체'))
+      return `
+### 멀티 프로젝트 시스템 개요 필수 요구사항
+- 전체 서브 프로젝트 연결 \`graph TD\` 필수: 각 프로젝트 노드, HTTP 호출 화살표(endpoint 표기), 이벤트/메시지 화살표(topic 표기), 외부 DB/캐시 노드.
+- 프로젝트 책임 테이블: Project / Domain / Tech Stack / DB Owned / Port / Key Dependencies.
+- 외부 시스템 목록: 3rd party APIs, message brokers, CDN, auth server 등.`;
+
+    if (has('business flow', '비즈니스 플로우', '플로우', 'flow', 'journey', '흐름'))
+      return `
+### 멀티 프로젝트 비즈니스 플로우 필수 요구사항
+- 각 플로우마다 \`sequenceDiagram\` 필수: Client → ProjectA → ProjectB → DB → EventBus → ProjectC 순서로.
+- 각 화살표에 HTTP method+endpoint 또는 event topic명 명시.
+- 실패 경로(error response, dead-letter, timeout, fallback) 별도 표시.
+- 플로우가 여러 개면 페이지를 분리 — 하나의 페이지에 모든 플로우를 우겨넣지 말 것.`;
+
+    if (has('api contract', 'api 계약', 'endpoint', 'interface', '인터페이스', '계약'))
+      return `
+### 멀티 프로젝트 API Contract 필수 요구사항
+- 엔드포인트 테이블: Method / Path / Request Body / Response / Auth Required / 호출 주체.
+- Inbound 호출자 테이블: 이 프로젝트를 호출하는 다른 프로젝트 + 어떤 엔드포인트 + 어떤 HTTP 클라이언트 클래스.
+- Outbound 호출 테이블: 이 프로젝트가 호출하는 다른 프로젝트/외부 서비스 + 사용하는 HTTP 클라이언트.`;
+
+    if (has('event', 'messaging', '이벤트', 'kafka', 'rabbit', 'queue', 'topic', 'message', '메시지'))
+      return `
+### 멀티 프로젝트 이벤트 / 메시징 필수 요구사항
+- Producer-Consumer Matrix 테이블 필수: Topic / Producer Project / Consumer Projects / Message Schema 요약 / 발행 트리거.
+- 각 이벤트의 발행 조건(언제 publish되는지) 명시.
+- Dead-letter / retry / 순서 보장 정책 테이블.`;
+
+    if (has('domain model', 'domain', 'entity', '도메인', '엔티티', 'schema', 'table', '테이블'))
+      return `
+### 멀티 프로젝트 도메인 모델 필수 요구사항
+- 이 프로젝트가 소유한 테이블/엔티티 ER 다이어그램.
+- 다른 프로젝트의 데이터를 참조하는 경우: 어떤 ID를 foreign key처럼 사용하는지, 동기화 방식(API 호출 vs 이벤트) 명시.
+- 데이터 소유권 명확화: 어떤 프로젝트가 이 데이터의 source of truth인지.`;
   }
 
   if (type === 'data-platform') {
@@ -678,7 +754,7 @@ function extractDirectoryMap(fileTree: string, maxEntries = 80): string {
     const children = tree.get(path) ?? new Set();
     if (children.size === 0) return [];
     // If single-child funnel AND not too deep, unwrap
-    if (children.size === 1 && depth < 4) {
+    if (children.size === 1 && depth < 8) {
       const only = [...children][0];
       const childPath = path === '.' ? only : `${path}/${only}`;
       return resolveDir(childPath, depth + 1);
@@ -870,7 +946,7 @@ export async function runWikiStructure(
     'ide', 'compiler', 'backend-api', 'frontend-web', 'fullstack',
     'monorepo', 'mobile', 'data-platform', 'library-sdk', 'cli-tool',
   ];
-  const directoryMap = extractDirectoryMap(fullTreeForDirMap);
+  const directoryMap = extractDirectoryMap(fullTreeForDirMap, projectType === 'multi-project' ? 300 : 80);
 
   // Graphify 아키텍처 요약 fetch — Phase 2b ToC와 Phase 4.5 인사이트에서 재사용
   let graphifyArchSummary = '';
@@ -890,6 +966,22 @@ export async function runWikiStructure(
     }
   } catch { /* Graphify 없으면 directoryMap fallback */ }
 
+  // For multi-project: extract top-level sub-project dirs from flat file paths before Phase 2a
+  let topLevelServiceDirs = '';
+  if (projectType === 'multi-project') {
+    const buildFilePat = /^([\w-]+)\/(pom\.xml|build\.gradle|go\.mod|cargo\.toml)$/i;
+    const serviceDirMap = new Map<string, string>();
+    for (const line of fullTreeForDirMap.split('\n')) {
+      const m = line.trim().match(buildFilePat);
+      if (m) serviceDirMap.set(m[1], m[2]);
+    }
+    if (serviceDirMap.size >= 2) {
+      topLevelServiceDirs = `\n### Detected top-level sub-projects (each directory has its own build config — treat each as an INDEPENDENT sub-project):\n${
+        [...serviceDirMap.entries()].map(([dir, f]) => `- ${dir}/ (${f})`).join('\n')
+      }\n`;
+    }
+  }
+
   let subsystems: Array<{ id: string; name: string; paths: string[]; description: string }> = [];
 
   if (SKIP_PHASE2A_TYPES.includes(projectType)) {
@@ -898,7 +990,41 @@ export async function runWikiStructure(
   } else {
     await emitStep(streamId, 'agent_log', 'structure', '🔍 아키텍처 서브시스템 분석 중...');
     try {
-      const subsystemPrompt = `You are analyzing a ${projectTypeLabel(projectType)} codebase.
+      const subsystemPrompt = projectType === 'multi-project'
+        ? `You are analyzing a multi-project system where the analyzed root directory contains multiple independent sub-projects that form an organic, related system.
+${topLevelServiceDirs}
+Directory structure (package-level detail):
+<directory_map>
+${directoryMap}
+</directory_map>
+
+README:
+<readme>
+${readme.slice(0, 2000)}
+</readme>
+
+For EACH top-level sub-project directory listed above, identify:
+- What business domain / responsibility it owns
+- What APIs or interfaces it exposes (REST controllers, gRPC services, public interfaces)
+- What other sub-projects or external services it calls (HTTP clients: RestTemplate, WebClient, FeignClient, Feign, fetch, axios)
+- What events/messages it publishes (KafkaTemplate, RabbitTemplate, EventPublisher, message queues)
+- What events/messages it consumes (@KafkaListener, @RabbitListener, @EventListener, message consumers)
+- What database / storage it owns
+
+Return a JSON ARRAY — ONE entry per top-level sub-project listed above (every directory must have an entry):
+[
+  {
+    "id": "kebab-case-project-id",
+    "name": "Project Human Name",
+    "paths": ["project-dir/"],
+    "description": "Domain: <what it does>. Exposes: <APIs>. Calls: <other projects/services>. Publishes: <event topics>. Consumes: <event topics>."
+  }
+]
+Rules:
+- EVERY sub-project directory listed in "Detected top-level sub-projects" above MUST have exactly one entry
+- description MUST capture inter-project communication (HTTP calls, events) — this is the most important part
+- id must be kebab-case (use the directory name as the base, e.g. "affiliate-admin" → "affiliate-admin")`
+        : `You are analyzing a ${projectTypeLabel(projectType)} codebase.
 
 Directory structure:
 <directory_map>
@@ -924,7 +1050,8 @@ Rules:
 
       const subsysRaw = await streamLLM(subsystemPrompt);
       const parsed = extractJson(subsysRaw, true);
-      if (Array.isArray(parsed) && parsed.length >= 4) {
+      const minSubsystems = projectType === 'multi-project' ? 2 : 4;
+      if (Array.isArray(parsed) && parsed.length >= minSubsystems) {
         subsystems = parsed.filter((s: any) => s.id && s.name);
         await emitStep(streamId, 'agent_log', 'structure',
           `✅ 서브시스템 ${subsystems.length}개 식별: ${subsystems.map(s => s.name).join(', ')}`);
@@ -939,9 +1066,25 @@ Rules:
   // subsystems가 있을 때만 "MUST become sections" 지시를 추가.
   // ide/compiler는 subsystems=[] 이므로 projectTypeHints가 유일한 섹션 지시가 됨.
   const subsystemSection = subsystems.length > 0
-    ? `\n### Identified Architectural Subsystems (MUST become sections)\n${
-        subsystems.map(s => `- ${s.name}: ${s.description}`).join('\n')
-      }\n\nDECOMPOSITION RULES (MANDATORY):\n1. Each subsystem above becomes its own SECTION in rootSections.\n2. Within each section, create separate pages for distinct sub-components (core data structures, key algorithms, public API/extension points, integration points).\n3. NEVER merge two distinct subsystems into one section.\n4. NEVER create a single "Overview" page that covers multiple subsystems — split it.\n`
+    ? (projectType === 'multi-project'
+      ? `\n### MANDATORY: Multi-Project rootSection Structure
+This system has ${subsystems.length} independent sub-projects. The JSON MUST use this exact rootSections layout:
+
+rootSections MUST include ALL of the following (in this order):
+  1. "system-overview" — title: "System Overview", pages: service-map (graph TD), business-flow (sequenceDiagram), data-flow
+${subsystems.map((s, i) => `  ${i + 2}. "${s.id}" — title: "${s.name}", pages: ${s.id}-api (API Contract), ${s.id}-domain (Domain Model), ${s.id}-architecture (Internal Architecture)`).join('\n')}
+  ${subsystems.length + 2}. "cross-cutting" — title: "Cross-Cutting Concerns", pages: auth, observability, error-handling
+
+HARD CONSTRAINTS — violation = wrong output:
+- rootSections array MUST contain: "system-overview", ${subsystems.map(s => `"${s.id}"`).join(', ')}, "cross-cutting"
+- Each sub-project is its OWN rootSection — NEVER group them inside a "Deep Dive" or "Services" parent
+- Minimum ${subsystems.length * 3 + 5} total pages
+- Sub-project descriptions for context:
+${subsystems.map(s => `  ${s.name}: ${s.description}`).join('\n')}
+`
+      : `\n### Identified Architectural Subsystems (MUST become sections)\n${
+          subsystems.map(s => `- ${s.name}: ${s.description}`).join('\n')
+        }\n\nDECOMPOSITION RULES (MANDATORY):\n1. Each subsystem above becomes its own SECTION in rootSections.\n2. Within each section, create separate pages for distinct sub-components (core data structures, key algorithms, public API/extension points, integration points).\n3. NEVER merge two distinct subsystems into one section.\n4. NEVER create a single "Overview" page that covers multiple subsystems — split it.\n`)
     : '';
 
   const feedbackSection = userFeedback
@@ -1079,6 +1222,31 @@ Your FIRST character must be "{" and LAST must be "}". No prose, no markdown fen
     throw new Error(`위키 구조 파싱 실패: ${lastErr}`);
   }
 
+  // ── Multi-project post-processing: force each detected sub-project into its own rootSection ──
+  // Even if the LLM ignored the MANDATORY instruction and grouped services into a "Deep Dive" section,
+  // we repair the structure here to ensure every sub-project gets 3 proper pages.
+  if (projectType === 'multi-project' && subsystems.length >= 2) {
+    const existingSectionIds = new Set((wikiStructure.sections || []).map((s: any) => s.id));
+    const missing = subsystems.filter(sub => !existingSectionIds.has(sub.id));
+    if (missing.length >= 2) {
+      await emitStep(streamId, 'agent_log', 'structure',
+        `🔧 Multi-project 구조 보정: ${missing.length}개 서브프로젝트를 rootSection으로 승격`);
+      const existingPageIds = new Set((wikiStructure.pages || []).map((p: any) => p.id));
+      for (const sub of missing) {
+        const ids = [`${sub.id}-api`, `${sub.id}-domain`, `${sub.id}-architecture`];
+        wikiStructure.sections.push({ id: sub.id, title: sub.name, pages: ids });
+        if (!wikiStructure.rootSections.includes(sub.id)) wikiStructure.rootSections.push(sub.id);
+        const titles = ['API Contract', 'Domain Model', 'Internal Architecture'];
+        ids.forEach((id, i) => {
+          if (!existingPageIds.has(id)) {
+            wikiStructure.pages.push({ id, title: `${sub.name} — ${titles[i]}`, filePaths: sub.paths });
+            existingPageIds.add(id);
+          }
+        });
+      }
+    }
+  }
+
   const pageCount = (wikiStructure.pages || []).length;
   const sectionCount = (wikiStructure.sections || []).length;
 
@@ -1190,7 +1358,51 @@ export async function runWikiGeneration(
     }
 
     // ──────────────────────────────────────────────────────────
-    // Phase 2.5 + 3: MCP 활성화된 경우에만 실행
+    // Phase 2.5: Git roots → LLM에게 절대 GitHub URL 제공
+    // ──────────────────────────────────────────────────────────
+    let gitRootsForPrompt = '';
+    try {
+      const grRes = await fetch(`/api/git_roots?path=${encodeURIComponent(projectPath)}`);
+      if (grRes.ok) {
+        const grData = await grRes.json();
+        const roots: any[] = grData.roots || [];
+        if (roots.length > 0) {
+          const rootLines = roots
+            .filter((r: any) => r.webUrl)
+            .map((r: any) => {
+              const label = r.prefix ? `"${r.prefix}/" subdirectory` : 'repository root';
+              return `  - ${label}: ${r.webUrl} (default branch: ${r.branch || 'main'})`;
+            })
+            .join('\n');
+          const exRoot = roots.find((r: any) => r.webUrl) as any;
+          const exUrl = exRoot
+            ? `${exRoot.webUrl}/blob/${exRoot.branch || 'main'}/path/to/SomeFile.java`
+            : '';
+          const isPolyrepo = roots.filter((r: any) => r.prefix).length > 1;
+          if (rootLines) {
+            const polyrepoWarning = isPolyrepo
+              ? '⚠️ POLYREPO STRUCTURE: Each top-level subdirectory is a SEPARATE independent GitHub repository.\n'
+              + 'The parent directory (local aggregate) does NOT exist as a GitHub repo — do NOT use its name in any URL.\n'
+              : '';
+            const polyrepoRules = isPolyrepo
+              ? '\n2. File paths MUST include the service subdirectory prefix (e.g. affiliate-event/src/main/.../Foo.java). NEVER use just the filename Foo.java — the renderer cannot determine which repo it belongs to without the prefix.'
+              + '\n3. The local parent directory name is NOT a GitHub repo. NEVER construct URLs like https://github.xxx.com/affiliate/blob/...'
+              : '';
+            gitRootsForPrompt = '\n### Source Repository GitHub URLs (MANDATORY)\n'
+              + polyrepoWarning
+              + 'Each repository maps to:\n'
+              + rootLines + '\n'
+              + (exUrl ? 'File link example: ' + exUrl + '\n' : '')
+              + 'LINKING RULES (strictly enforced):\n'
+              + '1. Every hyperlink to a file, class, or module MUST start with https://.'
+              + polyrepoRules + '\n';
+          }
+        }
+      }
+    } catch { /* non-fatal — generation continues without URL hints */ }
+
+    // ──────────────────────────────────────────────────────────
+    // Phase 3 + 4: MCP 활성화된 경우에만 실행
     // ──────────────────────────────────────────────────────────
     let codeEntities: Record<string, any> | null = null;
     let mcpContext: Record<string, string> = {};
@@ -1363,7 +1575,7 @@ Your task is to generate a comprehensive, in-depth technical wiki page in Markdo
 Topic: "${page.title}"
 ${sourceFilesText}
 ${symbolContextBlock}
-
+${gitRootsForPrompt}
 ### Content Requirements (MANDATORY)
 - Write SUBSTANTIVE content with at least 4-6 major sections (## headings) and subsections (### headings) where relevant.
 - CITE specific file paths, class names, function names, and module names from the source files listed above. Every major claim must reference an actual file or symbol — no invented or generic filler.

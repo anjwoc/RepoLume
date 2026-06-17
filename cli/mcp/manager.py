@@ -55,6 +55,7 @@ class MCPManager:
         self._db_clients = self._init_db_clients()
         self._atlassian_client = self._init_atlassian()
         self._github_client = self._init_github()
+        self._custom_clients = self._init_custom_mcps()
 
     @classmethod
     def from_config(cls, config_path: str | Path | None = None) -> "MCPManager":
@@ -119,6 +120,119 @@ class MCPManager:
 
         return assembler.build()
 
+    def collect_cross_check_context(
+        self,
+        entities: dict,
+        topic_hint: str = "",
+    ) -> dict[str, str]:
+        """
+        Reverse-lookup MCP data from code-extracted entities.
+
+        For each enabled DB:
+          1. list_tables() → intersect with entities["db_tables"]
+          2. describe_table() for each relevant table
+          3. get_procedure_source() for entities["stored_procs"]
+
+        For GitHub/Atlassian: search using service names + topic hint.
+
+        Returns {provider_label: context_text}.
+        Failures emit a skip and continue (graceful degradation).
+        """
+        db_tables: list[str] = entities.get("db_tables", [])
+        stored_procs: list[str] = entities.get("stored_procs", [])
+        service_names: list[str] = entities.get("service_names", [])
+        topic = topic_hint or " ".join(service_names[:3])
+
+        results: dict[str, str] = {}
+        skipped: list[str] = []
+
+        # ── DB cross-check ────────────────────────────────────────────────
+        for db_client in self._db_clients:
+            if not db_client._config.enabled or not db_client.available:
+                continue
+            label = f"DB ({db_client._config.db_type})"
+            try:
+                parts: list[str] = []
+
+                # Schema for relevant tables
+                if db_tables:
+                    from cli.mcp.base_client import MCPStdioClient
+                    cmd = db_client._build_command()
+                    with MCPStdioClient(cmd, timeout=30) as mcp:
+                        available_raw = mcp.call_tool("list_tables", {})
+                        available = set(db_client._parse_table_list(available_raw))
+                        relevant = [t for t in db_tables if t in available][:15]
+                        for table in relevant:
+                            try:
+                                desc = mcp.call_tool("describe_table", {"table": table})
+                                parts.append(f"### 테이블: {table}\n```sql\n{desc}\n```")
+                            except Exception as e:
+                                logger.debug("describe_table %s: %s", table, e)
+
+                # Stored procedure sources
+                if stored_procs:
+                    sp_text = db_client.get_procedure_source(stored_procs)
+                    if sp_text:
+                        parts.append(sp_text)
+
+                if parts:
+                    results[label] = "\n\n".join(parts)
+                    logger.info("MCP cross-check %s: %d chars", label, len(results[label]))
+            except Exception as e:
+                logger.warning("MCP cross-check skipped (%s): %s", label, e)
+                skipped.append(label)
+
+        # ── GitHub cross-check ────────────────────────────────────────────
+        if self._github_client and self._github_client._config.enabled:
+            label = "GitHub"
+            if not topic:
+                skipped.append(f"{label} (엔티티 없음)")
+            else:
+                try:
+                    ctx = self._github_client.get_repo_context(
+                        topic=topic,
+                        owner=self._github_client._config.owner or "",
+                        repo=self._github_client._config.repo or "",
+                    )
+                    if ctx and ctx.content:
+                        results[label] = ctx.content
+                except Exception as e:
+                    logger.warning("MCP cross-check skipped (%s): %s", label, e)
+                    skipped.append(label)
+
+        # ── Custom MCP cross-check ────────────────────────────────────────
+        for custom_client in self._custom_clients:
+            if not custom_client._config.enabled or not custom_client.available:
+                continue
+            label = f"Custom ({custom_client._config.key})"
+            try:
+                ctx = custom_client.get_context(topic=topic)
+                if ctx:
+                    results[label] = ctx
+                    logger.info("MCP cross-check %s: %d chars", label, len(ctx))
+            except Exception as e:
+                logger.warning("MCP cross-check skipped (%s): %s", label, e)
+                skipped.append(label)
+
+        # ── Atlassian cross-check ─────────────────────────────────────────
+        if self._atlassian_client and self._atlassian_client._config.enabled:
+            label = "Atlassian"
+            if not topic:
+                skipped.append(f"{label} (엔티티 없음)")
+            else:
+                try:
+                    ctx = self._atlassian_client.get_project_context(topic)
+                    if ctx and ctx.content:
+                        results[label] = ctx.content
+                except Exception as e:
+                    logger.warning("MCP cross-check skipped (%s): %s", label, e)
+                    skipped.append(label)
+
+        if skipped:
+            logger.info("MCP cross-check skipped providers: %s", skipped)
+
+        return results
+
     def status(self) -> dict[str, bool]:
         """Return enabled/available status of each MCP source."""
         status = {}
@@ -164,6 +278,8 @@ class MCPManager:
                 enabled=section.get("enabled", False),
                 display_name=section.get("display_name", db_type.upper()),
             )
+            if not cfg.enabled:
+                continue
             clients.append(DatabaseMCPClient(cfg))
         return clients
 
@@ -186,6 +302,10 @@ class MCPManager:
             space_key=section.get("space_key", ""),
         )
         return AtlassianMCPClient(cfg)
+
+    def _init_custom_mcps(self) -> list:
+        from cli.mcp.custom_mcp import load_custom_mcps
+        return load_custom_mcps(self._config)
 
     def _init_github(self):
         from cli.mcp.github_mcp import GitHubMCPClient, GitHubConfig

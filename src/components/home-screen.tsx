@@ -15,6 +15,7 @@ interface ApiProcessedProject {
   language: string;
   languages?: string[];
   model?: string;
+  slug?: string;
 }
 
 interface InterruptedJob {
@@ -34,7 +35,7 @@ interface HomeScreenProps {
   isDark: boolean;
   onToggleTheme: () => void;
   onSelectProject: (path: string, testMode: boolean, enableBusiness: boolean, paths?: string[]) => void;
-  onOpenWiki: (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string, id?: string) => void;
+  onOpenWiki: (owner: string, repo: string, repo_type: string, language: string, languages?: string[], model?: string, id?: string, slug?: string) => void;
   onResumeProject?: (owner: string, repo: string, repo_type: string, language: string, parentJobId: string) => void;
   onOpenSettings?: () => void;
   onOpenAdmin?: () => void;
@@ -790,7 +791,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
               {recentProjects.map((proj) => (
                 <div
                   key={proj.id}
-                  onClick={() => onOpenWiki(proj.owner, proj.repo, proj.repo_type, proj.languages?.[0] || proj.language, proj.languages, proj.model, proj.id)}
+                  onClick={() => onOpenWiki(proj.owner, proj.repo, proj.repo_type, proj.languages?.[0] || proj.language, proj.languages, proj.model, proj.id, proj.slug)}
                   onMouseEnter={() => setHoveredProject(proj.id)}
                   onMouseLeave={() => setHoveredProject(null)}
                   style={{

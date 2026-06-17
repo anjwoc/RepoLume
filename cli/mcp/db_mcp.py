@@ -131,6 +131,75 @@ class DatabaseMCPClient:
             )
             return ctx
 
+    def get_procedure_source(
+        self,
+        proc_names: list[str],
+        max_procs: int = 10,
+    ) -> str:
+        """
+        Fetch stored procedure / function source from the DB.
+
+        Queries DB-specific system tables:
+          Oracle     → all_source WHERE name = :sp ORDER BY line
+          PostgreSQL → pg_proc WHERE proname = :sp
+          MySQL/MariaDB → SHOW CREATE PROCEDURE :sp
+          MSSQL      → sys.sql_modules WHERE object_id = OBJECT_ID(:sp)
+        """
+        if not self._config.enabled or not self.available or not proc_names:
+            return ""
+
+        queries = self._sp_queries()
+        if not queries:
+            return ""
+
+        parts: list[str] = []
+        cmd = self._build_command()
+        try:
+            with MCPStdioClient(cmd, timeout=30) as client:
+                for proc in proc_names[:max_procs]:
+                    sql = queries.get("source", "").replace(":sp", f"'{proc}'")
+                    if not sql:
+                        continue
+                    try:
+                        result = client.call_tool("execute_query", {"query": sql})
+                        if result.strip():
+                            parts.append(f"### SP: {proc}\n```sql\n{result}\n```")
+                    except MCPError as e:
+                        logger.debug("SP source fetch failed for %s: %s", proc, e)
+        except Exception as e:
+            logger.warning("get_procedure_source error: %s", e)
+
+        return "\n\n".join(parts)
+
+    def _sp_queries(self) -> dict[str, str]:
+        """DB-specific SQL to retrieve stored procedure source."""
+        db = self._config.db_type
+        if db == "oracle":
+            return {
+                "source": (
+                    "SELECT text FROM all_source "
+                    "WHERE name = UPPER(:sp) ORDER BY line"
+                )
+            }
+        if db == "postgresql":
+            return {
+                "source": (
+                    "SELECT prosrc FROM pg_proc "
+                    "WHERE proname = :sp LIMIT 1"
+                )
+            }
+        if db in ("mysql", "mariadb"):
+            return {"source": "SHOW CREATE PROCEDURE :sp"}
+        if db == "mssql":
+            return {
+                "source": (
+                    "SELECT sm.definition FROM sys.sql_modules sm "
+                    "JOIN sys.objects o ON sm.object_id = o.object_id "
+                    "WHERE o.name = :sp"
+                )
+            }
+        return {}
+
     def _build_command(self) -> list[str]:
         """Build the MCP server launch command."""
         if self._config.db_type == "oracle":

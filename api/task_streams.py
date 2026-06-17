@@ -10,6 +10,8 @@ from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from api.events import EventType
+from api.db.store import event_store
 
 DEFAULT_REPLAY_LIMIT = 500
 DEFAULT_STREAM_TTL_SECONDS = 60 * 60
@@ -93,7 +95,22 @@ class TaskStreamManager:
             for queue in dead:
                 state.subscribers.discard(queue)
 
-            return event
+        # Persist to SQLite outside the lock — heartbeats (id=0) are excluded
+        if event.id > 0:
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(
+                None,
+                event_store.append,
+                stream_id,
+                event.id,
+                event.type,
+                event.phase,
+                event.message,
+                event.data,
+                event.ts,
+            )
+
+        return event
 
     async def replay_since(self, stream_id: str, last_event_id: int) -> list[TaskEvent]:
         async with self._lock:
@@ -199,7 +216,7 @@ async def stream_task_events(
                 except asyncio.TimeoutError:
                     heartbeat = TaskEvent(
                         id=0,
-                        type="heartbeat",
+                        type=EventType.HEARTBEAT,
                         stream_id=stream_id,
                         ts=datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                         phase="stream",

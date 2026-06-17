@@ -133,7 +133,12 @@ export default function Page() {
     languages?: string[],
     model?: string,
     id?: string,
+    slug?: string,
   ) => {
+    if (slug) {
+      router.push(`/wiki/${slug}`);
+      return;
+    }
     const p = new URLSearchParams({ repo_type, language, languages: (languages || [language]).join(",") });
     if (model) p.set("model", model);
     if (id) p.set("id", id);
