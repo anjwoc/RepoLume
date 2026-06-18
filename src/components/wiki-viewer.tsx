@@ -1401,15 +1401,20 @@ ${chartCode}
     setQuery("");
   }, []);
 
+  // Refs that always point to the latest version of each handler,
+  // so the stable callbacks below never capture stale closures.
+  const handleFixDiagramRef = useRef(handleFixDiagram);
+  useEffect(() => { handleFixDiagramRef.current = handleFixDiagram; });
+  const handleManualCodeChangeRef = useRef(handleManualCodeChange);
+  useEffect(() => { handleManualCodeChangeRef.current = handleManualCodeChange; });
+
   // Stable callbacks for Markdown props — selectedPageRef avoids recreating on every selectedPage change
   const handleFixDiagramStable = useCallback((chartCode: string, customPrompt?: string) => {
-    return handleFixDiagram(chartCode, customPrompt, selectedPageRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return handleFixDiagramRef.current(chartCode, customPrompt, selectedPageRef.current);
   }, []);
 
   const handleCodeChangeStable = useCallback((oldCode: string, newCode: string) => {
-    return handleManualCodeChange(oldCode, newCode, selectedPageRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return handleManualCodeChangeRef.current(oldCode, newCode, selectedPageRef.current);
   }, []);
 
   const navigateToPageByTarget = useCallback((target: string) => {
