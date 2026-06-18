@@ -12,6 +12,7 @@ import Markdown from "./Markdown";
 import { sanitizeMermaidChart } from "./Mermaid";
 import { regenerateWikiPage, wikiLanguageInstruction } from "@/lib/wiki-generator";
 import { WikiAskPanel } from "./WikiAskPanel";
+import { FaGithub } from "react-icons/fa";
 
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
@@ -308,6 +309,18 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [gitRoots, setGitRoots] = useState<{ prefix: string; name: string; webUrl: string | null; branch: string }[] | null>(null);
   const [isResyncingLinks, setIsResyncingLinks] = useState(false);
   const [resyncResult, setResyncResult] = useState<{ links_fixed: number } | null>(null);
+  // Per-project GitHub URL override (persisted in localStorage, editable by user).
+  const githubUrlStorageKey = projectData ? `localwiki_github_url_${projectData.owner}_${projectData.repo}` : null;
+  const [customGithubUrl, setCustomGithubUrl] = useState<string>(() => {
+    if (!projectData) return '';
+    try { return localStorage.getItem(`localwiki_github_url_${projectData.owner}_${projectData.repo}`) || ''; } catch { return ''; }
+  });
+  // Auto-detected URL (from git remote / cached JSON) — not user-editable, used as fallback
+  const [autoDetectedGithubUrl, setAutoDetectedGithubUrl] = useState<string>('');
+  // Model/provider used to generate this wiki (shown in header)
+  const [wikiModel, setWikiModel] = useState<string>('');
+  const [showGithubUrlEdit, setShowGithubUrlEdit] = useState(false);
+  const [githubUrlDraft, setGithubUrlDraft] = useState('');
   // Section(directory)-level regeneration + business-analysis generation.
   const [refreshKey, setRefreshKey] = useState(0);
   const [regeneratingSectionId, setRegeneratingSectionId] = useState<string | null>(null);
@@ -342,15 +355,23 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     const broken: { pageId: string; chartCode: string }[] = [];
     try {
       const mermaid = (await import("mermaid")).default;
-      mermaid.initialize({ startOnLoad: false });
+      mermaid.initialize({ startOnLoad: false, suppressErrorRendering: true });
+      let idCounter = 0;
       for (const [pageId, pageData] of Object.entries(pages)) {
         const content = pageData?.content || "";
         for (const match of content.matchAll(/```(?:mermaid)\n([\s\S]*?)\n```/gi)) {
           const chartCode = match[1];
+          const sanitized = sanitizeMermaidChart(chartCode);
           try {
-            await mermaid.parse(sanitizeMermaidChart(chartCode));
-          } catch (e) {
-            broken.push({ pageId, chartCode });
+            await mermaid.parse(sanitized);
+          } catch {
+            // parse() can be stricter than render() in mermaid v11 — fall back to render()
+            // to avoid false positives on valid diagrams (e.g. architecture-beta, unicode IDs).
+            try {
+              await mermaid.render(`detect-broken-${idCounter++}`, sanitized);
+            } catch {
+              broken.push({ pageId, chartCode });
+            }
           }
         }
       }
@@ -406,12 +427,52 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
           setWikiStructure(structure);
           setGeneratedPages(cachedData.generated_pages);
+          if (cachedData.model) setWikiModel(cachedData.model);
           // 소스 기반 질의(P4)에 쓰일 원본 레포 경로 (생성 시 캐시에 저장됨)
           setRepoPath(cachedData.repo?.localPath || cachedData.repo?.repoUrl || "");
 
           // Resolve per-subproject git roots so GitHub links point at each
-          // individual repository (.git root) rather than the parent directory.
-          if (!isShowcase) {
+          // individual repository (.git root) rather than the bundling parent.
+          // Priority: user custom override > API git_roots > cached githubRepoUrl in JSON.
+          // In showcase mode the file system is unavailable — use cached URL directly.
+          const cachedRepoUrl = cachedData.repo?.githubRepoUrl
+            ? cachedData.repo.githubRepoUrl.replace(/\.git$/, '').replace(/\/$/, '')
+            : null;
+          if (cachedRepoUrl) setAutoDetectedGithubUrl(cachedRepoUrl);
+
+          const applyGitRoots = (roots: { prefix: string; name: string; webUrl: string | null; branch: string }[]) => {
+            if (roots.length > 0) {
+              // Save the auto-detected primary URL
+              const primary = roots.find(r => r.prefix === '' && r.webUrl) || roots.find(r => r.webUrl);
+              if (primary?.webUrl) setAutoDetectedGithubUrl(primary.webUrl.replace(/\.git$/, '').replace(/\/$/, ''));
+              if (customGithubUrl) {
+                // User has a custom override — keep gitRoots as custom, but roots from API are still recorded
+                setGitRoots([{ prefix: '', name: projectData.repo, webUrl: customGithubUrl.replace(/\.git$/, '').replace(/\/$/, ''), branch: 'main' }]);
+              } else {
+                setGitRoots(roots);
+              }
+            } else if (customGithubUrl) {
+              setGitRoots([{ prefix: '', name: projectData.repo, webUrl: customGithubUrl, branch: 'main' }]);
+            } else if (cachedRepoUrl) {
+              setGitRoots([{ prefix: '', name: cachedData.repo?.repo || projectData.repo, webUrl: cachedRepoUrl, branch: cachedData.repo?.githubBranch || 'main' }]);
+            } else {
+              setGitRoots([]);
+            }
+          };
+
+          if (isShowcase) {
+            const effectiveUrl = customGithubUrl || cachedRepoUrl;
+            if (effectiveUrl) {
+              setGitRoots([{
+                prefix: '',
+                name: cachedData.repo?.repo || projectData.repo,
+                webUrl: effectiveUrl.replace(/\.git$/, '').replace(/\/$/, ''),
+                branch: cachedData.repo?.githubBranch || 'main',
+              }]);
+            } else {
+              setGitRoots([]);
+            }
+          } else {
             const gitParams = new URLSearchParams({
               owner: projectData.owner,
               repo: projectData.repo,
@@ -421,8 +482,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             if (projectData.model) gitParams.append("model", projectData.model);
             fetch(`/api/git_roots?${gitParams.toString()}`)
               .then(r => r.ok ? r.json() : null)
-              .then(data => { setGitRoots(data?.roots ?? []); })
-              .catch(() => { setGitRoots([]); });
+              .then(data => { applyGitRoots(data?.roots ?? []); })
+              .catch(() => { applyGitRoots([]); });
           }
 
           setTimeout(() => {
@@ -1093,7 +1154,7 @@ ${blockContent}`;
 
     try {
       const currentPageData = generatedPages[targetPageId];
-      const newPageContent = currentPageData.content.replace(oldCode, newCode);
+      const newPageContent = currentPageData.content.replaceAll(oldCode, newCode);
 
       const newGeneratedPages = {
         ...generatedPages,
@@ -1187,7 +1248,7 @@ ${chartCode}
 
           if (newDiagramCode) {
             const oldContent = currentGeneratedPages[pageId].content;
-            const newPageContent = oldContent.replace(chartCode, newDiagramCode);
+            const newPageContent = oldContent.replaceAll(chartCode, newDiagramCode);
             if (newPageContent !== oldContent) {
               currentGeneratedPages[pageId] = { ...currentGeneratedPages[pageId], content: newPageContent };
             }
@@ -1501,6 +1562,11 @@ ${chartCode}
 
           <ChevronRight size={13} color={t.textMuted} />
           <span style={{ color: t.textSecondary, fontSize: 13 }}>{projectName}</span>
+          {wikiModel && (
+            <span style={{ fontSize: 10, fontWeight: 600, color: isDark ? "rgba(160,185,255,0.75)" : "#5271e8", background: isDark ? "rgba(64,150,247,0.12)" : "rgba(64,150,247,0.08)", padding: "2px 7px", borderRadius: 5, letterSpacing: "0.02em", whiteSpace: "nowrap", fontFamily: "inherit" }}>
+              {wikiModel}
+            </span>
+          )}
         </div>
 
         {/* Right */}
@@ -1580,17 +1646,133 @@ ${chartCode}
             <span>{readingMode ? "읽기" : "전체"}</span>
           </button>
 
-          <button
-            onClick={handleResyncLinks}
-            disabled={isResyncingLinks}
-            title={resyncResult ? `링크 재동기화 완료 (${resyncResult.links_fixed}개 수정)` : "저장된 file:// 링크를 GitHub URL로 변환"}
-            style={{ height: 36, padding: "0 10px", borderRadius: 10, background: resyncResult ? t.surfaceHover : t.surface, border: "none", cursor: isResyncingLinks ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, color: resyncResult?.links_fixed === -1 ? "#ef4444" : t.textSecondary, fontSize: 12, transition: "background 0.15s", opacity: isResyncingLinks ? 0.6 : 1 }}
-            onMouseEnter={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
-            onMouseLeave={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
-          >
-            <Link size={14} style={{ flexShrink: 0, animation: isResyncingLinks ? "spin 1s linear infinite" : "none" }} />
-            <span>{isResyncingLinks ? "동기화 중..." : resyncResult ? `${resyncResult.links_fixed}개 수정됨` : "링크 재동기화"}</span>
-          </button>
+          {!isShowcase && (
+            <button
+              onClick={handleResyncLinks}
+              disabled={isResyncingLinks}
+              title={resyncResult ? `링크 재동기화 완료 (${resyncResult.links_fixed}개 수정)` : "저장된 file:// 링크를 GitHub URL로 변환"}
+              style={{ height: 36, padding: "0 10px", borderRadius: 10, background: resyncResult ? t.surfaceHover : t.surface, border: "none", cursor: isResyncingLinks ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, color: resyncResult?.links_fixed === -1 ? "#ef4444" : t.textSecondary, fontSize: 12, transition: "background 0.15s", opacity: isResyncingLinks ? 0.6 : 1 }}
+              onMouseEnter={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
+              onMouseLeave={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
+            >
+              <Link size={14} style={{ flexShrink: 0, animation: isResyncingLinks ? "spin 1s linear infinite" : "none" }} />
+              <span>{isResyncingLinks ? "동기화 중..." : resyncResult ? `${resyncResult.links_fixed}개 수정됨` : "링크 재동기화"}</span>
+            </button>
+          )}
+
+          {/* Per-project GitHub URL setting */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => { setGithubUrlDraft(customGithubUrl || (gitRoots?.[0]?.webUrl ?? '')); setShowGithubUrlEdit(v => !v); }}
+              title={customGithubUrl ? `GitHub: ${customGithubUrl}` : "프로젝트 GitHub 저장소 URL 설정"}
+              style={{ height: 36, padding: "0 10px", borderRadius: 10, background: customGithubUrl ? t.primaryLight : t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: customGithubUrl ? t.primary : t.textSecondary, fontSize: 12, transition: "background 0.15s" }}
+              onMouseEnter={(e) => { if (!customGithubUrl) e.currentTarget.style.background = t.surfaceHover; }}
+              onMouseLeave={(e) => { if (!customGithubUrl) e.currentTarget.style.background = t.surface; }}
+            >
+              <FaGithub size={14} />
+              <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {customGithubUrl
+                  ? customGithubUrl.replace('https://github.com/', '').replace('https://', '')
+                  : gitRoots?.[0]?.webUrl
+                    ? gitRoots[0].webUrl.replace('https://github.com/', '').replace('https://', '')
+                    : "GitHub 설정"}
+              </span>
+            </button>
+            {showGithubUrlEdit && (
+              <div style={{
+                position: "absolute", top: 44, right: 0, zIndex: 200,
+                background: isDark ? "#1e1e24" : "#fff",
+                border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                borderRadius: 12, padding: 14, width: 340,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    GitHub 저장소 URL
+                  </span>
+                  {customGithubUrl
+                    ? <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: t.primaryLight, color: t.primary, fontWeight: 600 }}>직접 입력</span>
+                    : autoDetectedGithubUrl
+                      ? <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: isDark ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.1)", color: "#22c55e", fontWeight: 600 }}>자동 감지</span>
+                      : null
+                  }
+                </div>
+                {autoDetectedGithubUrl && !customGithubUrl && (
+                  <div style={{ fontSize: 11, color: isDark ? "rgba(34,197,94,0.8)" : "#16a34a", marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: isDark ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.06)" }}>
+                    git remote에서 자동 감지됨: {autoDetectedGithubUrl.replace('https://github.com/', 'github.com/')}
+                  </div>
+                )}
+                <input
+                  autoFocus
+                  type="text"
+                  value={githubUrlDraft}
+                  onChange={(e) => setGithubUrlDraft(e.target.value)}
+                  placeholder={autoDetectedGithubUrl || "https://github.com/owner/repo"}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const url = githubUrlDraft.trim().replace(/\.git$/, '').replace(/\/$/, '');
+                      setCustomGithubUrl(url);
+                      if (githubUrlStorageKey) {
+                        try { url ? localStorage.setItem(githubUrlStorageKey, url) : localStorage.removeItem(githubUrlStorageKey); } catch {}
+                      }
+                      if (url) {
+                        setGitRoots([{ prefix: '', name: projectData?.repo || '', webUrl: url, branch: 'main' }]);
+                      }
+                      setShowGithubUrlEdit(false);
+                    }
+                    if (e.key === 'Escape') setShowGithubUrlEdit(false);
+                  }}
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    padding: "8px 10px", borderRadius: 8, fontSize: 12, fontFamily: "monospace",
+                    background: isDark ? "#252530" : "#f5f5f7",
+                    border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)"}`,
+                    color: t.textSecondary, outline: "none",
+                  }}
+                />
+                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  <button
+                    onClick={() => {
+                      const url = githubUrlDraft.trim().replace(/\.git$/, '').replace(/\/$/, '');
+                      setCustomGithubUrl(url);
+                      if (githubUrlStorageKey) {
+                        try { url ? localStorage.setItem(githubUrlStorageKey, url) : localStorage.removeItem(githubUrlStorageKey); } catch {}
+                      }
+                      if (url) {
+                        setGitRoots([{ prefix: '', name: projectData?.repo || '', webUrl: url, branch: 'main' }]);
+                      }
+                      setShowGithubUrlEdit(false);
+                    }}
+                    style={{ flex: 1, padding: "6px 0", borderRadius: 8, background: t.primary, border: "none", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}
+                  >
+                    저장
+                  </button>
+                  {customGithubUrl && (
+                    <button
+                      onClick={() => {
+                        setCustomGithubUrl('');
+                        if (githubUrlStorageKey) try { localStorage.removeItem(githubUrlStorageKey); } catch {}
+                        // Restore to auto-detected URL if available
+                        if (autoDetectedGithubUrl) {
+                          setGitRoots([{ prefix: '', name: projectData?.repo || '', webUrl: autoDetectedGithubUrl, branch: 'main' }]);
+                        } else {
+                          setGitRoots([]);
+                        }
+                        setShowGithubUrlEdit(false);
+                      }}
+                      style={{ padding: "6px 10px", borderRadius: 8, background: t.surface, border: "none", cursor: "pointer", color: t.textMuted, fontSize: 12, fontFamily: "inherit" }}
+                    >
+                      자동 감지로 복원
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginTop: 8 }}>
+                  공개 프로젝트는 git remote에서 자동 감지됩니다.<br/>
+                  사내/로컬 프로젝트만 직접 입력하세요.
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={onGoHome}
