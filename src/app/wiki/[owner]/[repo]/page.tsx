@@ -53,6 +53,8 @@ function WikiContent() {
     id: searchParams.get("id") || undefined,
   };
 
+  const initialPageId = searchParams.get("page") || undefined;
+
   return (
     <div
       className={isDark ? "dark" : ""}
@@ -66,6 +68,7 @@ function WikiContent() {
         onGoHome={() => router.push("/")}
         repositoryBaseUrl={appSettings.repositoryBaseUrl}
         hoverBgColor={appSettings.hoverBgColor}
+        initialPageId={initialPageId}
       />
     </div>
   );

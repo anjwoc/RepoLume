@@ -8,6 +8,7 @@ import {
   AlignCenter, AlignJustify, RefreshCw, Share, Sparkles, ArrowUp, Link,
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
+import { slugifyHeading } from "@/lib/utils";
 import Markdown from "./Markdown";
 import { sanitizeMermaidChart } from "./Mermaid";
 import { regenerateWikiPage, wikiLanguageInstruction } from "@/lib/wiki-generator";
@@ -35,6 +36,7 @@ interface WikiViewerProps {
   onGoHome: () => void;
   repositoryBaseUrl?: string;
   hoverBgColor?: string;
+  initialPageId?: string;
 }
 
 interface TreeItem {
@@ -96,7 +98,7 @@ const isShowcase = process.env.NEXT_PUBLIC_SHOWCASE_MODE === 'true';
 // Isolated component — owns tocOpen/activeTocIdx state entirely.
 // isDark (boolean, primitive) passed instead of t (object ref) to prevent
 // React.memo from re-rendering on every WikiViewer render.
-interface TocHeading { level: number; text: string; domIdx: number; }
+interface TocHeading { level: number; text: string; domIdx: number; slug: string; }
 interface TocPanelProps {
   headings: TocHeading[];
   contentRef: React.RefObject<HTMLDivElement | null>;
@@ -131,13 +133,17 @@ const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, is
     return () => container.removeEventListener('scroll', handleScroll);
   }, [selectedPage, headings, contentRef]);
 
-  const scrollToHeadingByIdx = useCallback((domIdx: number) => {
+  const scrollToHeadingByIdx = useCallback((domIdx: number, slug: string) => {
     const container = contentRef.current;
     if (!container) return;
     const el = container.querySelectorAll('h1, h2, h3')[domIdx] as HTMLElement | undefined;
     if (!el) return;
     const offset = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
     container.scrollTo({ top: offset, behavior: 'smooth' });
+    if (slug) {
+      window.history.replaceState(null, '',
+        `${window.location.pathname}${window.location.search}#${slug}`);
+    }
   }, [contentRef]);
 
   if (headings.length === 0) return null;
@@ -182,7 +188,7 @@ const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, is
           return (
             <button
               key={h.domIdx}
-              onClick={() => scrollToHeadingByIdx(h.domIdx)}
+              onClick={() => scrollToHeadingByIdx(h.domIdx, h.slug)}
               title={h.text}
               style={{
                 display: "block",
@@ -248,7 +254,7 @@ const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, is
             return (
               <div
                 key={h.domIdx}
-                onClick={() => scrollToHeadingByIdx(h.domIdx)}
+                onClick={() => scrollToHeadingByIdx(h.domIdx, h.slug)}
                 style={{
                   width: isActive ? 12 : 8,
                   height: 1.5,
@@ -269,7 +275,7 @@ const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, is
   );
 });
 
-export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, onGoHome, repositoryBaseUrl, hoverBgColor }: WikiViewerProps) {
+export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, onGoHome, repositoryBaseUrl, hoverBgColor, initialPageId }: WikiViewerProps) {
   const t = getTheme(isDark);
   const [selectedPage, setSelectedPage] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -284,6 +290,9 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const sidebarRef = useRef<HTMLDivElement>(null);
   const savedSidebarScrollRef = useRef(0);
   const selectedPageRef = useRef("");
+  // Tracks which page should be (re-)selected after loadWiki runs.
+  // Seeded from the URL ?page= param; updated on every navigate() call.
+  const intentionalPageRef = useRef<string | undefined>(initialPageId);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   const currentLang = projectData?.language || "ko";
@@ -336,6 +345,24 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
       contentRef.current.scrollTo({ top: 0 });
       setShowScrollTop(false);
     }
+  }, [selectedPage]);
+
+  // After page content renders, scroll to hash-targeted heading if present
+  useEffect(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (!hash || !selectedPage) return;
+    const headingId = hash.slice(1);
+    const timer = setTimeout(() => {
+      const el = contentRef.current?.querySelector(`#${CSS.escape(headingId)}`);
+      if (el) {
+        const offset =
+          el.getBoundingClientRect().top -
+          (contentRef.current?.getBoundingClientRect().top ?? 0) +
+          (contentRef.current?.scrollTop ?? 0) - 80;
+        contentRef.current?.scrollTo({ top: offset, behavior: 'smooth' });
+      }
+    }, 120);
+    return () => clearTimeout(timer);
   }, [selectedPage]);
 
   // Restore sidebar scroll after page transition (prevents LNB jumping to top)
@@ -533,11 +560,14 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             if (node) newTree.push(node);
           }
 
-          // Select the first page immediately so content shows before tree animates in
-          const firstPageId = newAllPages[0]?.id ?? "";
-          if (firstPageId) {
-            selectedPageRef.current = firstPageId;
-            setSelectedPage(firstPageId);
+          // Select the page from URL ?page= if valid, otherwise the first page
+          const pageToSelect =
+            (intentionalPageRef.current && cachedData.generated_pages[intentionalPageRef.current])
+              ? intentionalPageRef.current
+              : newAllPages[0]?.id ?? "";
+          if (pageToSelect) {
+            selectedPageRef.current = pageToSelect;
+            setSelectedPage(pageToSelect);
           }
           setIsLoading(false);
 
@@ -1395,10 +1425,18 @@ ${chartCode}
       savedSidebarScrollRef.current = sidebarRef.current.scrollTop;
     }
     selectedPageRef.current = id;
+    intentionalPageRef.current = id;
     setSelectedPage(id);
     setActiveSection("");
     setShowSearch(false);
     setQuery("");
+    // Sync page ID into URL without triggering a Next.js navigation
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', id);
+      url.hash = '';
+      window.history.replaceState(null, '', url.toString());
+    }
   }, []);
 
   // Refs that always point to the latest version of each handler,
@@ -1519,7 +1557,7 @@ ${chartCode}
   const tocHeadings = useMemo(() => {
     const content = currentPage?.content || '';
     const matches = [...content.matchAll(/^(#{1,3})\s+(.+)$/gm)];
-    return matches.map((m, i) => ({ level: m[1].length, text: m[2].trim(), domIdx: i }));
+    return matches.map((m, i) => ({ level: m[1].length, text: m[2].trim(), domIdx: i, slug: slugifyHeading(m[2].trim()) }));
   }, [currentPage]);
 
   return (
