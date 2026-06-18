@@ -10,7 +10,17 @@ import { FaGithub } from 'react-icons/fa';
 import Mermaid from './Mermaid';
 import { BlockActionWrapper, BlockActionType } from './BlockActionWrapper';
 import { normalizeMarkdownContent } from '@/lib/markdown-normalize';
+import { slugifyHeading } from '@/lib/utils';
 import 'katex/dist/katex.min.css';
+
+function extractText(node: React.ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (React.isValidElement(node)) return extractText((node.props as any).children);
+  return '';
+}
 
 export interface GitRoot {
   prefix: string;       // POSIX path of this repo relative to the project root ("" = root)
@@ -109,15 +119,17 @@ const Markdown: React.FC<MarkdownProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     h1({ children, node, ...props }: { children?: React.ReactNode; node?: any }) {
       const { raw, startLine, endLine } = extractRaw(normalizedContent, node);
+      const headingId = slugifyHeading(extractText(children)) || undefined;
       return (
         <BlockActionWrapper blockContent={raw} startLine={startLine} endLine={endLine} onBlockAction={onBlockAction} hoverBgColor={hoverBgColor}>
-          <h1 className="text-xl font-bold mt-6 mb-3 dark:text-white" {...props}>{children}</h1>
+          <h1 id={headingId} className="text-xl font-bold mt-6 mb-3 dark:text-white" {...props}>{children}</h1>
         </BlockActionWrapper>
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     h2({ children, node, ...props }: { children?: React.ReactNode; node?: any }) {
       const { raw, startLine, endLine } = extractRaw(normalizedContent, node);
+      const headingId = slugifyHeading(extractText(children)) || undefined;
       // Special styling for ReAct headings
       if (children && typeof children === 'string') {
         const text = children.toString();
@@ -125,6 +137,7 @@ const Markdown: React.FC<MarkdownProps> = ({
           return (
             <BlockActionWrapper blockContent={raw} startLine={startLine} endLine={endLine} onBlockAction={onBlockAction} hoverBgColor={hoverBgColor}>
               <h2
+                id={headingId}
                 className={`text-base font-bold mt-5 mb-3 p-2 rounded ${
                   text.includes('Thought') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
                   text.includes('Action') ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
@@ -142,25 +155,27 @@ const Markdown: React.FC<MarkdownProps> = ({
       }
       return (
         <BlockActionWrapper blockContent={raw} startLine={startLine} endLine={endLine} onBlockAction={onBlockAction} hoverBgColor={hoverBgColor}>
-          <h2 className="text-lg font-bold mt-5 mb-3 dark:text-white" {...props}>{children}</h2>
+          <h2 id={headingId} className="text-lg font-bold mt-5 mb-3 dark:text-white" {...props}>{children}</h2>
         </BlockActionWrapper>
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     h3({ children, node, ...props }: { children?: React.ReactNode; node?: any }) {
       const { raw, startLine, endLine } = extractRaw(normalizedContent, node);
+      const headingId = slugifyHeading(extractText(children)) || undefined;
       return (
         <BlockActionWrapper blockContent={raw} startLine={startLine} endLine={endLine} onBlockAction={onBlockAction} hoverBgColor={hoverBgColor}>
-          <h3 className="text-base font-semibold mt-4 mb-2 dark:text-white" {...props}>{children}</h3>
+          <h3 id={headingId} className="text-base font-semibold mt-4 mb-2 dark:text-white" {...props}>{children}</h3>
         </BlockActionWrapper>
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     h4({ children, node, ...props }: { children?: React.ReactNode; node?: any }) {
       const { raw, startLine, endLine } = extractRaw(normalizedContent, node);
+      const headingId = slugifyHeading(extractText(children)) || undefined;
       return (
         <BlockActionWrapper blockContent={raw} startLine={startLine} endLine={endLine} onBlockAction={onBlockAction} hoverBgColor={hoverBgColor}>
-          <h4 className="text-sm font-semibold mt-3 mb-2 dark:text-white" {...props}>{children}</h4>
+          <h4 id={headingId} className="text-sm font-semibold mt-3 mb-2 dark:text-white" {...props}>{children}</h4>
         </BlockActionWrapper>
       );
     },

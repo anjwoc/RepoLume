@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { WikiViewer } from "@/components/wiki-viewer";
 import { AppSettings, DEFAULT_APP_SETTINGS } from "@/components/setup-wizard";
 
@@ -21,6 +21,7 @@ interface ProjectData {
 function WikiSlugContent() {
   const router = useRouter();
   const { owner: slug } = useParams<{ owner: string }>();
+  const searchParams = useSearchParams();
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
@@ -71,6 +72,7 @@ function WikiSlugContent() {
         onGoHome={() => router.push("/")}
         repositoryBaseUrl={appSettings.repositoryBaseUrl}
         hoverBgColor={appSettings.hoverBgColor}
+        initialPageId={searchParams.get("page") || undefined}
       />
     </div>
   );
