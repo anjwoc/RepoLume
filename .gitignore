@@ -40,7 +40,8 @@ wheels/
 
 # agent binaries
 bin/
-localwiki-agent
+/localwiki-agent
+/agent/localwiki-agent
 
 # next.js
 /.next/
