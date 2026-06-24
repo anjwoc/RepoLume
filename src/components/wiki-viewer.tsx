@@ -347,22 +347,36 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     }
   }, [selectedPage]);
 
-  // After page content renders, scroll to hash-targeted heading if present
+  // After page content renders, scroll to hash-targeted heading if present.
+  // Polls every 50ms (up to 500ms) because AnimatePresence mode="wait" delays
+  // new content mounting until the 200ms exit animation completes.
   useEffect(() => {
     const hash = typeof window !== 'undefined' ? window.location.hash : '';
     if (!hash || !selectedPage) return;
     const headingId = hash.slice(1);
-    const timer = setTimeout(() => {
-      const el = contentRef.current?.querySelector(`#${CSS.escape(headingId)}`);
+    if (!headingId) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const container = contentRef.current;
+      const el = container?.querySelector(`#${CSS.escape(headingId)}`);
       if (el) {
         const offset =
           el.getBoundingClientRect().top -
-          (contentRef.current?.getBoundingClientRect().top ?? 0) +
-          (contentRef.current?.scrollTop ?? 0) - 80;
-        contentRef.current?.scrollTo({ top: offset, behavior: 'smooth' });
+          (container?.getBoundingClientRect().top ?? 0) +
+          (container?.scrollTop ?? 0) - 80;
+        container?.scrollTo({ top: offset, behavior: 'smooth' });
+        return;
       }
-    }, 120);
-    return () => clearTimeout(timer);
+      attempts++;
+      if (attempts < 10) setTimeout(tryScroll, 50);
+    };
+
+    setTimeout(tryScroll, 50);
+    return () => { cancelled = true; };
   }, [selectedPage]);
 
   // Restore sidebar scroll after page transition (prevents LNB jumping to top)

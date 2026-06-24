@@ -1361,12 +1361,21 @@ export async function runWikiGeneration(
     // Phase 2.5: Git roots → LLM에게 절대 GitHub URL 제공
     // ──────────────────────────────────────────────────────────
     let gitRootsForPrompt = '';
+    // Primary root's GitHub URL saved here and embedded in cache so links work
+    // even in showcase/offline mode (where /api/git_roots cannot be called).
+    let detectedGithubRepoUrl: string | null = null;
+    let detectedGithubBranch = 'main';
     try {
       const grRes = await fetch(`/api/git_roots?path=${encodeURIComponent(projectPath)}`);
       if (grRes.ok) {
         const grData = await grRes.json();
         const roots: any[] = grData.roots || [];
         if (roots.length > 0) {
+          const primaryRoot = roots.find((r: any) => r.prefix === '' && r.webUrl) || roots.find((r: any) => r.webUrl);
+          if (primaryRoot) {
+            detectedGithubRepoUrl = primaryRoot.webUrl.replace(/\.git$/, '').replace(/\/$/, '');
+            detectedGithubBranch = primaryRoot.branch || 'main';
+          }
           const rootLines = roots
             .filter((r: any) => r.webUrl)
             .map((r: any) => {
@@ -1591,6 +1600,8 @@ ${buildMcpContextForPage(page)}
 3. **Subgraph Syntax:** NEVER use quotes directly for subgraph labels in a way that breaks syntax (e.g., \`subgraph ID "Label"\`). Instead, use the format \`subgraph ID ["Label"]\` or simply avoid quotes and special characters in subgraph IDs.
 4. **Node Formatting & Quoting:** You MUST wrap ALL node labels in double quotes to prevent syntax errors, especially if they contain special characters (like \`()\`, \`@\`, \`/\`, space) or HTML tags like \`<br>\`. Example: \`NodeID["Label text <br> (Extra Info)"]\`. NEVER use literal newline characters (\\\\n) inside labels. Keep relationships concise.
 5. **Eliminate Spaghetti Lines:** Minimize crossing edges. By grouping nodes into logical subgraphs and strictly routing dependencies layer-by-layer, you must avoid chaotic cross-references.
+6. **Edge Label Quoting (CRITICAL):** NEVER wrap flowchart edge labels with double quotes inside pipes. Use plain text only: write \`A -->|Label text| B\` NOT \`A -->|"Label text"| B\`. Quotes inside \`|...\` cause a parse error in Mermaid v11.
+7. **erDiagram Label Rules (CRITICAL):** In \`erDiagram\`, relationship labels MUST be plain identifiers with NO parentheses, brackets, or special characters. Write \`CUSTOMER ||--o{ ORDER : places\` NOT \`CUSTOMER ||--o{ ORDER : "places (orders)"\`. Parentheses inside erDiagram labels always cause a parse error.
 
 ${languageInstruction}
 ${STRICT_FORMAT_RULES}`;
@@ -1610,13 +1621,19 @@ ${STRICT_FORMAT_RULES}`;
       const mermaidRegex = /```mermaid\n([\s\S]*?)\n```/g;
       const mMatches = [...pageContent.matchAll(mermaidRegex)];
       if (mMatches.length > 0) {
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', suppressErrorRendering: true });
         for (let mi = 0; mi < mMatches.length; mi++) {
           const fullMatch = mMatches[mi][0];
           const diagramCode = mMatches[mi][1];
           try {
             await mermaid.parse(diagramCode);
           } catch (parseError: any) {
+            // parse() can be stricter than render() — skip LLM fix if render succeeds
+            try {
+              await mermaid.render(`validate-gen-${mi}`, diagramCode);
+              continue;
+            } catch { /* render also fails — proceed with fix */ }
+
             const errMsg = parseError.message || String(parseError);
             await emitStep(streamId, 'agent_log', 'generation', `⚠️ 다이어그램 구문 오류 감지, 로컬 자동수정 시도 중...`);
             const localFixed = autoFixMermaid(diagramCode);
@@ -1925,7 +1942,11 @@ ${STRICT_FORMAT_RULES}`;
     }
 
     const cachePayload = {
-      repo: { owner, repo, type: repo_type, localPath: projectPath, repoUrl: projectPath },
+      repo: {
+        owner, repo, type: repo_type, localPath: projectPath, repoUrl: projectPath,
+        githubRepoUrl: detectedGithubRepoUrl,
+        githubBranch: detectedGithubBranch,
+      },
       language: effectiveWikiLanguage(language),
       wiki_structure: wikiStructure,
       generated_pages: generatedPages,
@@ -2241,6 +2262,8 @@ ${topicRequirements('', page.title)}
 3. NEVER use quotes directly for subgraph labels in a way that breaks syntax (e.g., \`subgraph ID "Label"\`). Instead, use the format \`subgraph ID ["Label"]\` or simply avoid quotes and special characters in subgraph IDs.
 4. Node Formatting & Quoting: You MUST wrap ALL node labels in double quotes to prevent syntax errors, especially if they contain special characters (like \`()\`, \`@\`, \`/\`, space) or HTML tags like \`<br>\`. Example: \`NodeID["Label text <br> (Extra Info)"]\`. NEVER use literal newline characters (\\\\n) inside labels. Keep relationships concise.
 6. STRICTLY AVOID SPAGHETTI DIAGRAMS: Minimize the number of crossing edges. Create a strict hierarchical flow from top to bottom. Do NOT create chaotic cross-references or circular dependencies between distant subgraphs.
+7. Edge Label Quoting (CRITICAL): NEVER wrap flowchart edge labels with double quotes inside pipes. Use plain text only: write \`A -->|Label text| B\` NOT \`A -->|"Label text"| B\`. Quotes inside \`|...\` cause a parse error in Mermaid v11.
+8. erDiagram Label Rules (CRITICAL): In \`erDiagram\`, relationship labels MUST be plain identifiers with NO parentheses, brackets, or special characters. Write \`CUSTOMER ||--o{ ORDER : places\` NOT \`CUSTOMER ||--o{ ORDER : "places (orders)"\`. Parentheses inside erDiagram labels always cause a parse error.
 
 ${languageInstruction}
 ${STRICT_FORMAT_RULES}`;
@@ -2279,13 +2302,19 @@ ${STRICT_FORMAT_RULES}`;
       const mermaidRegex = /```mermaid\n([\s\S]*?)\n```/g;
       const matches = [...pageContent.matchAll(mermaidRegex)];
       if (matches.length > 0) {
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', suppressErrorRendering: true });
         for (let i = 0; i < matches.length; i++) {
           const fullMatch = matches[i][0];
           const diagramCode = matches[i][1];
           try {
             await mermaid.parse(diagramCode);
           } catch (parseError: any) {
+            // parse() can be stricter than render() — skip LLM fix if render succeeds
+            try {
+              await mermaid.render(`validate-regen-${i}`, diagramCode);
+              continue;
+            } catch { /* render also fails — proceed with fix */ }
+
             const errMsg = parseError.message || String(parseError);
             await emitStep(streamId, 'agent_log', 'generation', `⚠️ 다이어그램 구문 오류 감지, 로컬 자동수정 시도 중...`);
 

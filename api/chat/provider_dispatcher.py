@@ -25,58 +25,6 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent
 _MAX_EMPTY_RETRIES = 2
 _EMPTY_RETRY_DELAYS = [5, 15]  # seconds between retry attempts
 
-# ── agy minimal-HOME (MCP 스폰 차단) ──────────────────────────────────────────
-# agy(Claude Code CLI)는 실행 시 ~/.claude/settings.json의 enabledPlugins에서
-# 모든 플러그인(및 플러그인이 가져오는 MCP)을 스폰한다.
-# 10개 병렬 실행 × ~15 MCP = ~150 Node.js 프로세스 → 메모리/CPU 고갈.
-#
-# 해결: 실제 ~/.claude/의 모든 항목을 심볼릭링크로 유지해 auth를 보존하되,
-# settings.json만 재정의하여 enabledPlugins: {} 로 MCP 스폰을 차단.
-# 심볼릭링크이므로 OAuth 토큰 갱신도 자동 반영된다.
-
-_AGY_MINIMAL_HOME: Path | None = None
-
-
-def _get_agy_minimal_home() -> Path:
-    global _AGY_MINIMAL_HOME
-    if _AGY_MINIMAL_HOME is not None:
-        return _AGY_MINIMAL_HOME
-
-    home = Path.home() / ".localwiki" / "agy-no-mcp"
-    claude_dir = home / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
-
-    real_claude = Path.home() / ".claude"
-
-    # 실제 ~/.claude/ 의 모든 항목을 심볼릭링크로 걸어 auth 보존
-    # settings.json 만 제외 — 아래서 MCP-stripped 버전을 직접 작성
-    if real_claude.is_dir():
-        for item in real_claude.iterdir():
-            link = claude_dir / item.name
-            if link.name == "settings.json":
-                continue
-            if not link.exists() and not link.is_symlink():
-                os.symlink(item, link)
-
-    # 실제 settings.json 을 기반으로 stripped 버전 생성
-    # enabledPlugins / extraKnownMarketplaces / mcpServers 제거 → 플러그인 MCP 없음
-    real_settings = real_claude / "settings.json"
-    base: dict = {}
-    if real_settings.exists():
-        with open(real_settings) as _f:
-            base = json.load(_f)
-
-    for _key in ("enabledPlugins", "extraKnownMarketplaces", "mcpServers"):
-        base.pop(_key, None)
-    base["enabledPlugins"] = {}
-    base.setdefault("skipDangerousModePermissionPrompt", True)
-
-    settings_path = claude_dir / "settings.json"
-    settings_path.write_text(json.dumps(base, indent=2))
-
-    _AGY_MINIMAL_HOME = home
-    return _AGY_MINIMAL_HOME
-
 
 # ── CLI (localwiki-agent) ───────────────────────────────────────────────────
 
@@ -121,11 +69,6 @@ async def cli_stream(request, prompt: str) -> AsyncGenerator[str, None]:
 
     agent_bin = _get_agent_bin()
     env = _build_cli_env(request)
-
-    # agy 실행 시 enabledPlugins의 모든 플러그인(MCP 포함)을 스폰한다.
-    # 최소 HOME을 사용해 플러그인 MCP 스폰을 차단 (auth는 심볼릭링크로 보존)
-    if agent in ("antigravity", "claude"):
-        env["HOME"] = str(_get_agy_minimal_home())
 
     # Per-line timeout — if agy hangs, Python kills the process after this many seconds
     CLI_LINE_TIMEOUT = 300
