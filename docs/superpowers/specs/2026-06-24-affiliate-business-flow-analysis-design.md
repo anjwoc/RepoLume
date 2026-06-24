@@ -335,6 +335,8 @@ func (a *FlowAnalyzer) Analyze(flow FlowDefinition) (string, error) {
 
 ### 6.3 플로우 카탈로그 정의 파일
 
+테이블에 `db` 필드, 코드 레퍼런스에 `host` 필드를 추가하여 인스턴스 자동 선택 기반으로 작성한다.
+
 ```yaml
 # flows/catalog.yaml
 flows:
@@ -346,16 +348,25 @@ flows:
       - LinkrewMessageService
       - SendMessageTargetSupportServiceBaseImpl
     tables:
-      - LINKREW_MESSAGE_REQUEST
-      - LINKREW_MESSAGE_DETAIL
-      - LINKREW_MEMB_INFO
-      - LINKREW_NOTI_BOX
+      - name: LINKREW_MESSAGE_REQUEST
+        db: O_GAFFILIATE          # → oracle-gaffiliate 인스턴스 선택
+      - name: LINKREW_MESSAGE_DETAIL
+        db: O_GAFFILIATE
+      - name: LINKREW_MEMB_INFO
+        db: O_GAFFILIATE
+      - name: LINKREW_NOTI_BOX
+        db: O_GAFFILIATE
+      - name: auto_linkrew_common
+        db: nautomaildb            # → devdb-nautomaildb 인스턴스 선택
     storedProcs:
-      - UPGMKT_Affiliate_AutoLinkrewCommon_Insert
+      - name: UPGMKT_Affiliate_AutoLinkrewCommon_Insert
+        db: nautomaildb
     codeRefs:
-      - repo: affiliate-batch
+      - host: github.gmarket.com   # → github-enterprise 인스턴스 선택
+        repo: affiliate-batch
         path: lib-message/src/main/java/com/gmarket/affiliate/batch/message/service/LinkrewMessageService.java
-      - repo: affiliate-batch
+      - host: github.gmarket.com
+        repo: affiliate-batch
         path: lib-core/src/main/java/com/gmarket/affiliate/batch/core/type/LinkrewMessageTemplateType.java
 ```
 
@@ -405,16 +416,43 @@ if (section.type === 'business_flows') {
 }
 ```
 
-**Phase 2: MCP 컨텍스트 수집 함수**
+**Phase 2: MCP 컨텍스트 수집 함수 (인스턴스 기반)**
 
 ```typescript
-async function collectFlowContext(flow: FlowDefinition): Promise<FlowContext> {
-  const [chain, schemas, spDefs] = await Promise.all([
+async function collectFlowContext(
+  flow: FlowDefinition,
+  instances: McpInstance[],   // local-wiki 설정에서 주입
+): Promise<FlowContext> {
+  const [chain, schemas, spDefs, code] = await Promise.all([
     queryCodegraph(flow.entryClasses),
-    Promise.all(flow.tables.map(t => queryDevDb(t))),
-    Promise.all(flow.storedProcs.map(sp => queryOracle(sp))),
+    Promise.all(flow.tables.map(t => {
+      // db 필드로 인스턴스 선택 → role: db-schema
+      const inst = resolveInstance(instances, 'db-schema', { database: t.db });
+      return inst ? callMcp(inst, 'tableSchema', t.name) : fallbackFromCode(t.name);
+    })),
+    Promise.all((flow.storedProcs ?? []).map(sp => {
+      const inst = resolveInstance(instances, 'db-stored-proc', { database: sp.db });
+      return inst ? callMcp(inst, 'storedProc', sp.name) : fallbackFromAnnotation(sp.name);
+    })),
+    Promise.all(flow.codeRefs.map(ref => {
+      const inst = resolveInstance(instances, 'code-reader', { host: ref.host });
+      return inst ? callMcp(inst, 'getFile', ref.repo, ref.path) : fallbackFromCodegraph(ref.path);
+    })),
   ]);
-  return { chain, schemas, spDefs };
+  return { chain, schemas, spDefs, code };
+}
+
+// scope 매칭으로 인스턴스 선택
+function resolveInstance(
+  instances: McpInstance[],
+  role: string,
+  scope: { database?: string; host?: string },
+): McpInstance | null {
+  return instances.find(inst =>
+    inst.roles.includes(role) &&
+    (scope.database ? inst.scope.databases?.includes(scope.database) : true) &&
+    (scope.host ? inst.scope.host === scope.host : true),
+  ) ?? null;
 }
 ```
 
@@ -429,60 +467,179 @@ BUSINESS FLOWS GENERATION RULES:
 - Required: mermaid sequenceDiagram with DB participants, component chain table
 ```
 
-### 7.3 MCP 도구 연결 현황 및 문제
+### 7.3 MCP 연결 현황 및 설계 방향
 
-현재 `wiki-generator.ts`는 `fetchContent(prompt)` → LLM 단순 호출만 함.
-MCP 도구 호출 경로가 없음.
+현재 `wiki-generator.ts`는 `fetchContent(prompt)` → LLM 단순 호출만 함. MCP 도구 호출 경로 없음.
 
-**단기 해결책:** LLM 프롬프트에 "devdb MCP를 호출하여 스키마를 먼저 수집하라"는 지시를 포함.
-**장기 해결책:** `taskStreamClient.ts`에 MCP 도구 호출 wrapper 추가.
+**단기 해결책 (Layer C 활용):**
+LLM 프롬프트에 역할 + scope 기반 지시 포함 (도구명 하드코딩 금지):
+```
+"O_GAFFILIATE DB의 LINKREW_MESSAGE_REQUEST 스키마를 조회하라.
+ 세션에 활성화된 Oracle DB MCP 도구를 사용한다."
+```
+
+**장기 해결책 (Layer A 통합):**
+`taskStreamClient.ts`에 `McpInstanceRegistry`를 주입. local-wiki 설정의 `mcpInstances` 배열을 읽어
+`collectFlowContext()` 호출 시 인스턴스를 자동 선택하여 `fetchContent()` 전 컨텍스트 조립.
 
 ---
 
-## 8. MCP 도구 활용 규칙
+## 8. MCP 인스턴스 설계
 
-### 8.1 devdb MCP
+MCP 도구명을 하드코딩하지 않는다. **역할(role) → 인스턴스(instance) → 도구(tool)** 3단 구조로
+어떤 사용자 환경에서도 동작하도록 설계한다.
 
-```
-사용: 테이블 스키마 수집
-도구: mcp__devdb__tableSchema(tableName)
-     mcp__devdb__dependsTable(tableName)   ← FK 관계
-     mcp__devdb__listBeans()               ← 사용 가능 데이터소스 확인
-
-실패 시: github MCP로 JPA Entity 클래스의 @Column, @Table 어노테이션으로 대체
-```
-
-### 8.2 oracle MCP
+### 8.1 개념 구조
 
 ```
-사용: Stored Procedure 정의
-도구: mcp__oracle__schema_definitions(spName)
-     mcp__oracle__execute_query(sql)       ← 검증 쿼리 실행
-
-실패 시: affiliate-batch repo에서 @SaturnProcedure 어노테이션 파라미터로 추론
+역할 (role)          인스턴스 (instance)         도구 (tool prefix)
+─────────────────────────────────────────────────────────────────────
+db-schema       →   oracle-gaffiliate     →   mcp__oracle__*
+db-schema       →   devdb-nautomaildb     →   mcp__devdb__*
+db-stored-proc  →   oracle-gaffiliate     →   mcp__oracle__*
+code-reader     →   github-enterprise     →   mcp__github__*   (host: github.internal.co)
+code-reader     →   github-public         →   mcp__github__*   (host: api.github.com)
 ```
 
-### 8.3 github MCP
+- **같은 역할, 다른 인스턴스:** Oracle O_GAFFILIATE와 MSSQL nautomaildb는 둘 다 `db-schema` 역할이지만 서로 다른 MCP 인스턴스
+- **같은 도구, 다른 서버:** `github` MCP 도구는 동일하나 enterprise 서버와 public 서버는 별도 인스턴스로 관리
+
+### 8.2 local-wiki 설정 스키마
+
+설정 패널(또는 `local-wiki settings.json`)에 아래 구조를 추가한다.
+
+```json
+{
+  "businessFlowAnalysis": {
+    "mcpInstances": [
+      {
+        "instanceName": "oracle-gaffiliate",
+        "tool": "oracle",
+        "roles": ["db-schema", "db-stored-proc", "db-query"],
+        "scope": {
+          "databases": ["O_GAFFILIATE"],
+          "description": "Oracle 어필리에이트 스키마"
+        }
+      },
+      {
+        "instanceName": "devdb-nautomaildb",
+        "tool": "devdb",
+        "roles": ["db-schema"],
+        "scope": {
+          "databases": ["nautomaildb", "neption"],
+          "description": "MSSQL 이메일 발송 DB"
+        }
+      },
+      {
+        "instanceName": "redis-affiliate",
+        "tool": "redis-mcp",
+        "roles": ["db-schema", "db-query"],
+        "scope": {
+          "databases": ["redis"],
+          "description": "Redis NotiBox / 캐시"
+        }
+      },
+      {
+        "instanceName": "github-enterprise",
+        "tool": "github",
+        "roles": ["code-reader"],
+        "scope": {
+          "host": "github.gmarket.com",
+          "orgs": ["gmarket-affiliate"],
+          "description": "사내 GitHub Enterprise"
+        }
+      }
+    ]
+  }
+}
+```
+
+**외부(public) 사용자 예시:**
+```json
+{
+  "mcpInstances": [
+    {
+      "instanceName": "postgres-main",
+      "tool": "postgres",
+      "roles": ["db-schema", "db-query"],
+      "scope": { "databases": ["myapp_db"] }
+    },
+    {
+      "instanceName": "github-public",
+      "tool": "github",
+      "roles": ["code-reader"],
+      "scope": { "host": "api.github.com" }
+    }
+  ]
+}
+```
+
+### 8.3 인스턴스 선택 로직
+
+플로우 카탈로그에서 테이블/레포의 `db`·`host` 속성을 읽어 `scope` 매칭으로 인스턴스를 자동 선택한다.
 
 ```
-사용: Entity/Repository 코드 직접 조회
-도구: mcp__github__get_file_contents(repo, path)
-     mcp__github__search_code(query, repo) ← 클래스 위치 탐색
-
-패턴:
-  1. codegraph로 클래스명 확인 → 파일경로 획득
-  2. github MCP로 실제 코드 조회
-  3. @Query, findBy*, nativeQuery 어노테이션에서 SQL 추출
+플로우 카탈로그                    설정 scope 매칭         선택 인스턴스
+────────────────────────────────────────────────────────────────────────
+table.db = "O_GAFFILIATE"    →   databases: ["O_GAFFILIATE"]   →  oracle-gaffiliate
+table.db = "nautomaildb"     →   databases: ["nautomaildb"]    →  devdb-nautomaildb
+codeRef.host = "github.gmarket.com" → host: "github.gmarket.com" → github-enterprise
 ```
 
-### 8.4 MCP 비가용 시 폴백 전략
+**매칭 실패(인스턴스 미설정) 시:** 코드 폴백 전략 적용 (8.5 참조)
+
+### 8.4 역할별 표준 도구 액션
+
+각 역할에서 어떤 MCP 액션을 호출할지는 **도구명**이 아닌 **역할 표준 액션**으로 정의한다.
+런타임에 선택된 인스턴스의 `tool` 값으로 실제 `mcp__<tool>__<action>` 이름을 조합한다.
+
+| 역할 | 표준 액션 | 실제 호출 예 (tool=oracle) | 실제 호출 예 (tool=devdb) |
+|---|---|---|---|
+| `db-schema` | `tableSchema(name)` | `mcp__oracle__schema_definitions` | `mcp__devdb__tableSchema` |
+| `db-schema` | `fkRelations(name)` | `mcp__oracle__execute_query` (FK 쿼리) | `mcp__devdb__dependsTable` |
+| `db-stored-proc` | `storedProc(name)` | `mcp__oracle__schema_definitions` | — (미지원) |
+| `db-query` | `execute(sql)` | `mcp__oracle__execute_query` | `mcp__devdb__resolveDataSource` |
+| `code-reader` | `getFile(repo, path)` | — | `mcp__github__get_file_contents` |
+| `code-reader` | `searchCode(query, repo)` | — | `mcp__github__search_code` |
+
+> 각 MCP 도구의 실제 액션 이름 매핑은 `mcpInstances[].actionMap` 필드로 오버라이드 가능.
+> 기본값은 표준 액션명 → 도구별 알려진 액션으로 자동 매핑.
+
+### 8.5 폴백 전략 (인스턴스 미설정 또는 호출 실패)
 
 ```
-devdb ❌ → codegraph query "[TableName] entity" → JPA Entity 어노테이션에서 스키마 추론
-oracle ❌ → codegraph query "[StoredProcName]" + grep @SaturnProcedure
-github ❌ → codegraph_explore로 소스 직접 조회
-전부 ❌  → 해당 SQL에 "-- ※ MCP 미연결: 수동 확인 필요" 표기
+db-schema 실패
+  → codegraph query "[TableName] entity"
+  → JPA @Table, @Column 어노테이션에서 스키마 추론
+
+db-stored-proc 실패
+  → codegraph query "[SP_NAME]"
+  → @SaturnProcedure 어노테이션 파라미터에서 추론
+
+code-reader 실패
+  → codegraph_explore "[ClassName]"
+  → 소스 직접 조회
+
+전부 실패
+  → 해당 SQL에 "-- ※ MCP 미연결: 수동 확인 필요 ([인스턴스명])" 표기
+  → 문서 생성은 계속 진행 (블로킹하지 않음)
 ```
+
+### 8.6 프롬프트에서의 인스턴스 참조 방식 (Layer C)
+
+Layer C (수동 프롬프트) 사용 시, 세션에 로드된 MCP 중 역할에 맞는 인스턴스를 명시한다.
+**도구명을 직접 쓰지 않고 역할과 scope로 지시한다.**
+
+```
+# 잘못된 방식 (하드코딩)
+mcp__devdb__tableSchema("LINKREW_MESSAGE_REQUEST")
+
+# 올바른 방식 (역할 + scope 기술)
+"O_GAFFILIATE DB의 LINKREW_MESSAGE_REQUEST 테이블 스키마를 조회하라.
+ 현재 세션에서 Oracle DB에 접근 가능한 MCP 도구를 사용한다."
+```
+
+LLM은 세션에 로드된 도구 목록에서 scope에 맞는 인스턴스를 자동 선택한다.
 
 ---
 
