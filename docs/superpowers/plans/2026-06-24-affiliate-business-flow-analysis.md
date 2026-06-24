@@ -102,43 +102,44 @@ codegraph query "[TableName] entity" → JPA @Table, @Column 어노테이션 확
 
 ---
 
-## STEP 5: 분석 실행 — 아래 프롬프트 전송
+## STEP 5: Analysis — send this prompt
 
 ```
-위에서 수집한 컨텍스트를 바탕으로 아래 요구사항에 맞는 비즈니스 플로우 문서를 작성하라.
+You are an expert technical writer and software architect analyzing a REAL production codebase.
+Using the context collected above, write a comprehensive business flow wiki page in Markdown.
 
-## 필수 섹션 (7개, 모두 포함)
+## MANDATORY SECTIONS (all 7 required)
 
-1. **개요** — 목적(1문장), 관련 모듈(레포/서브모듈), 주요 히스토리(티켓/날짜)
+1. **Overview** — one-sentence purpose, related modules (repos/submodules), key history (tickets/dates)
 
-2. **워크플로우** — mermaid sequenceDiagram
-   - participant에 실제 DB 테이블명 포함 (예: DB_Request as "Oracle: LINKREW_MESSAGE_REQUEST")
-   - 각 화살표에 실제 메서드명 또는 SQL 조건 표시
+2. **Workflow** — mermaid sequenceDiagram
+   - Include real DB table names as participants (e.g. `DB_Request as "Oracle: LINKREW_MESSAGE_REQUEST"`)
+   - Real method names or SQL conditions on each arrow
 
-3. **DB 레벨 데이터 흐름** ★ 이 섹션 없으면 문서 미완성
-   - 관련 테이블 전체 맵: `| 테이블명 | DB종류 | 역할 |`
-   - 단계별 SQL 흐름: [STEP 1] ~ [STEP N] 각각에 실제 SELECT/INSERT/UPDATE/EXEC 쿼리
-     - 실제 컬럼명, WHERE 조건값, enum 상수 ('N'/'Y', 'B'/'C' 등) 포함
-     - JPA 메서드명은 주석으로: `-- JPA: findByPartnerType(PartnerType.B2C)`
-     - 확인 불가 SQL: `-- ※ MCP 미연결: 수동 확인 필요 (oracle-gaffiliate)`
-   - 전체 처리 순서 요약: `[Oracle] LINKREW_MESSAGE_REQUEST ← INSERT (PROC_YN='N')` 형식
-   - 테이블 참조 관계 (텍스트 ERD)
+3. **DB-Level Data Flow** ★ REQUIRED — document is incomplete without this section
+   - Full table map: `| Table | DB Type | Role |`
+   - Per-step SQL: [STEP 1]…[STEP N] each with real SELECT/INSERT/UPDATE/EXEC
+     - Real column names, WHERE clause values, enum constants ('N'/'Y', 'B'/'C' etc.)
+     - JPA methods as comments: `-- JPA: findByPartnerType(PartnerType.B2C)`
+     - Unverifiable SQL: `-- NOTE: MCP not connected — manual verification required (oracle-gaffiliate)`
+   - Processing order summary: `[Oracle] LINKREW_MESSAGE_REQUEST ← INSERT (PROC_YN='N')` format
+   - Table reference ERD (text)
 
-4. **핵심 컴포넌트** — 진입점, 주요 서비스 클래스.메서드(), 저장소
-   파일경로:라인번호 포함
+4. **Key Components** — entry class, main service classes with method signatures, repositories
+   Include file:line references for each
 
-5. **구현 체인 완성도 표**
-   `| # | 컴포넌트 | 파일경로:라인 | 상태(✅/🔧/❌) |`
+5. **Component Chain Completeness**
+   `| # | Component | file:line | Status (✅/🔧/❌) |`
 
-6. **예외 처리** — 실패 시 DB 상태 변화, 재시도 여부
+6. **Error Handling** — DB state on failure, retry behavior
 
-7. **도메인 지식 Q&A** — 비직관적 규칙, 실제 코드 스니펫 포함
+7. **Domain Knowledge Q&A** — non-obvious business rules with real code snippets
 
-## 절대 포함 금지
-- 로컬 개발 환경 이슈 및 해결
-- 서비스 기동 순서
-- Docker/k8s 설정
-- 배포/CI 관련 내용
+## STRICTLY EXCLUDE
+- Local development environment issues
+- Service startup order
+- Docker/k8s configuration
+- Deployment/CI details
 ```
 
 ---
@@ -729,18 +730,18 @@ describe('buildFlowPrompt', () => {
 
   it('MCP 없는 테이블은 폴백 메시지 포함', () => {
     const prompt = buildFlowPrompt(flow, []);  // 인스턴스 없음
-    expect(prompt).toContain('MCP 미설정');
+    expect(prompt).toContain('no MCP configured');
   });
 
   it('금지 섹션 안내 포함', () => {
     const prompt = buildFlowPrompt(flow, instances);
-    expect(prompt).toContain('절대 포함 금지');
+    expect(prompt).toContain('STRICTLY EXCLUDE');
   });
 
   it('7개 필수 섹션 안내 포함', () => {
     const prompt = buildFlowPrompt(flow, instances);
-    expect(prompt).toContain('구현 체인 완성도 표');
-    expect(prompt).toContain('DB 레벨 데이터 흐름');
+    expect(prompt).toContain('Component Chain Completeness');
+    expect(prompt).toContain('DB-Level Data Flow');
   });
 });
 ```
@@ -806,7 +807,7 @@ export function buildFlowPrompt(flow: FlowDefinition, instances: McpInstance[]):
     const inst = resolveInstance(instances, 'db-schema', { database: t.db });
     const hint = inst
       ? `→ ${mcpToolPrefix(inst)}* (${inst.instanceName})`
-      : '→ (MCP 미설정 — JPA @Column 어노테이션에서 추론)';
+      : '→ (no MCP configured — infer from JPA @Column annotations)';
     return `  - ${t.name} [${t.db}] ${hint}`;
   }).join('\n');
 
@@ -814,7 +815,7 @@ export function buildFlowPrompt(flow: FlowDefinition, instances: McpInstance[]):
     const inst = resolveInstance(instances, 'db-stored-proc', { database: sp.db });
     const hint = inst
       ? `→ ${mcpToolPrefix(inst)}* (${inst.instanceName})`
-      : '→ (MCP 미설정 — @SaturnProcedure 어노테이션 파라미터 확인)';
+      : '→ (no MCP configured — check @SaturnProcedure annotation parameters)';
     return `  - ${sp.name} [${sp.db}] ${hint}`;
   }).join('\n');
 
@@ -822,54 +823,65 @@ export function buildFlowPrompt(flow: FlowDefinition, instances: McpInstance[]):
     const inst = resolveInstance(instances, 'code-reader', { host: ref.host });
     const hint = inst
       ? `→ ${mcpToolPrefix(inst)}get_file_contents (${inst.instanceName})`
-      : '→ (MCP 미설정 — codegraph_explore 사용)';
+      : '→ (no MCP configured — use codegraph_explore)';
     return `  - [${ref.host}] ${ref.repo}/${ref.path} ${hint}`;
   }).join('\n');
 
-  return `# 비즈니스 플로우 분석: ${flow.name} (${flow.id})
+  return `You are an expert technical writer and software architect analyzing a REAL production codebase.
+Your task is to generate a comprehensive business flow wiki page in Markdown format.
 
-## 분석 대상
-- 관련 레포: ${flow.repos.join(', ')}
-- 진입점: ${flow.entryClasses.join(', ')}
+## Flow: ${flow.name} (${flow.id})
 
-## 컨텍스트 수집 지시 (순서대로 실행)
+**Repos:** ${flow.repos.join(', ')}
+**Entry points:** ${flow.entryClasses.join(', ')}
+
+## Context Collection (execute in order before writing)
 
 ### 1. Call Chain
+\`\`\`
 codegraph query "${flow.entryClasses.join(' ')}"
+\`\`\`
 
-### 2. 테이블 스키마 (DB별 MCP 자동 선택)
-${tableLines || '  (없음)'}
+### 2. Table Schemas (MCP auto-selected by DB)
+${tableLines || '  (none)'}
 
-### 3. Stored Procedure
-${spLines || '  (없음)'}
+### 3. Stored Procedures
+${spLines || '  (none)'}
 
-### 4. 소스 코드
-${codeLines || '  (없음)'}
+### 4. Source Code
+${codeLines || '  (none)'}
 
-## 출력 요구사항
+## Output Requirements (ALL 7 sections mandatory)
 
-아래 7개 섹션을 **모두** 포함한 마크다운 문서를 작성하라.
+Write a Markdown wiki page that includes every section below. Missing any section = incomplete document.
 
-1. **개요** — 목적(1문장), 관련 모듈, 주요 히스토리
-2. **워크플로우** — mermaid sequenceDiagram, participant에 DB 테이블명 포함
-3. **DB 레벨 데이터 흐름** ★ 없으면 미완성
-   - 관련 테이블 전체 맵: \`| 테이블명 | DB종류 | 역할 |\`
-   - 단계별 SQL 흐름: STEP 1~N 각각 실제 SELECT/INSERT/UPDATE/EXEC
-   - 전체 처리 순서 요약: \`[DB] TABLE ← 작업\` 형식
-   - 테이블 참조 관계 (텍스트 ERD)
-4. **핵심 컴포넌트** — 클래스.메서드(), 파일경로:라인
-5. **구현 체인 완성도 표** — \`| # | 컴포넌트 | 파일경로:라인 | 상태(✅/🔧/❌) |\`
-6. **예외 처리** — 실패 시 DB 상태, 재시도 여부
-7. **도메인 지식 Q&A** — 비직관적 규칙, 코드 스니펫
+1. **Overview** — one-sentence purpose, related modules (repos/submodules), key history (tickets/dates)
+2. **Workflow** — mermaid sequenceDiagram with DB tables as participants (e.g. \`DB_Request as "Oracle: LINKREW_MESSAGE_REQUEST"\`), real method names on arrows
+3. **DB-Level Data Flow** ★ REQUIRED — document is incomplete without this section
+   - Full table map: \`| Table | DB | Role |\`
+   - Per-step SQL: [STEP 1]…[STEP N], each with real SELECT/INSERT/UPDATE/EXEC including actual column names, WHERE values, enum constants ('N'/'Y', 'B'/'C' etc.)
+   - JPA methods as comments: \`-- JPA: findByPartnerType(PartnerType.B2C)\`
+   - Unverifiable SQL: \`-- NOTE: MCP not connected — manual verification required\`
+   - Processing order summary: \`[Oracle] LINKREW_MESSAGE_REQUEST ← INSERT (PROC_YN='N')\` format
+   - Table reference ERD (text)
+4. **Key Components** — entry class, main service classes with method signatures, repositories; include file:line references
+5. **Component Chain Completeness** — \`| # | Component | file:line | Status (✅/🔧/❌) |\`
+6. **Error Handling** — DB state on failure, retry behavior
+7. **Domain Knowledge Q&A** — non-obvious business rules with real code snippets
 
-## 절대 포함 금지
-로컬 개발 이슈, 기동 순서, Docker/k8s, 배포 관련
+## STRICTLY EXCLUDE
+- Local development environment issues
+- Service startup order
+- Docker/k8s configuration
+- Deployment/CI details
 
-## SQL 작성 기준
-- 실제 컬럼명만 사용 (추측 금지)
-- 확인 불가: \`-- ※ MCP 미연결: 수동 확인 필요\`
-- JPA 메서드: \`-- JPA: methodName(param)\`
-`;
+## SQL Writing Rules
+- Use only real column names from schema — never guess
+- Unverifiable: \`-- NOTE: MCP not connected — manual verification required\`
+- JPA method annotation: \`-- JPA: methodName(param)\`
+
+${STRICT_FORMAT_RULES}`;
+}
 }
 ```
 
@@ -1087,13 +1099,13 @@ func TestBuildPrompt_ContainsFlowName(t *testing.T) {
 	prompt := flowanalyzer.BuildPrompt(flow, instances)
 
 	if !strings.Contains(prompt, "링크루 메시지 발송 배치") {
-		t.Error("프롬프트에 플로우명이 없음")
+		t.Error("prompt missing flow name")
 	}
 	if !strings.Contains(prompt, "mcp__oracle__") {
-		t.Error("프롬프트에 oracle MCP 힌트가 없음")
+		t.Error("prompt missing oracle MCP hint")
 	}
-	if !strings.Contains(prompt, "DB 레벨 데이터 흐름") {
-		t.Error("프롬프트에 DB 레벨 섹션 요구사항이 없음")
+	if !strings.Contains(prompt, "DB-Level Data Flow") {
+		t.Error("prompt missing DB-Level Data Flow section requirement")
 	}
 }
 
@@ -1236,61 +1248,69 @@ func containsStr(slice []string, s string) bool {
 func BuildPrompt(flow FlowDef, instances []MCPInstance) string {
 	var sb strings.Builder
 
-	fmt.Fprintf(&sb, "# 비즈니스 플로우 분석: %s (%s)\n\n", flow.Name, flow.ID)
-	fmt.Fprintf(&sb, "## 분석 대상\n- 관련 레포: %s\n- 진입점: %s\n\n",
+	fmt.Fprintf(&sb, "You are an expert technical writer and software architect analyzing a REAL production codebase.\nYour task is to generate a comprehensive business flow wiki page in Markdown format.\n\n## Flow: %s (%s)\n\n", flow.Name, flow.ID)
+	fmt.Fprintf(&sb, "**Repos:** %s\n**Entry points:** %s\n\n",
 		strings.Join(flow.Repos, ", "), strings.Join(flow.EntryClasses, ", "))
 
-	sb.WriteString("## 컨텍스트 수집 지시\n\n")
-	fmt.Fprintf(&sb, "### 1. Call Chain\ncodegraph query \"%s\"\n\n", strings.Join(flow.EntryClasses, " "))
+	sb.WriteString("## Context Collection (execute in order before writing)\n\n")
+	fmt.Fprintf(&sb, "### 1. Call Chain\n```\ncodegraph query \"%s\"\n```\n\n", strings.Join(flow.EntryClasses, " "))
 
-	sb.WriteString("### 2. 테이블 스키마\n")
+	sb.WriteString("### 2. Table Schemas (MCP auto-selected by DB)\n")
 	for _, t := range flow.Tables {
 		inst := ResolveInstance(instances, "db-schema", t.DB, "")
 		if inst != nil {
 			fmt.Fprintf(&sb, "  - %s [%s] → mcp__%s__* (%s)\n", t.Name, t.DB, inst.Tool, inst.InstanceName)
 		} else {
-			fmt.Fprintf(&sb, "  - %s [%s] → (MCP 미설정 — JPA 어노테이션 확인)\n", t.Name, t.DB)
+			fmt.Fprintf(&sb, "  - %s [%s] → (no MCP configured — infer from JPA @Column annotations)\n", t.Name, t.DB)
 		}
 	}
 
 	if len(flow.StoredProcs) > 0 {
-		sb.WriteString("\n### 3. Stored Procedure\n")
+		sb.WriteString("\n### 3. Stored Procedures\n")
 		for _, sp := range flow.StoredProcs {
 			inst := ResolveInstance(instances, "db-stored-proc", sp.DB, "")
 			if inst != nil {
 				fmt.Fprintf(&sb, "  - %s [%s] → mcp__%s__* (%s)\n", sp.Name, sp.DB, inst.Tool, inst.InstanceName)
 			} else {
-				fmt.Fprintf(&sb, "  - %s [%s] → (MCP 미설정)\n", sp.Name, sp.DB)
+				fmt.Fprintf(&sb, "  - %s [%s] → (no MCP configured)\n", sp.Name, sp.DB)
 			}
 		}
 	}
 
-	sb.WriteString("\n### 4. 소스 코드\n")
+	sb.WriteString("\n### 4. Source Code\n")
 	for _, ref := range flow.CodeRefs {
 		inst := ResolveInstance(instances, "code-reader", "", ref.Host)
 		if inst != nil {
 			fmt.Fprintf(&sb, "  - [%s] %s/%s → mcp__%s__get_file_contents (%s)\n",
 				ref.Host, ref.Repo, ref.Path, inst.Tool, inst.InstanceName)
 		} else {
-			fmt.Fprintf(&sb, "  - [%s] %s/%s → (MCP 미설정 — codegraph_explore)\n",
+			fmt.Fprintf(&sb, "  - [%s] %s/%s → (no MCP configured — use codegraph_explore)\n",
 				ref.Host, ref.Repo, ref.Path)
 		}
 	}
 
 	sb.WriteString(`
-## 출력 요구사항 (7개 섹션 필수)
+## Output Requirements (ALL 7 sections mandatory)
 
-1. **개요** — 목적(1문장), 관련 모듈, 주요 히스토리
-2. **워크플로우** — mermaid sequenceDiagram, DB participant 포함
-3. **DB 레벨 데이터 흐름** ★ 없으면 미완성
-   - 테이블 전체 맵, 단계별 SQL, 전체 순서 요약, ERD
-4. **핵심 컴포넌트** — 클래스.메서드(), 파일경로:라인
-5. **구현 체인 완성도 표** — | # | 컴포넌트 | 파일경로:라인 | 상태 |
-6. **예외 처리**
-7. **도메인 지식 Q&A**
+Write a Markdown wiki page that includes every section below. Missing any section = incomplete document.
 
-## 절대 포함 금지
-로컬 개발 이슈, 기동 순서, Docker/k8s, 배포 관련
+1. **Overview** — one-sentence purpose, related modules, key history (tickets/dates)
+2. **Workflow** — mermaid sequenceDiagram with DB tables as participants, real method names on arrows
+3. **DB-Level Data Flow** ★ REQUIRED — document is incomplete without this section
+   - Full table map: | Table | DB | Role |
+   - Per-step SQL: [STEP 1]...[STEP N] with real column names, WHERE values, enum constants
+   - Processing order summary: [Oracle] TABLE ← INSERT (COL='VAL') format
+   - Table reference ERD (text)
+4. **Key Components** — entry class, service classes with method signatures, repositories; file:line refs
+5. **Component Chain Completeness** — | # | Component | file:line | Status (✅/🔧/❌) |
+6. **Error Handling** — DB state on failure, retry behavior
+7. **Domain Knowledge Q&A** — non-obvious business rules with real code snippets
+
+## STRICTLY EXCLUDE
+- Local development environment issues
+- Service startup order
+- Docker/k8s configuration
+- Deployment/CI details
 `)
 	return sb.String()
 }
