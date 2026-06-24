@@ -1,6 +1,11 @@
 import { emitTaskEvent, fetchContent } from "./taskStreamClient";
 import mermaid from 'mermaid';
 import { normalizeMarkdownContent } from "./markdown-normalize";
+import { loadCatalog, findFlow } from './flow-catalog';
+import { buildFlowPrompt } from './build-flow-prompt';
+import type { McpInstance } from './mcp-instance-registry';
+import path from 'path';
+import fs from 'fs';
 
 // ─── Project Classification ────────────────────────────────────────────────
 // Detected once per generation run (Phase 1.5) using file-tree + README
@@ -145,7 +150,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Backend API — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (12):
+REQUIRED SECTIONS (13):
 1. Getting Started — local run, env vars, seed data, Docker compose
 2. Architecture Overview — request lifecycle, layer diagram, DI container, module structure
 3. API Reference — REST/GraphQL endpoints grouped by domain (one page per major domain/resource)
@@ -158,6 +163,7 @@ REQUIRED SECTIONS (12):
 10. Caching and Performance — cache layers, invalidation strategy, query optimization, N+1
 11. Observability — structured logging, metrics, distributed tracing, health checks
 12. Testing Strategy and Deployment — unit/integration/E2E patterns, CI/CD, infrastructure
+13. Business Flows — ONE PAGE PER major end-to-end business flow: trace entry point → service → repository → DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL (SELECT/INSERT/UPDATE) with actual column names and values, and a component chain completeness table with file:line references.
 
 DECOMPOSITION RULES:
 - API Reference: one page per major API domain (e.g., Auth API, Users API, Orders API). NEVER one flat page.
@@ -169,7 +175,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Frontend Web Application — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (11):
+REQUIRED SECTIONS (12):
 1. Getting Started — dev server setup, env vars, build commands, local proxy config
 2. Application Architecture — routing strategy, page structure, layout system, rendering mode (CSR/SSR/SSG)
 3. Component System — component hierarchy, design tokens, compound patterns, prop contracts
@@ -181,6 +187,7 @@ REQUIRED SECTIONS (11):
 9. Performance Optimization — code splitting, lazy loading, bundle analysis, Core Web Vitals
 10. Build System and Tooling — bundler config, env handling, path aliases, CI build pipeline
 11. Testing Strategy — unit (component), integration, E2E patterns, MSW/fixture setup
+12. Business Flows — ONE PAGE PER major user-facing flow that touches a backend or BFF: trace UI action → API call → server-side DB write. Each page MUST include a mermaid sequenceDiagram showing the UI→API→DB path, per-step SQL where applicable, and a component chain completeness table.
 
 DECOMPOSITION RULES:
 - Component System: separate pages for atomic components, composite components, and layout components.
@@ -192,7 +199,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Fullstack Application — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (14):
+REQUIRED SECTIONS (15):
 1. Getting Started — running frontend + backend simultaneously, env setup, dev tunnels/proxy
 2. System Architecture — monorepo vs polyrepo structure, frontend-backend communication (REST/GraphQL/tRPC/WS)
 3. Backend: API Design and Reference — endpoint design, versioning, request/response contracts
@@ -207,6 +214,7 @@ REQUIRED SECTIONS (14):
 12. Database Schema and Migrations — full schema diagram, migration strategy, seeding
 13. Testing Strategy — frontend unit, backend unit, integration, E2E (Playwright/Cypress)
 14. Build, Deployment, and Infrastructure — Docker, CI/CD pipeline, environment promotion
+15. Business Flows — ONE PAGE PER major end-to-end business flow spanning frontend and backend: trace user action → API → service → DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL with actual column names, and a component chain completeness table with file:line references.
 
 DECOMPOSITION RULES:
 - Backend and Frontend sections MUST be separate — never merge "Backend API + Frontend" into one section.
@@ -240,7 +248,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Library / SDK — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (11):
+REQUIRED SECTIONS (12):
 1. Getting Started and Installation — install, first working example, TypeScript setup
 2. Core Concepts and Mental Model — key abstractions, design philosophy, how pieces fit together
 3. API Reference: Core Module — SEPARATE PAGE per major class/function group (primary API surface)
@@ -252,6 +260,7 @@ REQUIRED SECTIONS (11):
 9. Performance and Memory — complexity notes, large-data patterns, memory management
 10. Migration and Versioning — semver policy, breaking change history, migration guides per major version
 11. Contributing and Internals — repo structure, how to run tests, architecture of the library itself
+12. Business Flows — ONE PAGE PER major SDK workflow that involves DB or persistent state: trace caller API → internal processing → DB read/write. Each page MUST include a mermaid sequenceDiagram with DB as participant, per-step SQL with actual column names, and a component chain completeness table.
 
 DECOMPOSITION RULES:
 - API Reference MUST be split by module/class — never one massive "API" page.
@@ -294,7 +303,7 @@ Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
 REQUIRED SECTIONS (minimum = 3 cross-cutting + 1 per detected sub-project):
 1. System Overview — full service/component map, network topology, shared infrastructure, deployment architecture
-2. Business Flows — ONE PAGE PER major end-to-end business flow: trace user requests across projects (HTTP + events + DB writes) with sequenceDiagram per flow showing exact call chains
+2. Business Flows — ONE PAGE PER major end-to-end business flow: trace user requests across projects (HTTP + events + DB writes). Each page MUST include: (1) mermaid sequenceDiagram with DB tables as named participants, (2) per-step SQL (SELECT/INSERT/UPDATE/EXEC) with actual column names and enum values, (3) component chain completeness table with file:line references and ✅/🔧/❌ status per component.
 3. [Sub-Project Name] (one rootSection PER detected sub-project — NEVER merge two projects):
    - API Contract: endpoints/interfaces this project exposes, who calls it (inbound), what it calls (outbound)
    - Domain Model: core entities, aggregate roots, DB schema/tables owned by this project
@@ -315,7 +324,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Monorepo — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (11):
+REQUIRED SECTIONS (12):
 1. Getting Started — clone, install (pnpm/yarn/npm workspaces), bootstrap all packages, first build
 2. Repository Structure and Package Map — what each package does, dependency graph visualization
 3. Build System and Task Orchestration — Turborepo/Nx/Bazel: task graph, caching, remote cache
@@ -327,6 +336,7 @@ REQUIRED SECTIONS (11):
 9. Testing Across Packages — cross-package test setup, shared fixtures, integration test patterns
 10. Code Generation and Tooling — codegen scripts, workspace scripts, linting/formatting at scale
 11. Publishing and Versioning — changesets/semantic-release, release workflow, npm publish
+12. Business Flows — ONE PAGE PER major cross-package end-to-end flow: trace the request through packages to the DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL with actual column names, and a component chain completeness table showing which package owns each step.
 
 DECOMPOSITION RULES:
 - Application Packages: SEPARATE PAGE per major app in the monorepo.
@@ -338,7 +348,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Mobile Application — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (12):
+REQUIRED SECTIONS (13):
 1. Getting Started — simulator/emulator setup, device build, signing profiles, first launch
 2. Architecture Overview — overall app architecture (MVC/MVVM/Clean), module boundaries
 3. Navigation Architecture — stack/tab/drawer setup, deep linking, navigation state persistence
@@ -351,6 +361,7 @@ REQUIRED SECTIONS (12):
 10. Background Processing — background fetch, silent push, app state transitions
 11. Build, Signing, and Release — Fastlane/Xcode/Gradle config, App Store / Play Store pipeline
 12. Testing Strategy — unit (Jest), component (RTL), E2E (Detox/Maestro), device testing
+13. Business Flows — ONE PAGE PER major app flow that involves a backend: trace UI gesture → API call → server DB write. Each page MUST include a mermaid sequenceDiagram (mobile screen → API → service → DB), per-step SQL where applicable, and a component chain completeness table.
 
 DECOMPOSITION RULES:
 - Authentication: separate pages for auth flow, token refresh, and biometric/keychain storage.
@@ -362,7 +373,7 @@ DECOMPOSITION RULES:
 ### PROJECT TYPE: Data Platform / Analytics — MANDATORY SECTION TEMPLATE
 Each area below MUST become its own rootSection. DO NOT merge or omit any.
 
-REQUIRED SECTIONS (12):
+REQUIRED SECTIONS (13):
 1. Getting Started — local environment, sample data, running your first pipeline
 2. Architecture Overview — full data flow diagram, zones (raw/staging/mart), technology stack
 3. Data Sources and Ingestion — connectors, CDC, batch vs streaming, schema evolution
@@ -375,6 +386,7 @@ REQUIRED SECTIONS (12):
 10. Query Interface and APIs — BI tool connections, semantic layer, query API, access control
 11. Infrastructure and Scaling — compute resources, autoscaling, cost management, environment promotion
 12. Contributing: Adding New Pipelines — step-by-step guide, naming conventions, test requirements
+13. Business Flows — ONE PAGE PER major data pipeline flow: trace source ingestion → transformation → storage → output. Each page MUST include a mermaid sequenceDiagram with storage tables/buckets as participants, per-step SQL/DML with actual table and column names, and a pipeline stage completeness table.
 
 DECOMPOSITION RULES:
 - Data Models: separate pages per layer (staging models, intermediate, final mart models).
@@ -581,6 +593,19 @@ function topicRequirements(sectionTitle: string, pageTitle: string): string {
 - Include a step-by-step numbered setup sequence — every command must be exact and copy-pasteable.
 - Include a prerequisites table: Tool / Minimum Version / Installation Link.
 - End with a "verify your setup" section showing the expected output of a test command.`;
+  if (has('business flow', 'business flows', 'flow analysis', 'flow detail', '비즈니스 플로우', '플로우 분석'))
+    return `
+### MANDATORY for this BUSINESS FLOW page
+- Include a \`sequenceDiagram\` with DB tables as named participants (e.g. \`participant DB_Req as "Oracle: LINKREW_MESSAGE_REQUEST"\`). Every arrow must show the real method name or SQL operation.
+- Include a **DB-Level Data Flow** section with:
+  - Full table map: \`| Table | DB | Role |\`
+  - Per-step SQL: [STEP 1]…[STEP N], each with real SELECT/INSERT/UPDATE/EXEC, actual column names, WHERE clause values, and enum constants ('N'/'Y', etc.)
+  - JPA methods annotated as: \`-- JPA: methodName(param)\`
+  - Unverifiable SQL: \`-- NOTE: MCP not connected — manual verification required\`
+  - Processing order summary line per step: \`[Oracle] TABLE ← INSERT (COL='VAL')\`
+  - Text ERD showing table relationships for this flow
+- Include a **Component Chain Completeness** table: \`| # | Component | file:line | Status (✅/🔧/❌) |\`
+- DO NOT include: local dev environment issues, service startup order, Docker/k8s, deployment/CI details.`;
   return '';
 }
 
@@ -1540,6 +1565,21 @@ export async function runWikiGeneration(
         err instanceof Error && err.name === 'AbortError';
     };
 
+    // ── business flow helpers ──────────────────────────────────────────────
+    function loadFlowsConfig(): McpInstance[] {
+      try {
+        const configPath = new URL('../../flows/local-wiki.flows.json', import.meta.url).pathname;
+        return JSON.parse(fs.readFileSync(configPath, 'utf8')).mcpInstances ?? [];
+      } catch {
+        return [];
+      }
+    }
+
+    function isBusinessFlowPage(page: { id: string; title: string }): boolean {
+      const s = `${page.id} ${page.title}`.toLowerCase();
+      return s.includes('business-flow') || s.includes('business flow') || s.includes('비즈니스 플로우');
+    }
+
     // ── per-page generation (inner function capturing outer scope) ─────────
     const generateOnePage = async (page: any, signal?: AbortSignal): Promise<any> => {
       const tPage = Date.now();
@@ -1578,7 +1618,7 @@ export async function runWikiGeneration(
         projectTypeTopicRequirements(projectType, sectionTitle, page.title),
       ].filter(Boolean).join('\n');
 
-      const pagePrompt = `You are an expert technical writer and software architect analyzing a REAL production codebase.
+      let pagePrompt = `You are an expert technical writer and software architect analyzing a REAL production codebase.
 Your task is to generate a comprehensive, in-depth technical wiki page in Markdown format.
 
 Topic: "${page.title}"
@@ -1605,6 +1645,19 @@ ${buildMcpContextForPage(page)}
 
 ${languageInstruction}
 ${STRICT_FORMAT_RULES}`;
+
+      // catalog-based flow enrichment (optional layer — enriches if catalog exists)
+      if (isBusinessFlowPage(page)) {
+        const catalogPath = path.join(projectPath, '../flows/catalog.yaml');
+        if (fs.existsSync(catalogPath)) {
+          const flow = findFlow(loadCatalog(catalogPath), page.id);
+          if (flow) {
+            pagePrompt = buildFlowPrompt(flow, loadFlowsConfig());
+            await emitStep(streamId, 'agent_log', 'generation',
+              `🗄️ "${page.title}" — catalog-enriched flow prompt applied (${flow.id})`);
+          }
+        }
+      }
 
       const pageReqBody = {
         repo_url: projectPath, type: repo_type, stream_id: streamId,
