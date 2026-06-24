@@ -32,6 +32,12 @@ function stripTrailingEmptyCodeFence(text: string): string {
   return next;
 }
 
+// Korean/CJK character range for the bold-delimiter fix below.
+// Covers Hangul syllables (AC00-D7A3), Hangul Jamo (1100-11FF),
+// Hangul Compatibility Jamo (3130-318F), CJK Unified Ideographs (4E00-9FFF),
+// CJK Extension A (3400-4DBF), Hiragana (3040-309F), Katakana (30A0-30FF).
+const CJK_CHAR = /[가-힣ᄀ-ᇿ㄰-㆏一-鿿㐀-䶿぀-ヿ]/;
+
 export function normalizeMarkdownContent(content: string): string {
   let text = (content || "").replace(/\r\n/g, "\n").trim();
   if (!text) return text;
@@ -99,6 +105,16 @@ export function normalizeMarkdownContent(content: string): string {
   }
 
   let finalContent = stripTrailingEmptyCodeFence(stripCompletionChatter(text));
+
+  // Fix CommonMark right-flanking rule: the closing ** is not recognised as a
+  // strong-emphasis delimiter when immediately followed by a Korean/CJK letter
+  // (a Unicode letter, not whitespace or punctuation).  Insert a zero-width
+  // space (​) so the parser sees a non-letter boundary without affecting
+  // visible layout.
+  finalContent = finalContent.replace(
+    new RegExp(`(\\*{1,2}[^*\\n]+\\*{1,2})(${CJK_CHAR.source})`, 'g'),
+    '$1​$2'
+  );
 
   // Escape unrecognized HTML tags to prevent React render crashes.
   // Allowed tags remain intact; anything else becomes &lt;tag&gt;

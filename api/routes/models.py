@@ -31,6 +31,8 @@ class RepoInfo(BaseModel):
     token: Optional[str] = None
     localPath: Optional[str] = None
     repoUrl: Optional[str] = None
+    githubRepoUrl: Optional[str] = None
+    githubBranch: Optional[str] = None
 
 
 class WikiSection(BaseModel):

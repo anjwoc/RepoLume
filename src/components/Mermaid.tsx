@@ -182,11 +182,13 @@ mermaid.initialize({
 // avoiding false positives where a diagram renders fine but raw parse fails.
 export function sanitizeMermaidChart(input: string): string {
   // Strip ( ... ) from inside edge labels:  |some text (note)| → |some text|
-  // Edge labels are delimited by | ... | immediately after an arrow token.
   let sanitized = input.replace(
     /(\|[^|]*?)\([^)]*?\)([^|]*?\|)/g,
     '$1$2'
   );
+  // Strip wrapping double-quotes inside pipe edge labels: |"Label"| → |Label|
+  // Mermaid v11 treats |"..."| as a syntax error.
+  sanitized = sanitized.replace(/\|"([^"]+)"\|/g, '|$1|');
   // Trim double spaces left by removal
   sanitized = sanitized.replace(/\|(\s{2,})/g, '| ');
   return sanitized;
@@ -446,7 +448,10 @@ const Mermaid: React.FC<MermaidProps> = ({ chart: initialChart, className = '', 
         setError(null);
         setSvg('');
 
-        // Sanitize edge labels before rendering to avoid parenthesis parse errors
+        // detectBrokenDiagrams / wiki-generator re-call mermaid.initialize() which resets
+        // suppressErrorRendering. Re-assert it before each render so we always get a throw
+        // instead of the bomb SVG, and our catch block can display the error properly.
+        mermaid.initialize({ suppressErrorRendering: true });
         const sanitizedChart = sanitizeMermaidChart(chart);
         const { svg: renderedSvg } = await mermaid.render(idRef.current, sanitizedChart);
 
