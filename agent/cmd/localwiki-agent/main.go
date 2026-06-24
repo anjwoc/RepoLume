@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/localwiki/agent/internal/flowanalyzer"
 	"github.com/localwiki/agent/internal/runner"
 )
 
@@ -57,6 +59,8 @@ func main() {
 		os.Exit(cmdList())
 	case "check":
 		os.Exit(cmdCheck(os.Args[2:]))
+	case "analyze-flow":
+		os.Exit(cmdAnalyzeFlow(os.Args[2:]))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand %q\n", os.Args[1])
 		printUsage()
@@ -264,5 +268,75 @@ Run usage:
   localwiki-agent run --agent gemini --prompt "Hello" [--cwd /repo] [--model gemini-2.5-pro]
   localwiki-agent run --agent codex  --prompt-file /tmp/p.txt [--timeout 120]
   localwiki-agent run --agent claude --prompt "..." [--model claude-sonnet-4-5]
+  localwiki-agent analyze-flow --flow F18 [--catalog flows/catalog.yaml] [--config flows/local-wiki.flows.json] [--agent claude] [--out .]
 `)
+}
+
+func cmdAnalyzeFlow(args []string) int {
+	fs := flag.NewFlagSet("analyze-flow", flag.ExitOnError)
+	flowID      := fs.String("flow", "", "Flow ID (e.g. F18)")
+	catalogPath := fs.String("catalog", "flows/catalog.yaml", "Path to catalog.yaml")
+	configPath  := fs.String("config", "flows/local-wiki.flows.json", "Path to MCP instance config")
+	agentName   := fs.String("agent", "claude", "AI agent to use (claude/gemini/codex)")
+	outDir      := fs.String("out", ".", "Output directory")
+	_ = fs.Parse(args)
+
+	if *flowID == "" {
+		fmt.Fprintln(os.Stderr, "ERROR: --flow is required (e.g. --flow F18)")
+		return 1
+	}
+
+	flows, err := flowanalyzer.LoadCatalog(*catalogPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to load catalog: %v\n", err)
+		return 1
+	}
+
+	flow := flowanalyzer.FindFlow(flows, *flowID)
+	if flow == nil {
+		fmt.Fprintf(os.Stderr, "ERROR: flow %q not found in catalog\n", *flowID)
+		return 1
+	}
+
+	var instances []flowanalyzer.MCPInstance
+	if raw, err := os.ReadFile(*configPath); err == nil {
+		var cfg struct {
+			MCPInstances []flowanalyzer.MCPInstance `json:"mcpInstances"`
+		}
+		if err := json.Unmarshal(raw, &cfg); err == nil {
+			instances = cfg.MCPInstances
+		}
+	}
+
+	prompt := flowanalyzer.BuildPrompt(*flow, instances)
+
+	reg := runner.NewRegistry("", "", "")
+	r, err := reg.Get(*agentName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: agent %q not found: %v\n", *agentName, err)
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() { <-sigCh; cancel() }()
+
+	runResult, err := r.RunCollect(ctx, runner.RunRequest{Prompt: prompt})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: analysis failed: %v\n", err)
+		return 1
+	}
+	result := runResult.Content
+
+	slug := strings.ToLower(strings.ReplaceAll(flow.Name, " ", "-"))
+	outPath := filepath.Join(*outDir, fmt.Sprintf("%s-%s.md", strings.ToLower(flow.ID), slug))
+	if err := os.WriteFile(outPath, []byte(result), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to write output: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✅ %s → %s\n", flow.Name, outPath)
+	return 0
 }
