@@ -89,3 +89,4 @@ screenshots/
 
 # codegraph
 .codegraph/
+flows/local-wiki.flows.json
