@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["flows"],
+  "properties": {
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "repos", "entryClasses", "tables", "codeRefs"],
+        "properties": {
+          "id":           { "type": "string", "pattern": "^F[0-9]{2}$" },
+          "name":         { "type": "string" },
+          "repos":        { "type": "array", "items": { "type": "string" } },
+          "entryClasses": { "type": "array", "items": { "type": "string" } },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "db"],
+              "properties": {
+                "name": { "type": "string" },
+                "db":   { "type": "string" }
+              }
+            }
+          },
+          "storedProcs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "db"],
+              "properties": {
+                "name": { "type": "string" },
+                "db":   { "type": "string" }
+              }
+            }
+          },
+          "codeRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["host", "repo", "path"],
+              "properties": {
+                "host": { "type": "string" },
+                "repo": { "type": "string" },
+                "path": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
