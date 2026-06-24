@@ -73,7 +73,7 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
 
         # Mirror generated pages as .md files in wiki-out/
         wiki_out_repo = f"{data.repo.repo}_{data.model}" if data.model else data.repo.repo
-        wiki_out_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo, data.language)
+        wiki_out_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo)
         os.makedirs(wiki_out_dir, exist_ok=True)
 
         section_map: dict[str, str] = {}
@@ -138,10 +138,10 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
 
 
 async def read_wiki_out_cache(
-    repo: str, language: str, model: Optional[str] = None
+    repo: str, model: Optional[str] = None
 ) -> Optional[WikiCacheData]:
     wiki_out_repo = f"{repo}_{model}" if model else repo
-    wiki_out_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo, language)
+    wiki_out_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo)
     if not os.path.exists(wiki_out_dir):
         return None
 
