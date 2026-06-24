@@ -66,26 +66,26 @@ class TestIndexMd:
     def test_index_md_created(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        index_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "index.md"
+        index_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md"
         assert index_path.exists(), "index.md was not created"
 
     def test_index_md_contains_page_titles(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "index.md").read_text()
+        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md").read_text()
         assert "Overview" in content
         assert "Dev Setup" in content
 
     def test_index_md_contains_section_header(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "index.md").read_text()
+        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md").read_text()
         assert "getting-started" in content
 
     def test_index_md_summary_skips_heading(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "index.md").read_text()
+        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md").read_text()
         assert "This is the affiliate system overview." in content
         assert "# Overview" not in content
 
@@ -94,13 +94,13 @@ class TestLogMd:
     def test_log_md_created_on_first_run(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        log_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "log.md"
+        log_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md"
         assert log_path.exists(), "log.md was not created"
 
     def test_log_md_contains_repo_and_page_count(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "log.md").read_text()
+        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md").read_text()
         assert "affiliate" in content
         assert "2 pages" in content
         assert "gemini-3.5-flash" in content
@@ -109,12 +109,12 @@ class TestLogMd:
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
         asyncio.run(save_wiki_cache(_make_request()))
-        log_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "log.md"
+        log_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md"
         entries = [l for l in log_path.read_text().splitlines() if l.startswith("## [")]
         assert len(entries) == 2, f"Expected 2 log entries, got {len(entries)}"
 
     def test_log_md_entry_format(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "en" / "log.md").read_text()
+        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md").read_text()
         assert re.search(r"^## \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}\] generate \|", content, re.MULTILINE)

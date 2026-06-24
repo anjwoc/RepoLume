@@ -46,9 +46,9 @@ async def get_cached_wiki(
     if not cache_data and model:
         cache_data = await read_wiki_cache(owner, repo, repo_type, language)
     if not cache_data:
-        cache_data = await read_wiki_out_cache(repo, language, model)
+        cache_data = await read_wiki_out_cache(repo, model)
     if not cache_data and model:
-        cache_data = await read_wiki_out_cache(repo, language)
+        cache_data = await read_wiki_out_cache(repo)
     return cache_data
 
 
@@ -98,18 +98,14 @@ async def delete_wiki_cache(
                 shutil.move(cache_path, os.path.join(trash_dir, f"{os.path.basename(cache_path)}_{timestamp}.bak"))
                 deleted.append("cache_file")
 
-        # wiki-out is structured as wiki-out/{repo}_{model}/{language}/
+        # wiki-out is structured as wiki-out/{repo}_{model}/
         wiki_out_repo = f"{repo}_{model}" if model else repo
-        wiki_out_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo, language)
+        wiki_out_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo)
         wiki_trash_dir = os.path.join(_PROJECT_ROOT, "wiki-out", ".trash")
         if os.path.exists(wiki_out_dir):
             os.makedirs(wiki_trash_dir, exist_ok=True)
-            shutil.move(wiki_out_dir, os.path.join(wiki_trash_dir, f"{wiki_out_repo}_{language}_{timestamp}"))
+            shutil.move(wiki_out_dir, os.path.join(wiki_trash_dir, f"{wiki_out_repo}_{timestamp}"))
             deleted.append("wiki_out_dir")
-        # Remove parent dir (wiki-out/{repo}_{model}/) if now empty
-        parent_dir = os.path.join(_PROJECT_ROOT, "wiki-out", wiki_out_repo)
-        if os.path.exists(parent_dir) and not os.listdir(parent_dir):
-            shutil.rmtree(parent_dir, ignore_errors=True)
 
         # Delete DB records (project + jobs + checkpoints)
         project_id = f"{owner}_{repo}_{repo_type}_{language}"
