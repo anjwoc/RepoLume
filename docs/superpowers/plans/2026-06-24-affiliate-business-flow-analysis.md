@@ -908,18 +908,110 @@ git commit -m "feat: flow-catalog loader and build-flow-prompt with instance-awa
 
 ---
 
-### Task 5: wiki-generator.ts — per-flow 페이지 생성
+### Task 5: wiki-generator.ts — Business Flows를 standard pipeline에 통합
 
-Business Flows 섹션 페이지 감지 → catalog에서 플로우 매핑 → `buildFlowPrompt()` 로 프롬프트 교체.
+두 단계로 구성된다. (A) `projectTypeHints()`에 Business Flows 섹션을 추가해 standard ToC 생성에서 자동으로 페이지가 만들어지게 한다. (B) `topicRequirements()`에 business-flow keyword case를 추가해 DB-level SQL 요구사항을 강제한다. catalog 기반 enrichment(Task 4)는 이 standard pipeline 위에 올라타는 선택적 레이어다.
+
+**Applicable types** (Business Flows 추가): `backend-api`, `frontend-web`, `fullstack`, `monorepo`, `mobile`, `data-platform`, `library-sdk`  
+**Excluded**: `ide`, `compiler`, `cli-tool` (no DB-backed business flows)  
+**Already has it**: `multi-project` — description만 DB SQL 요구사항으로 보강
 
 **Files:**
 - Modify: `src/lib/wiki-generator.ts`
 
-**Injection point:** `generateOnePage()` 내부, line 1596 `${buildMcpContextForPage(page)}` 직후, `const pageReqBody =` (line 1609) 직전.
+---
 
-- [ ] **Step 1: wiki-generator.ts 상단 import 추가**
+- [ ] **Step 1: `projectTypeHints()` — 7개 타입에 Business Flows 섹션 추가**
 
-`src/lib/wiki-generator.ts` 파일 상단 import 블록(line 1 근처)에 추가:
+각 타입의 `REQUIRED SECTIONS (N):` 숫자를 +1 하고 마지막 섹션 뒤에 추가한다.
+
+**`backend-api`** — `REQUIRED SECTIONS (12):` → `(13):`, 12번 다음에 추가:
+```
+13. Business Flows — ONE PAGE PER major end-to-end business flow: trace entry point → service → repository → DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL (SELECT/INSERT/UPDATE) with actual column names and values, and a component chain completeness table with file:line references.
+```
+
+**`frontend-web`** — `REQUIRED SECTIONS (11):` → `(12):`, 11번 다음에 추가:
+```
+12. Business Flows — ONE PAGE PER major user-facing flow that touches a backend or BFF: trace UI action → API call → server-side DB write. Each page MUST include a mermaid sequenceDiagram showing the UI→API→DB path, per-step SQL where applicable, and a component chain completeness table.
+```
+
+**`fullstack`** — `REQUIRED SECTIONS (14):` → `(15):`, 14번 다음에 추가:
+```
+15. Business Flows — ONE PAGE PER major end-to-end business flow spanning frontend and backend: trace user action → API → service → DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL with actual column names, and a component chain completeness table with file:line references.
+```
+
+**`monorepo`** — `REQUIRED SECTIONS (11):` → `(12):`, 11번 다음에 추가:
+```
+12. Business Flows — ONE PAGE PER major cross-package end-to-end flow: trace the request through packages to the DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL with actual column names, and a component chain completeness table showing which package owns each step.
+```
+
+**`mobile`** — `REQUIRED SECTIONS (12):` → `(13):`, 12번 다음에 추가:
+```
+13. Business Flows — ONE PAGE PER major app flow that involves a backend: trace UI gesture → API call → server DB write. Each page MUST include a mermaid sequenceDiagram (mobile screen → API → service → DB), per-step SQL where applicable, and a component chain completeness table.
+```
+
+**`data-platform`** — `REQUIRED SECTIONS (12):` → `(13):`, 12번 다음에 추가:
+```
+13. Business Flows — ONE PAGE PER major data pipeline flow: trace source ingestion → transformation → storage → output. Each page MUST include a mermaid sequenceDiagram with storage tables/buckets as participants, per-step SQL/DML with actual table and column names, and a pipeline stage completeness table.
+```
+
+**`library-sdk`** — `REQUIRED SECTIONS (11):` → `(12):`, 11번 다음에 추가:
+```
+12. Business Flows — ONE PAGE PER major SDK workflow that involves DB or persistent state: trace caller API → internal processing → DB read/write. Each page MUST include a mermaid sequenceDiagram with DB as participant, per-step SQL with actual column names, and a component chain completeness table.
+```
+
+**`multi-project`** (section 2 이미 있음 — description 보강):  
+기존 section 2 텍스트를 아래로 교체:
+```
+2. Business Flows — ONE PAGE PER major end-to-end business flow: trace user requests across projects (HTTP + events + DB writes). Each page MUST include: (1) mermaid sequenceDiagram with DB tables as named participants, (2) per-step SQL (SELECT/INSERT/UPDATE/EXEC) with actual column names and enum values, (3) component chain completeness table with file:line references and ✅/🔧/❌ status per component.
+```
+
+The exact Edit operations on `src/lib/wiki-generator.ts`:
+
+```typescript
+// backend-api: line ~164, after "DECOMPOSITION RULES:" block, inside the template string
+// Replace:
+`REQUIRED SECTIONS (12):
+1. Getting Started ...
+...
+12. Testing Strategy and Deployment ...
+
+DECOMPOSITION RULES:`
+// With:
+`REQUIRED SECTIONS (13):
+1. Getting Started ...
+...
+12. Testing Strategy and Deployment — unit/integration/E2E patterns, CI/CD, infrastructure
+13. Business Flows — ONE PAGE PER major end-to-end business flow: trace entry point → service → repository → DB. Each page MUST include a mermaid sequenceDiagram with DB tables as participants, per-step SQL (SELECT/INSERT/UPDATE) with actual column names and values, and a component chain completeness table with file:line references.
+
+DECOMPOSITION RULES:`
+```
+
+Repeat analogously for the other 6 types using the text above. (Apply each Edit separately — one per type — to keep diffs reviewable.)
+
+- [ ] **Step 2: `topicRequirements()` — business flow keyword case 추가**
+
+`src/lib/wiki-generator.ts` `topicRequirements()` 함수 내, `return '';` 바로 위에 삽입:
+
+```typescript
+  if (has('business flow', 'business flows', 'flow analysis', 'flow detail', '비즈니스 플로우', '플로우 분석'))
+    return `
+### MANDATORY for this BUSINESS FLOW page
+- Include a \`sequenceDiagram\` with DB tables as named participants (e.g. \`participant DB_Req as "Oracle: LINKREW_MESSAGE_REQUEST"\`). Every arrow must show the real method name or SQL operation.
+- Include a **DB-Level Data Flow** section with:
+  - Full table map: \`| Table | DB | Role |\`
+  - Per-step SQL: [STEP 1]…[STEP N], each with real SELECT/INSERT/UPDATE/EXEC, actual column names, WHERE clause values, and enum constants ('N'/'Y', etc.)
+  - JPA methods annotated as: \`-- JPA: methodName(param)\`
+  - Unverifiable SQL: \`-- NOTE: MCP not connected — manual verification required\`
+  - Processing order summary line per step: \`[Oracle] TABLE ← INSERT (COL='VAL')\`
+  - Text ERD showing table relationships for this flow
+- Include a **Component Chain Completeness** table: \`| # | Component | file:line | Status (✅/🔧/❌) |\`
+- DO NOT include: local dev environment issues, service startup order, Docker/k8s, deployment/CI details.`;
+```
+
+- [ ] **Step 3: import 추가**
+
+`src/lib/wiki-generator.ts` 파일 상단 import 블록에 추가:
 
 ```typescript
 import { loadCatalog, findFlow } from './flow-catalog';
@@ -929,61 +1021,58 @@ import path from 'path';
 import fs from 'fs';
 ```
 
-- [ ] **Step 2: mcpInstances 로드 헬퍼 추가**
+- [ ] **Step 4: helper 함수 추가**
 
 `generateOnePage` 함수 정의(line ~1544) 바로 위에 삽입:
 
 ```typescript
-function loadFlowsConfig(projectPath: string): McpInstance[] {
-  const configPath = path.join(path.dirname(new URL(import.meta.url).pathname), '../../flows/local-wiki.flows.json');
+function loadFlowsConfig(): McpInstance[] {
+  const configPath = new URL('../../flows/local-wiki.flows.json', import.meta.url).pathname;
   try {
-    const raw = fs.readFileSync(configPath, 'utf8');
-    return JSON.parse(raw).mcpInstances ?? [];
+    return JSON.parse(fs.readFileSync(configPath, 'utf8')).mcpInstances ?? [];
   } catch {
     return [];
   }
 }
 
 function isBusinessFlowPage(page: { id: string; title: string }): boolean {
-  const id = page.id.toLowerCase();
-  const title = page.title.toLowerCase();
-  return id.includes('business-flow') || id.startsWith('f0') || id.startsWith('f1') ||
-    title.includes('business flow') || title.includes('비즈니스 플로우');
+  const s = `${page.id} ${page.title}`.toLowerCase();
+  return s.includes('business-flow') || s.includes('business flow') || s.includes('비즈니스 플로우');
 }
 ```
 
-- [ ] **Step 3: generateOnePage 내 프롬프트 교체 로직 삽입**
+- [ ] **Step 5: catalog enrichment 주입**
 
-`src/lib/wiki-generator.ts` line 1596-1608 영역(STRICT_FORMAT_RULES 직후, `const pageReqBody =` 직전)에 삽입:
+`generateOnePage()` 내부, `${STRICT_FORMAT_RULES}` 조합 직후(`pagePrompt` 완성 직후), `const pageReqBody =` 직전에 삽입:
 
 ```typescript
-      // ── Business Flow 페이지: catalog 기반 enriched prompt 교체 ──────────
-      const catalogPath = path.join(projectPath, '../flows/catalog.yaml');
-      if (isBusinessFlowPage(page) && fs.existsSync(catalogPath)) {
-        const flows = loadCatalog(catalogPath);
-        const flow = findFlow(flows, page.id);
-        if (flow) {
-          const mcpInstances = loadFlowsConfig(projectPath);
-          pagePrompt = buildFlowPrompt(flow, mcpInstances);
-          await emitStep(streamId, 'agent_log', 'generation',
-            `🗄️ "${page.title}" — catalog 기반 flow prompt 적용 (${flow.id})`);
+      // catalog-based flow enrichment (optional layer — enriches if catalog exists)
+      if (isBusinessFlowPage(page)) {
+        const catalogPath = path.join(projectPath, '../flows/catalog.yaml');
+        if (fs.existsSync(catalogPath)) {
+          const flow = findFlow(loadCatalog(catalogPath), page.id);
+          if (flow) {
+            pagePrompt = buildFlowPrompt(flow, loadFlowsConfig());
+            await emitStep(streamId, 'agent_log', 'generation',
+              `🗄️ "${page.title}" — catalog-enriched flow prompt applied (${flow.id})`);
+          }
         }
       }
-      // ──────────────────────────────────────────────────────────────────────
 ```
 
-- [ ] **Step 4: 수동 검증 — wiki-generator 실행**
+- [ ] **Step 6: 수동 검증**
 
-로컬 local-wiki 서버 시작 후 affiliate 프로젝트 위키 생성:
-1. `~/work/martech/affiliate`를 대상으로 위키 생성 트리거
-2. 생성 로그에서 `🗄️ ... catalog 기반 flow prompt 적용` 메시지 확인
-3. 생성된 Business Flows 페이지 중 하나를 열어 "DB 레벨 데이터 흐름" 섹션 존재 확인
+1. local-wiki 서버 기동 후 `~/work/martech/affiliate` 위키 생성
+2. ToC에 "Business Flows" 섹션이 auto-generated됐는지 확인
+3. 생성 로그에 `🗄️ ... catalog-enriched flow prompt applied` 확인
+4. 생성된 Business Flow 페이지 하나를 열어 "DB-Level Data Flow" 섹션 + sequenceDiagram + component chain table 존재 확인
+5. 다른 타입(e.g. `frontend-web` 프로젝트) 위키 생성 시에도 Business Flows 섹션이 ToC에 나타나는지 확인
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/lib/wiki-generator.ts
-git commit -m "feat: wiki-generator per-flow page generation from catalog with enriched prompt"
+git commit -m "feat: Business Flows as standard mandatory section in projectTypeHints + topicRequirements"
 ```
 
 ---
