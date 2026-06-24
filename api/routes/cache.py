@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import time
+from datetime import datetime
 from typing import Optional
 
 from api.routes.models import (
@@ -12,6 +13,17 @@ from api.routes.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_summary(content: str) -> str:
+    """Return the first non-heading, non-empty line from markdown, max 160 chars."""
+    for line in content.splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and not line.startswith('>') \
+                and not line.startswith('|') and not line.startswith('```'):
+            return line[:160]
+    return ""
+
 
 WIKI_CACHE_DIR = os.path.join(os.path.expanduser("~/.adalflow"), "wikicache")
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
@@ -82,6 +94,40 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
                 f.write(page.content)
 
         logger.info(f"Wiki markdown files saved to {wiki_out_dir}")
+
+        # ── index.md: navigation catalog ──────────────────────────────────
+        index_lines = ["# Wiki Index\n"]
+        if data.wiki_structure and data.wiki_structure.sections:
+            for sec in data.wiki_structure.sections:
+                index_lines.append(f"\n## {sec.id}\n")
+                index_lines.append("| Page | Path | Summary |")
+                index_lines.append("|------|------|---------|")
+                for pid in sec.pages:
+                    page = data.generated_pages.get(pid)
+                    if not page:
+                        continue
+                    rel_path = f"{sec.id}/{pid}.md"
+                    summary = _extract_summary(page.content)
+                    index_lines.append(f"| {page.title} | {rel_path} | {summary} |")
+        else:
+            index_lines.append("| Page | Path | Summary |")
+            index_lines.append("|------|------|---------|")
+            for pid, page in data.generated_pages.items():
+                summary = _extract_summary(page.content)
+                index_lines.append(f"| {page.title} | {pid}.md | {summary} |")
+        with open(os.path.join(wiki_out_dir, "index.md"), "w", encoding="utf-8") as f:
+            f.write("\n".join(index_lines) + "\n")
+        logger.info(f"index.md written to {wiki_out_dir}")
+
+        # ── log.md: append-only audit trail ───────────────────────────────
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        page_count = len(data.generated_pages)
+        agent_label = data.model or data.provider or "unknown"
+        log_entry = f"## [{ts}] generate | {data.repo.repo} | {page_count} pages | agent: {agent_label}\n\n"
+        with open(os.path.join(wiki_out_dir, "log.md"), "a", encoding="utf-8") as f:
+            f.write(log_entry)
+        logger.info(f"log.md updated in {wiki_out_dir}")
+
         return True
     except IOError as e:
         logger.error(f"IOError saving wiki cache: {e.strerror} (errno: {e.errno})", exc_info=True)
