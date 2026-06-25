@@ -9,6 +9,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Load environment variables from .env file
 load_dotenv()
 
+# Corporate network SSL: point requests/urllib3 at the system cert bundle
+# so adalflow/tiktoken can download BPE files at import time.
+# Generate api/certs/ca-bundle.pem with: make setup-certs
+_cert_bundle = os.path.join(os.path.dirname(os.path.abspath(__file__)), "certs", "ca-bundle.pem")
+if os.path.exists(_cert_bundle):
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", _cert_bundle)
+    os.environ.setdefault("SSL_CERT_FILE", _cert_bundle)
+
 from api.logging_config import setup_logging
 
 # Configure logging
