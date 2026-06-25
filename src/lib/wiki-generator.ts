@@ -1,11 +1,6 @@
 import { emitTaskEvent, fetchContent } from "./taskStreamClient";
 import mermaid from 'mermaid';
 import { normalizeMarkdownContent } from "./markdown-normalize";
-import { loadCatalog, findFlow } from './flow-catalog';
-import { buildFlowPrompt } from './build-flow-prompt';
-import type { McpInstance } from './mcp-instance-registry';
-import path from 'path';
-import fs from 'fs';
 
 // ─── Project Classification ────────────────────────────────────────────────
 // Detected once per generation run (Phase 1.5) using file-tree + README
@@ -1565,21 +1560,6 @@ export async function runWikiGeneration(
         err instanceof Error && err.name === 'AbortError';
     };
 
-    // ── business flow helpers ──────────────────────────────────────────────
-    function loadFlowsConfig(): McpInstance[] {
-      try {
-        const configPath = new URL('../../flows/local-wiki.flows.json', import.meta.url).pathname;
-        return JSON.parse(fs.readFileSync(configPath, 'utf8')).mcpInstances ?? [];
-      } catch {
-        return [];
-      }
-    }
-
-    function isBusinessFlowPage(page: { id: string; title: string }): boolean {
-      const s = `${page.id} ${page.title}`.toLowerCase();
-      return s.includes('business-flow') || s.includes('business flow') || s.includes('비즈니스 플로우');
-    }
-
     // ── per-page generation (inner function capturing outer scope) ─────────
     const generateOnePage = async (page: any, signal?: AbortSignal): Promise<any> => {
       const tPage = Date.now();
@@ -1618,7 +1598,7 @@ export async function runWikiGeneration(
         projectTypeTopicRequirements(projectType, sectionTitle, page.title),
       ].filter(Boolean).join('\n');
 
-      let pagePrompt = `You are an expert technical writer and software architect analyzing a REAL production codebase.
+      const pagePrompt = `You are an expert technical writer and software architect analyzing a REAL production codebase.
 Your task is to generate a comprehensive, in-depth technical wiki page in Markdown format.
 
 Topic: "${page.title}"
@@ -1645,19 +1625,6 @@ ${buildMcpContextForPage(page)}
 
 ${languageInstruction}
 ${STRICT_FORMAT_RULES}`;
-
-      // catalog-based flow enrichment (optional layer — enriches if catalog exists)
-      if (isBusinessFlowPage(page)) {
-        const catalogPath = path.join(projectPath, '../flows/catalog.yaml');
-        if (fs.existsSync(catalogPath)) {
-          const flow = findFlow(loadCatalog(catalogPath), page.id);
-          if (flow) {
-            pagePrompt = buildFlowPrompt(flow, loadFlowsConfig());
-            await emitStep(streamId, 'agent_log', 'generation',
-              `🗄️ "${page.title}" — catalog-enriched flow prompt applied (${flow.id})`);
-          }
-        }
-      }
 
       const pageReqBody = {
         repo_url: projectPath, type: repo_type, stream_id: streamId,
