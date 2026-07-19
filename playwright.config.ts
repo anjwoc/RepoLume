@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
 
 const e2ePort = Number(process.env.E2E_PORT ?? 3000);
+const landingMode = process.env.E2E_LANDING_MODE === 'true';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -47,7 +48,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: `pnpm dev --port ${e2ePort}`,
+    command: landingMode
+      ? `NEXT_PUBLIC_LANDING_MODE=true pnpm exec next dev --port ${e2ePort}`
+      : `pnpm dev --port ${e2ePort}`,
     port: e2ePort,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,

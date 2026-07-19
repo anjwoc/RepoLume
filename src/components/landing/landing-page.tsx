@@ -1,25 +1,26 @@
+import Image from "next/image";
 import {
   ArrowRight,
+  BookOpenCheck,
   Check,
-  ChevronRight,
-  Code2,
+  Database,
   Download,
   FileCode2,
   FileText,
   FolderGit2,
   GitPullRequest,
-  Layers3,
   LockKeyhole,
   Network,
   ScanSearch,
+  ServerCog,
   Sparkles,
 } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { RepoLumeMark } from "@/components/repolume-mark";
 import styles from "./landing-page.module.css";
 
-const RELEASE_URL = "https://github.com/anjwoc/local-wiki/releases/latest";
-const GITHUB_URL = "https://github.com/anjwoc/local-wiki";
+const RELEASE_URL = "https://github.com/anjwoc/RepoLume/releases/latest";
+const GITHUB_URL = "https://github.com/anjwoc/RepoLume";
 
 const steps = [
   {
@@ -74,8 +75,8 @@ export function LandingPage() {
         </a>
         <nav className={styles.nav} aria-label="주요 메뉴">
           <a href="#workflow">작동 방식</a>
+          <a href="#mcp">MCP 교차 검증</a>
           <a href="#output">생성 결과</a>
-          <a href="#local-first">Local-first</a>
         </nav>
         <a className={styles.headerCta} href={RELEASE_URL} target="_blank" rel="noreferrer">
           다운로드 <ArrowRight size={15} aria-hidden="true" />
@@ -115,64 +116,54 @@ export function LandingPage() {
           </ul>
         </div>
 
-        <div className={styles.productStage} aria-label="RepoLume 위키 화면 미리보기">
+        <div className={styles.productStage} aria-label="RepoLume에서 실제 생성된 위키 화면">
           <div className={styles.orbit} aria-hidden="true" />
           <div className={styles.layerMark} aria-hidden="true">
             <span />
             <span />
             <span />
           </div>
-          <div className={styles.appWindow}>
-            <div className={styles.windowBar}>
-              <div className={styles.trafficLights} aria-hidden="true"><i /><i /><i /></div>
-              <div className={styles.windowTitle}><RepoLumeMark size={18} /> RepoLume <ChevronRight size={13} /> payments-api</div>
-              <div className={styles.windowStatus}><span /> Wiki ready</div>
+          <figure className={styles.appCapture}>
+            <div className={styles.captureLabel}>
+              <span><Check size={13} aria-hidden="true" /></span>
+              실제 RepoLume 생성 화면
             </div>
-            <div className={styles.appBody}>
-              <aside className={styles.wikiNav} aria-label="위키 목차 미리보기">
-                <p>PROJECT WIKI</p>
-                <div className={styles.repoName}><FolderGit2 size={15} /> payments-api</div>
-                <ul>
-                  <li className={styles.activePage}><FileText size={14} /> System overview</li>
-                  <li><FileText size={14} /> Getting started</li>
-                  <li><FileText size={14} /> Architecture</li>
-                  <li><FileText size={14} /> Data flow</li>
-                  <li><FileText size={14} /> API reference</li>
-                </ul>
-              </aside>
-              <article className={styles.wikiArticle}>
-                <div className={styles.articleKicker}>SYSTEM OVERVIEW</div>
-                <h2>Payment service architecture</h2>
-                <p>요청이 API 계층에서 결제 처리와 저장소로 전달되는 핵심 흐름입니다.</p>
-                <div className={styles.diagram} aria-label="서비스 흐름 다이어그램">
-                  <div><Code2 size={15} /> API</div>
-                  <span />
-                  <div><Layers3 size={15} /> Payment</div>
-                  <span />
-                  <div><Network size={15} /> Store</div>
-                </div>
-                <div className={styles.articleLines} aria-hidden="true">
-                  <i /><i /><i />
-                </div>
-              </article>
-              <aside className={styles.activityPanel} aria-label="생성 진행 상황 미리보기">
-                <div className={styles.activityHeader}>
-                  <span>Generation</span>
-                  <span>4 / 4</span>
-                </div>
-                {[
-                  ["Structure scan", "완료"],
-                  ["Table of contents", "승인"],
-                  ["Wiki pages", "생성됨"],
-                  ["Diagrams", "생성됨"],
-                ].map(([label, state]) => (
-                  <div className={styles.activityRow} key={label}>
-                    <span className={styles.checkDot}><Check size={11} /></span>
-                    <div><strong>{label}</strong><small>{state}</small></div>
-                  </div>
-                ))}
-              </aside>
-            </div>
+            <Image
+              src="/repolume-wiki-view.png"
+              alt="RepoLume가 실제 코드베이스에서 생성한 데이터 흐름 위키 페이지"
+              width={1710}
+              height={1095}
+              sizes="(max-width: 1050px) calc(100vw - 40px), 650px"
+              priority
+            />
+            <figcaption>코드 근거, 데이터 흐름, SQL 예시를 한 페이지에서 검토할 수 있습니다.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section className={styles.mcpSection} id="mcp">
+        <div className={styles.mcpCopy}>
+          <p className={styles.sectionLabel}>OPTIONAL MCP CROSS-CHECK</p>
+          <h2>코드 밖의 맥락도<br />근거와 함께 확인합니다.</h2>
+          <p>
+            MCP 소스가 연결되어 있으면 코드 분석 결과를 DB 스키마와 프로젝트 맥락에 대조하고,
+            사용된 출처를 생성 문서에 함께 남깁니다.
+          </p>
+          <div className={styles.fallbackNote}>
+            <LockKeyhole size={17} aria-hidden="true" />
+            <span><strong>MCP 연결은 선택 사항입니다.</strong> 연결하지 않으면 코드베이스 근거만 사용해 위키를 생성합니다.</span>
+          </div>
+        </div>
+        <div className={styles.mcpFlow} aria-label="MCP 교차 검증 흐름">
+          <div className={styles.mcpSources}>
+            <div><FileCode2 size={18} /><span><strong>Codebase</strong><small>AST · call graph</small></span></div>
+            <div><Database size={18} /><span><strong>Database MCP</strong><small>schema · procedure</small></span></div>
+            <div><ServerCog size={18} /><span><strong>Project MCP</strong><small>연결된 외부 맥락</small></span></div>
+          </div>
+          <div className={styles.flowConnector}><span /><em>교차 검증</em><span /></div>
+          <div className={styles.citedWiki}>
+            <BookOpenCheck size={24} aria-hidden="true" />
+            <span><strong>출처가 남는 위키</strong><small>사용한 근거와 수집 시점을 문서에 기록</small></span>
           </div>
         </div>
       </section>

@@ -7,12 +7,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anjwoc/local-wiki.git"
+    "url": "https://github.com/anjwoc/RepoLume.git"
   },
   "bugs": {
-    "url": "https://github.com/anjwoc/local-wiki/issues"
+    "url": "https://github.com/anjwoc/RepoLume/issues"
   },
-  "homepage": "https://github.com/anjwoc/local-wiki#readme",
+  "homepage": "https://github.com/anjwoc/RepoLume#readme",
   "engines": {
     "node": ">=20",
     "pnpm": ">=10"
@@ -41,6 +41,7 @@
     "check:release": "node scripts/check-desktop-release.mjs",
     "test:e2e": "bash scripts/test-e2e.sh --fast",
     "test:e2e:full": "bash scripts/test-e2e.sh --full",
+    "test:landing": "E2E_LANDING_MODE=true E2E_PORT=3011 playwright test e2e/landing.spec.ts",
     "export-showcase": "node scripts/export-showcase.js",
     "dev:landing": "NEXT_PUBLIC_LANDING_MODE=true next dev --port 3001",
     "build:landing": "NEXT_PUBLIC_LANDING_MODE=true next build",
