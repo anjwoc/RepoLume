@@ -2,6 +2,6 @@
   "buildCommand": "pnpm run deploy:vercel",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_SHOWCASE_MODE": "true"
+    "NEXT_PUBLIC_LANDING_MODE": "true"
   }
 }

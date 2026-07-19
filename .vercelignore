@@ -1,4 +1,14 @@
+.git
 .codegraph
+.proofloop
+api
+backend
+cli
+electron
+agent
+bin
+build
+dist
 dist-electron
 .localwiki-cache
 .repolume-cache
@@ -10,5 +20,10 @@ playwright-report
 test-results
 e2e
 tests
+.pytest_cache
+benchmark-out
+coverage
+.DS_Store
+tsconfig.tsbuildinfo
 .next
 node_modules
