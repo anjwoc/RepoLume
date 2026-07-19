@@ -3,43 +3,43 @@ import { resolveInstance, mcpToolPrefix, McpInstance } from '../mcp-instance-reg
 
 const fixtures: McpInstance[] = [
   {
-    instanceName: 'oracle-gaffiliate',
+    instanceName: 'oracle-orders',
     tool: 'oracle',
     roles: ['db-schema', 'db-stored-proc', 'db-query'],
-    scope: { databases: ['O_GAFFILIATE'] },
+    scope: { databases: ['ORDERS'] },
   },
   {
-    instanceName: 'devdb-nautomaildb',
+    instanceName: 'devdb-notifications',
     tool: 'devdb',
     roles: ['db-schema'],
-    scope: { databases: ['nautomaildb', 'neption'] },
+    scope: { databases: ['notifications', 'audit'] },
   },
   {
     instanceName: 'github-enterprise',
     tool: 'github',
     roles: ['code-reader'],
-    scope: { host: 'github.gmarket.com' },
+    scope: { host: 'github.example.com' },
   },
 ];
 
 describe('resolveInstance', () => {
   it('selects oracle instance by db', () => {
-    expect(resolveInstance(fixtures, 'db-schema', { database: 'O_GAFFILIATE' })?.instanceName)
-      .toBe('oracle-gaffiliate');
+    expect(resolveInstance(fixtures, 'db-schema', { database: 'ORDERS' })?.instanceName)
+      .toBe('oracle-orders');
   });
 
   it('selects devdb instance by db', () => {
-    expect(resolveInstance(fixtures, 'db-schema', { database: 'nautomaildb' })?.instanceName)
-      .toBe('devdb-nautomaildb');
+    expect(resolveInstance(fixtures, 'db-schema', { database: 'notifications' })?.instanceName)
+      .toBe('devdb-notifications');
   });
 
-  it('maps neption to devdb instance', () => {
-    expect(resolveInstance(fixtures, 'db-schema', { database: 'neption' })?.instanceName)
-      .toBe('devdb-nautomaildb');
+  it('maps audit to devdb instance', () => {
+    expect(resolveInstance(fixtures, 'db-schema', { database: 'audit' })?.instanceName)
+      .toBe('devdb-notifications');
   });
 
   it('selects github instance by host', () => {
-    expect(resolveInstance(fixtures, 'code-reader', { host: 'github.gmarket.com' })?.instanceName)
+    expect(resolveInstance(fixtures, 'code-reader', { host: 'github.example.com' })?.instanceName)
       .toBe('github-enterprise');
   });
 
@@ -48,8 +48,8 @@ describe('resolveInstance', () => {
   });
 
   it('excludes instance that does not support the role', () => {
-    // devdb-nautomaildb has no db-stored-proc role
-    expect(resolveInstance(fixtures, 'db-stored-proc', { database: 'nautomaildb' })).toBeNull();
+    // devdb-notifications has no db-stored-proc role
+    expect(resolveInstance(fixtures, 'db-stored-proc', { database: 'notifications' })).toBeNull();
   });
 });
 

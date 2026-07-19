@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { getTheme } from "@/lib/theme";
+import { BACKEND_URL } from "@/lib/backend-url";
 import {
   MCPProvider, MCPSettings, MCPConfig,
   DEFAULT_MCP_SETTINGS, MCP_CATEGORIES
@@ -63,6 +64,10 @@ export function SettingsScreen({
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [agyConcurrency, setAgyConcurrency] = useState(4);
+  const [dbIndexConfig, setDbIndexConfig] = useState({ source_dir: "", entity_pattern: "*JpaEntity.java", csv_dir: "", project_id: "" });
+  const [dbIndexStatus, setDbIndexStatus] = useState<{exists: boolean; indexed_at?: string; total_in_db?: number; enriched?: number; fresh?: boolean} | null>(null);
+  const [dbIndexSyncing, setDbIndexSyncing] = useState(false);
   const [urlSyncResult, setUrlSyncResult] = useState<{ pages: number; links: number } | null>(null);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({});
@@ -102,6 +107,51 @@ export function SettingsScreen({
       .catch(() => {});
   }, []);
 
+  // Load DB Index config + status on mount
+  useEffect(() => {
+    fetch("/api/settings/db_index_config")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.value) setDbIndexConfig((v) => ({ ...v, ...data.value })); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const project = dbIndexConfig.project_id || "default";
+    fetch(`/api/db-index/status?project=${encodeURIComponent(project)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setDbIndexStatus(data); })
+      .catch(() => {});
+  }, [dbIndexConfig.project_id]);
+
+  const handleDbIndexSync = async () => {
+    if (!dbIndexConfig.source_dir) return;
+    setDbIndexSyncing(true);
+    try {
+      const params = new URLSearchParams({
+        source_dir: dbIndexConfig.source_dir,
+        project: dbIndexConfig.project_id || "default",
+        entity_pattern: dbIndexConfig.entity_pattern || "*JpaEntity.java",
+        ...(dbIndexConfig.csv_dir ? { csv_dir: dbIndexConfig.csv_dir } : {}),
+      });
+      const es = new EventSource(`/api/db-index/sync/stream?${params}`);
+      es.addEventListener("done", (e) => {
+        es.close();
+        setDbIndexSyncing(false);
+        const result = JSON.parse(e.data);
+        setDbIndexStatus({ exists: true, indexed_at: new Date().toISOString(), total_in_db: result.jpa_tables, enriched: result.enriched, fresh: true });
+      });
+      es.addEventListener("error", () => { es.close(); setDbIndexSyncing(false); });
+    } catch { setDbIndexSyncing(false); }
+  };
+
+  // Load AGY concurrency from server on mount
+  useEffect(() => {
+    fetch("/api/settings/cli_config")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.value?.agy_concurrency) setAgyConcurrency(Number(data.value.agy_concurrency)); })
+      .catch(() => {});
+  }, []);
+
   // Antigravity CLI Auth States
   const [agyAuthStatus, setAgyAuthStatus] = useState<"idle" | "checking" | "needs_auth" | "authenticating" | "success" | "error">("idle");
   const [agyAuthUrl, setAgyAuthUrl] = useState("");
@@ -119,7 +169,7 @@ export function SettingsScreen({
   const checkAgyAuthStatus = async () => {
     setAgyAuthStatus("checking");
     try {
-      const res = await fetch("http://localhost:8001/agent/auth/status");
+      const res = await fetch(`${BACKEND_URL}/agent/auth/status`);
       const data = await res.json();
       if (data.authenticated) {
         setAgyAuthStatus("success");
@@ -136,7 +186,7 @@ export function SettingsScreen({
     setAgyAuthStatus("authenticating");
     setAgyAuthError("");
     try {
-      const res = await fetch("http://localhost:8001/agent/auth/start", { method: "POST" });
+      const res = await fetch(`${BACKEND_URL}/agent/auth/start`, { method: "POST" });
       const data = await res.json();
       if (data.success && data.url) {
         setAgyAuthUrl(data.url);
@@ -154,7 +204,7 @@ export function SettingsScreen({
   const submitAgyAuthCode = async () => {
     if (!agyAuthCode.trim()) return;
     try {
-      const res = await fetch("http://localhost:8001/agent/auth/submit", {
+      const res = await fetch(`${BACKEND_URL}/agent/auth/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: agyAuthCode })
@@ -225,7 +275,7 @@ export function SettingsScreen({
     return { pages, links };
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const oldUrl = (initialAppSettings.repositoryBaseUrl || "").trim();
     const newUrl = (appSettings.repositoryBaseUrl || "").trim();
     if (oldUrl && newUrl && oldUrl !== newUrl) {
@@ -234,6 +284,16 @@ export function SettingsScreen({
     }
     onSaveSettings(settings);
     onSaveAppSettings(appSettings);
+    await fetch("/api/settings/cli_config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: { agy_concurrency: agyConcurrency } }),
+    }).catch(() => {});
+    await fetch("/api/settings/db_index_config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: dbIndexConfig }),
+    }).catch(() => {});
     setHasChanges(false);
   };
 
@@ -612,6 +672,102 @@ export function SettingsScreen({
                     {appSettings.pageConcurrency}
                   </span>
                 </div>
+              </div>
+
+              {/* AGY concurrency */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 16, paddingTop: 12, borderTop: `1px solid ${t.divider}` }}>
+                <div>
+                  <p style={{ color: t.text, fontSize: 14, fontWeight: 500, margin: 0 }}>AGY 동시 처리 수</p>
+                  <p style={{ color: t.textSecondary, fontSize: 12, margin: "4px 0 0 0" }}>
+                    agy CLI 동시 실행 프로세스 수입니다. 서버 재시작 시 적용됩니다.
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={agyConcurrency}
+                    onChange={(e) => { setAgyConcurrency(Number(e.target.value)); setHasChanges(true); }}
+                    style={{ width: 100, accentColor: t.primary }}
+                  />
+                  <span style={{
+                    minWidth: 28, textAlign: "center", fontSize: 14, fontWeight: 700,
+                    color: t.primary, fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {agyConcurrency}
+                  </span>
+                </div>
+              </div>
+
+              {/* DB Index */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${t.divider}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <p style={{ color: t.text, fontSize: 13, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Database size={14} /> DB 스키마 인덱스
+                  </p>
+                  <button
+                    onClick={handleDbIndexSync}
+                    disabled={dbIndexSyncing || !dbIndexConfig.source_dir}
+                    style={{
+                      padding: "5px 12px", borderRadius: 8, border: `1px solid ${t.primary}`, background: "transparent",
+                      color: t.primary, fontSize: 12, fontWeight: 600,
+                      cursor: (dbIndexSyncing || !dbIndexConfig.source_dir) ? "not-allowed" : "pointer",
+                      opacity: (dbIndexSyncing || !dbIndexConfig.source_dir) ? 0.5 : 1,
+                      display: "flex", alignItems: "center", gap: 4,
+                    }}
+                  >
+                    <RefreshCw size={12} style={dbIndexSyncing ? { animation: "spin 1s linear infinite" } : {}} />
+                    {dbIndexSyncing ? "동기화 중..." : "지금 동기화"}
+                  </button>
+                </div>
+                {/* Config inputs */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                  {[
+                    { key: "source_dir" as const, label: "Source Dir", placeholder: "~/work/myproject" },
+                    { key: "project_id" as const, label: "Project ID", placeholder: "owner:repo:java (위키 project_id와 일치)" },
+                    { key: "entity_pattern" as const, label: "Entity Pattern", placeholder: "*JpaEntity.java" },
+                    { key: "csv_dir" as const, label: "CSV Dir (선택)", placeholder: "비우면 CSV 보강 없음" },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} style={{ display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: t.textSecondary, fontSize: 12 }}>{label}</span>
+                      <input
+                        type="text"
+                        value={dbIndexConfig[key]}
+                        placeholder={placeholder}
+                        onChange={(e) => { setDbIndexConfig((v) => ({ ...v, [key]: e.target.value })); setHasChanges(true); }}
+                        style={{
+                          background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 6,
+                          padding: "4px 8px", fontSize: 12, color: t.text, outline: "none",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {/* Status */}
+                {dbIndexStatus === null && <p style={{ color: t.textSecondary, fontSize: 12, margin: 0 }}>상태 확인 중...</p>}
+                {dbIndexStatus && !dbIndexStatus.exists && (
+                  <p style={{ color: t.textSecondary, fontSize: 12, margin: 0 }}>인덱스 없음 — Source Dir 설정 후 동기화하세요.</p>
+                )}
+                {dbIndexStatus?.exists && (
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <span style={{ color: t.textSecondary, fontSize: 12 }}>
+                      테이블 <strong style={{ color: t.text }}>{dbIndexStatus.total_in_db ?? 0}</strong>개
+                    </span>
+                    <span style={{ color: t.textSecondary, fontSize: 12 }}>
+                      타입 보강 <strong style={{ color: t.text }}>{dbIndexStatus.enriched ?? 0}</strong>개
+                    </span>
+                    <span style={{ color: dbIndexStatus.fresh ? (t.success || "#10b981") : "#f59e0b", fontSize: 12, fontWeight: 600 }}>
+                      {dbIndexStatus.fresh ? "최신" : "오래됨"}
+                    </span>
+                    {dbIndexStatus.indexed_at && (
+                      <span style={{ color: t.textSecondary, fontSize: 11 }}>
+                        {new Date(dbIndexStatus.indexed_at).toLocaleString("ko-KR")}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Antigravity CLI Auth UI */}
@@ -1307,7 +1463,7 @@ function ProviderCard({
                       type="text"
                       value={provider.config.apiUrl || ""}
                       onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
-                      placeholder="https://mcp-sqlserver-explore-dawi.d3.clouz.io/sse"
+                      placeholder="https://mcp.example.com/sse"
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -1381,7 +1537,7 @@ function ProviderCard({
                   >
                     <strong style={{ color: t.textSecondary }}>설정 방식</strong>: stdio — <code style={{ fontSize: 11, color: t.primary }}>uv run --directory &lt;dir&gt; main.py</code>
                     <br />
-                    GMARKET_AD_ID / GMARKET_AD_PWD 환경변수로 인증합니다.
+                    META_USERNAME / META_PASSWORD 환경변수로 인증합니다.
                   </div>
                   <div>
                     <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
@@ -1391,7 +1547,7 @@ function ProviderCard({
                       type="text"
                       value={provider.config.scriptDir || ""}
                       onChange={(e) => onUpdateConfig({ scriptDir: e.target.value })}
-                      placeholder="/Users/yourname/toolbox/skills/oh-my-rebuild/mcp/meta"
+                      placeholder="/path/to/metadata-adapter"
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -1408,13 +1564,13 @@ function ProviderCard({
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     <div>
                       <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
-                        AD ID <span style={{ color: t.textMuted, fontWeight: 400 }}>(GMARKET_AD_ID)</span>
+                        사용자 ID <span style={{ color: t.textMuted, fontWeight: 400 }}>(META_USERNAME)</span>
                       </label>
                       <input
                         type="text"
                         value={provider.config.username || ""}
                         onChange={(e) => onUpdateConfig({ username: e.target.value })}
-                        placeholder="gmarket-id"
+                        placeholder="metadata-user"
                         style={{
                           width: "100%",
                           padding: "10px 12px",
@@ -1430,7 +1586,7 @@ function ProviderCard({
                     </div>
                     <div>
                       <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
-                        AD Password <span style={{ color: t.textMuted, fontWeight: 400 }}>(GMARKET_AD_PWD)</span>
+                        비밀번호 <span style={{ color: t.textMuted, fontWeight: 400 }}>(META_PASSWORD)</span>
                       </label>
                       <input
                         type="password"

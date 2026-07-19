@@ -6,9 +6,6 @@ const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
 
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   // Optimize build for Docker
   experimental: {
     optimizePackageImports: ['@mermaid-js/mermaid', 'react-syntax-highlighter'],

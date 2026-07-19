@@ -1,14 +1,24 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
+# Dependencies
+/node_modules/
 /.pnp
 .pnp.*
+.pnpm-store/
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# JavaScript / Next.js
+/.next/
+/out/
+/coverage/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
 # Python
 __pycache__/
@@ -16,78 +26,80 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
+.venv/
+venv/
+.env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 develop-eggs/
-dist/
 downloads/
 eggs/
-api/logs/
 .eggs/
 /lib/
 /lib64/
 /parts/
-sdist/
-var/
-wheels/
+/sdist/
+/var/
+/wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-*.venv
-.venv/
-.env/
-# testing
-/coverage
 
-# agent binaries
-bin/
+# Build and installer outputs
+/build/
+/dist/
+/dist-electron*/
+/bin/
+/backend/
 /localwiki-agent
 /agent/localwiki-agent
 
-# next.js
-/.next/
-/out/
+# Runtime data and generated content
+*.db
+*.db-wal
+*.db-shm
+/api/data/
+/api/logs/
+/wiki-out/
+/.localwiki-cache/
+/api/graphify-out/
+/graphify-out/
+/benchmark-out/
+/test-results/
+/playwright-report/
+/screenshots/
+/public/showcase-data/
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
+# Secrets and local environment
 .env*
 !.env.example
 !docker-compose-litellm.env.example
-secrets/
-# vercel
-.vercel
+/secrets/
+/certs/
+*.pem
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-.idea/
-
-# ignore adding self-signed certs
-certs/
-.env*.local
-
-# Build & Cache Outputs
-dist-electron/
-wiki-out/
-.localwiki-cache/
-.antigravitycli/
-screenshots/
-
-# local scratch / debug (not part of app)
+# Local tools, indexes, and scratch files
+/.codegraph/
+/.proofloop/
+/.antigravitycli/
+/.vscode/
+/.idea/
+/.claude/
+/.vercel/
 /scratch/
+scratch_*.md
+/api/scratch_*.md
+/docs/superpowers/
+/docs/plans/
+/docs/business-flow-prompts/
+/flows/local-wiki.flows.json
+/flows/*.steps.json
+/pack-list.txt
+/Getting-Started.md
+/public/dbgraph-test.html
+/scripts/test_provider_comparison.py
+/scripts/sanitize_affiliate.py
 
-# codegraph
-.codegraph/
-flows/local-wiki.flows.json
+# OS metadata
+.DS_Store

@@ -59,6 +59,8 @@ class WikiCacheData(BaseModel):
     provider: Optional[str] = None
     model: Optional[str] = None
     language: Optional[str] = None
+    source_path: Optional[str] = None
+    artifact_root: Optional[str] = None
 
 
 class WikiCacheRequest(BaseModel):

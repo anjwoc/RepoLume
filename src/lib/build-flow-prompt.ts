@@ -63,12 +63,12 @@ ${codeLines || '  (none)'}
 Write a Markdown wiki page that includes every section below. Missing any section = incomplete document.
 
 1. **Overview** — one-sentence purpose, related modules (repos/submodules), key history (tickets/dates)
-2. **Workflow** — mermaid sequenceDiagram with DB tables as participants (e.g. \`DB_Req as "Oracle: LINKREW_MESSAGE_REQUEST"\`), real method names on arrows
+2. **Workflow** — mermaid sequenceDiagram with DB tables as participants (e.g. \`DB_Order as "PostgreSQL: ORDER_REQUEST"\`), real method names on arrows
 3. **DB-Level Data Flow** ★ REQUIRED — document is incomplete without this section
    - Full table map: \`| Table | DB | Role |\`
    - Per-step SQL: [STEP 1]…[STEP N] with real SELECT/INSERT/UPDATE/EXEC, actual column names, WHERE values, enum constants ('N'/'Y', 'B'/'C' etc.)
    - JPA methods annotated: \`-- JPA: findByPartnerType(PartnerType.B2C)\`
-   - Unverifiable SQL: \`-- NOTE: MCP not connected — manual verification required\`
+   - Unverifiable SQL: \`-- NOTE: schema not available — check manually\`
    - Processing order summary: \`[Oracle] TABLE ← INSERT (COL='VAL')\` format
    - Table reference ERD (text)
 4. **Key Components** — entry class, service classes with method signatures, repositories; file:line refs
@@ -84,7 +84,7 @@ Write a Markdown wiki page that includes every section below. Missing any sectio
 
 ## SQL Writing Rules
 - Use only real column names from schema — never guess
-- Unverifiable: \`-- NOTE: MCP not connected — manual verification required\`
+- Unverifiable: \`-- NOTE: schema not available — check manually\`
 - JPA method: \`-- JPA: methodName(param)\`
 ${FORMAT_RULES}`;
 }

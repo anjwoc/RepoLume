@@ -1,0 +1,64 @@
+# Dependencies and framework output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Build and installer output
+build/
+dist/
+dist-electron*/
+bin/
+backend/
+
+# Runtime and generated data
+wiki-out/
+.localwiki-cache/
+api/data/
+api/logs/
+api/graphify-out/
+graphify-out/
+benchmark-out/
+test-results/
+playwright-report/
+screenshots/
+public/showcase-data/
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.py[cod]
+
+# Secrets and local configuration
+.env*
+!.env.example
+secrets/
+certs/
+*.pem
+*.key
+*.crt
+
+# Local tools and private working files
+.proofloop/
+.codegraph/
+.antigravitycli/
+.vscode/
+.idea/
+.claude/
+.vercel/
+scratch/
+api/scratch_*.md
+docs/business-flow-prompts/
+docs/plans/
+docs/superpowers/
+Getting-Started.md
+public/dbgraph-test.html
+scripts/sanitize_affiliate.py
+scripts/test_provider_comparison.py
+flows/*.steps.json
+flows/local-wiki.flows.json
+
+# OS metadata
+.DS_Store

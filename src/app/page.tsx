@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "motion/react";
 import { HomeScreen } from "@/components/home-screen";
-import { SetupWizard, AppSettings, DEFAULT_APP_SETTINGS } from "@/components/setup-wizard";
+import { SetupWizard, AppSettings, DEFAULT_APP_SETTINGS, PERMISSION_GUIDE_VERSION } from "@/components/setup-wizard";
+import { probeFolderAccess } from "@/lib/desktop-folder-picker";
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
 const DARK_MODE_KEY = "localwiki_is_dark";
@@ -40,7 +41,11 @@ export default function Page() {
     const saved = loadAppSettings();
     setAppSettings(saved);
     setIsDark(localStorage.getItem(DARK_MODE_KEY) === "true");
-    if (!saved.setupComplete) setShowSetup(true);
+    if (process.env.NEXT_PUBLIC_SHOWCASE_MODE !== "true" && (
+      !saved.setupComplete
+      || saved.permissionGuideVersion !== PERMISSION_GUIDE_VERSION
+      || !saved.preauthorizedPath
+    )) setShowSetup(true);
   }, []);
 
   const handleSetupComplete = (settings: AppSettings) => {
@@ -54,7 +59,7 @@ export default function Page() {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(next));
   };
 
-  const handleSelectProject = (path: string, testMode: boolean, enableBusiness: boolean, paths?: string[]) => {
+  const handleSelectProject = (path: string, testMode: boolean, enableBusiness: boolean, paths?: string[], businessFlowOnly?: boolean) => {
     const analysisPaths = paths && paths.length > 0 ? paths : [path];
     const primaryPath = analysisPaths[0] || path;
     const repo = sanitizeRepoName(primaryPath);
@@ -66,6 +71,7 @@ export default function Page() {
       paths: analysisPaths.join(","),
       testMode: String(testMode),
       enableBusiness: String(enableBusiness),
+      businessFlowOnly: String(!!businessFlowOnly),
       provider: appSettings.provider,
       model: appSettings.model || "",
       mode: appSettings.mode || "cli",
@@ -89,6 +95,11 @@ export default function Page() {
     const storedPath = localStorage.getItem(`localwiki_path_${repo}`);
     if (!storedPath) {
       alert('저장된 프로젝트 경로를 찾을 수 없습니다. 홈 화면에서 경로를 입력해 이어서 생성해 주세요.');
+      return;
+    }
+    const access = await probeFolderAccess(storedPath);
+    if (!access.readable) {
+      alert(`프로젝트 폴더 권한을 먼저 허용해 주세요.\n${access.error || storedPath}`);
       return;
     }
     try {

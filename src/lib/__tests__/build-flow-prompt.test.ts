@@ -5,41 +5,41 @@ import type { McpInstance } from '../mcp-instance-registry';
 
 const flow: FlowDefinition = {
   id: 'F18',
-  name: 'Linkrew Message Dispatch Batch',
-  repos: ['affiliate-batch'],
-  entryClasses: ['LinkrewMessageRequestJobConfig', 'LinkrewMessageService'],
+  name: 'Notification Dispatch Batch',
+  repos: ['notification-batch'],
+  entryClasses: ['NotificationRequestJobConfig', 'NotificationService'],
   tables: [
-    { name: 'LINKREW_MESSAGE_REQUEST', db: 'O_GAFFILIATE' },
-    { name: 'auto_linkrew_common',     db: 'nautomaildb' },
+    { name: 'NOTIFICATION_REQUEST', db: 'ORDERS' },
+    { name: 'notification_outbox',  db: 'notifications' },
   ],
   storedProcs: [
-    { name: 'UPGMKT_Affiliate_AutoLinkrewCommon_Insert', db: 'nautomaildb' },
+    { name: 'UPSERT_NOTIFICATION_OUTBOX', db: 'notifications' },
   ],
   codeRefs: [
-    { host: 'github.gmarket.com', repo: 'affiliate-batch', path: 'lib-message/src/LinkrewMessageService.java' },
+    { host: 'github.example.com', repo: 'notification-batch', path: 'lib-message/src/NotificationService.java' },
   ],
 };
 
 const instances: McpInstance[] = [
-  { instanceName: 'oracle-gaffiliate', tool: 'oracle', roles: ['db-schema', 'db-stored-proc'], scope: { databases: ['O_GAFFILIATE'] } },
-  { instanceName: 'devdb-nautomaildb', tool: 'devdb', roles: ['db-schema'],                   scope: { databases: ['nautomaildb'] } },
-  { instanceName: 'github-enterprise', tool: 'github', roles: ['code-reader'],                scope: { host: 'github.gmarket.com' } },
+  { instanceName: 'oracle-orders', tool: 'oracle', roles: ['db-schema', 'db-stored-proc'], scope: { databases: ['ORDERS'] } },
+  { instanceName: 'devdb-notifications', tool: 'devdb', roles: ['db-schema'],              scope: { databases: ['notifications'] } },
+  { instanceName: 'github-enterprise', tool: 'github', roles: ['code-reader'],             scope: { host: 'github.example.com' } },
 ];
 
 describe('buildFlowPrompt', () => {
   it('contains flow name', () => {
-    expect(buildFlowPrompt(flow, instances)).toContain('Linkrew Message Dispatch Batch');
+    expect(buildFlowPrompt(flow, instances)).toContain('Notification Dispatch Batch');
   });
 
-  it('contains oracle MCP hint for O_GAFFILIATE table', () => {
+  it('contains oracle MCP hint for ORDERS table', () => {
     const p = buildFlowPrompt(flow, instances);
-    expect(p).toContain('O_GAFFILIATE');
+    expect(p).toContain('ORDERS');
     expect(p).toContain('mcp__oracle__');
   });
 
-  it('contains devdb MCP hint for nautomaildb table', () => {
+  it('contains devdb MCP hint for notifications table', () => {
     const p = buildFlowPrompt(flow, instances);
-    expect(p).toContain('nautomaildb');
+    expect(p).toContain('notifications');
     expect(p).toContain('mcp__devdb__');
   });
 

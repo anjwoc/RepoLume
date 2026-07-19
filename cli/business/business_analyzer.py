@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List
 
 from cli.business.data_flow_tracer import DataFlowTracer, DataFlowGraph
 from cli.business.workflow_mapper import WorkflowMapper, BusinessWorkflow
@@ -72,10 +72,11 @@ class BusinessAnalyzer:
         print(analysis.business_summary_md)
     """
 
-    def __init__(self, provider, repo, repo_name: str):
+    def __init__(self, provider, repo, repo_name: str, mcp_manager=None):
         self._provider = provider
         self._repo = repo
         self._repo_name = repo_name
+        self._mcp_manager = mcp_manager
         self._data_flow_tracer = DataFlowTracer(provider, repo)
         self._workflow_mapper = WorkflowMapper(provider, repo)
         self._impact_analyzer = ImpactAnalyzer(provider, repo)
@@ -90,31 +91,42 @@ class BusinessAnalyzer:
         if len(readme) > 6_000:
             readme = readme[:6_000] + "\n...(truncated)"
 
-        # 2. Generate business overview (domain + entities)
+        # 2. Collect MCP context (DB schema, GitHub info) if available
+        db_schema_context, gh_owner, gh_repo = self._collect_mcp_context()
+
+        # 3. Generate business overview (domain + entities)
         logger.info("Analyzing business domain...")
         domain, entities = self._analyze_domain_and_entities(
             file_tree, readme, lang
         )
 
-        # 3. Trace data flows
+        # 4. Trace data flows
         logger.info("Tracing data flows...")
         data_flows = self._data_flow_tracer.trace(
-            file_tree, readme, lang=lang
+            file_tree, readme, lang=lang, db_schema_context=db_schema_context
         )
 
-        # 4. Map business workflows
+        # 5. Map business workflows
         logger.info("Mapping business workflows...")
         workflows = self._workflow_mapper.map(
-            file_tree, readme, entities, lang=lang
+            file_tree, readme, entities, lang=lang, db_schema_context=db_schema_context
         )
 
-        # 5. Analyze component impact
+        # 6. Validate source_file paths via GitHub MCP (best-effort)
+        if gh_owner and gh_repo and self._mcp_manager and self._mcp_manager._github_client:
+            self._validate_source_files(workflows, data_flows, gh_owner, gh_repo)
+
+        # 6b. Cross-check SQL queries against actual DB schema
+        if db_schema_context:
+            self._verify_sql_queries(workflows, db_schema_context)
+
+        # 7. Analyze component impact
         logger.info("Analyzing component business impact...")
         component_impacts = self._impact_analyzer.analyze(
             file_tree, entities, workflows, lang=lang
         )
 
-        # 6. Render markdown sections
+        # 8. Render markdown sections
         business_summary_md = self._render_business_summary(
             domain, entities, lang
         )
@@ -136,6 +148,125 @@ class BusinessAnalyzer:
         )
 
     # ── Private helpers ──────────────────────────────────────────────────── #
+
+    def _collect_mcp_context(self) -> tuple[str, str, str]:
+        """
+        Return (db_schema_context, gh_owner, gh_repo).
+
+        When MCPManager is absent or all clients are disabled, returns ("", "", "").
+        Code-only mode remains grounded by file-tree, source-file, ORM, migration,
+        and inline SQL evidence supplied by the repository analyzers.
+        """
+        db_schema_context = ""
+        gh_owner = ""
+        gh_repo = ""
+
+        if not self._mcp_manager:
+            return db_schema_context, gh_owner, gh_repo
+
+        # DB schema — use first enabled client
+        for db_client in self._mcp_manager._db_clients:
+            if not db_client._config.enabled or not db_client.available:
+                continue
+            try:
+                ctx = db_client.get_schema_context()
+                if ctx and ctx.content:
+                    db_schema_context = ctx.content
+                    logger.info(
+                        "DB schema collected (%d chars) from %s",
+                        len(db_schema_context),
+                        db_client._config.db_type,
+                    )
+            except Exception as e:
+                logger.warning("DB schema fetch failed: %s", e)
+            break  # one DB client is enough
+
+        # GitHub owner/repo from config or git remote
+        gh_client = self._mcp_manager._github_client
+        if gh_client and gh_client._config.enabled:
+            gh_owner = gh_client._config.owner
+            gh_repo = gh_client._config.repo
+            if not gh_owner or not gh_repo:
+                from cli.mcp.github_mcp import detect_github_remote
+                detected = detect_github_remote(str(self._repo.path))
+                if detected:
+                    gh_owner, gh_repo = detected
+
+        return db_schema_context, gh_owner, gh_repo
+
+    def _verify_sql_queries(self, workflows, db_schema_context: str) -> None:
+        """
+        Cross-check sql_query fields in workflow steps against the actual DB schema.
+
+        Sets step.sql_verified = True when all referenced tables exist in the schema,
+        False when at least one table cannot be confirmed.
+        """
+        import re
+
+        # Extract known table names from db_schema_context (### TABLE_NAME headings)
+        known_tables: set[str] = {
+            m.lower()
+            for m in re.findall(r"^###\s+(\S+)", db_schema_context, re.MULTILINE)
+        }
+        if not known_tables:
+            return
+
+        # Regex to pull table names from common SQL patterns
+        _TABLE_RE = re.compile(
+            r"\b(?:FROM|JOIN|INTO|UPDATE|TABLE)\s+([`\"\[]?[\w.]+[`\"\]]?)",
+            re.IGNORECASE,
+        )
+
+        for wf in workflows:
+            for step in wf.steps:
+                if not step.query_evidence:
+                    continue
+                referenced = {
+                    m.strip('`"[]').split(".")[-1].lower()
+                    for m in _TABLE_RE.findall(step.query_evidence)
+                }
+                if not referenced:
+                    continue
+                step.sql_verified = all(t in known_tables for t in referenced)
+
+    def _validate_source_files(self, workflows, data_flows, owner: str, repo: str) -> None:
+        """
+        Validate source_file paths in workflows/data_flows via GitHub MCP.
+
+        Invalid paths get cleared so the UI doesn't generate broken links.
+        """
+        gh_client = self._mcp_manager._github_client
+
+        # Collect unique paths
+        paths: list[str] = []
+        for wf in workflows:
+            for step in wf.steps:
+                if step.source_file and step.source_file not in paths:
+                    paths.append(step.source_file)
+        for flow in data_flows:
+            for node in flow.nodes:
+                if node.source_file and node.source_file not in paths:
+                    paths.append(node.source_file)
+
+        if not paths:
+            return
+
+        logger.info("Validating %d source file paths via GitHub MCP...", len(paths))
+        validity = gh_client.validate_file_paths(owner, repo, paths)
+
+        invalid = [p for p, ok in validity.items() if not ok]
+        if invalid:
+            logger.info("GitHub MCP: %d paths not found in repo: %s", len(invalid), invalid[:5])
+
+        invalid_set = set(invalid)
+        for wf in workflows:
+            for step in wf.steps:
+                if step.source_file in invalid_set:
+                    step.source_file = ""
+        for flow in data_flows:
+            for node in flow.nodes:
+                if node.source_file in invalid_set:
+                    node.source_file = ""
 
     def _analyze_domain_and_entities(
         self, file_tree: str, readme: str, lang: str

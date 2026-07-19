@@ -20,12 +20,87 @@ from api.routes.cache import (
 from api.routes.models import (
     ProcessedProjectEntry, WikiCacheData, WikiCacheRequest, WikiPage,
 )
-from api.db.store import job_store, page_checkpoint_store, project_store
+from api.db.store import job_store, page_checkpoint_store, project_store, wiki_run_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+# ── SQLite cache helpers ───────────────────────────────────────────────────────
+
+async def _sqlite_read(
+    owner: str, repo: str, language: str, model: str
+) -> Optional[WikiCacheData]:
+    """Read wiki data from SQLite (new cache). Returns None if no run found."""
+    from api.routes.models import RepoInfo, WikiPage, WikiStructureModel
+    project_id = f"{owner}:{repo}:{language}"
+    run = await asyncio.to_thread(wiki_run_store.get_run, project_id, model)
+    if not run:
+        return None
+    run_id = run["id"]
+    pages_rows = await asyncio.to_thread(wiki_run_store.get_all_pages, run_id)
+    structure_row = await asyncio.to_thread(wiki_run_store.get_structure, run_id)
+    if not pages_rows and not structure_row:
+        return None
+    project = await asyncio.to_thread(project_store.get, project_id)
+    project_metadata = {}
+    if project and project.get("metadata"):
+        try:
+            project_metadata = json.loads(project["metadata"])
+        except (TypeError, json.JSONDecodeError):
+            project_metadata = {}
+    source_path = project_metadata.get("source_path")
+    artifact_root = project_metadata.get("artifact_root")
+    if not source_path or not artifact_root:
+        legacy_paths = await read_wiki_cache(owner, repo, "local", language, model or None)
+        if legacy_paths:
+            source_path = source_path or legacy_paths.source_path
+            artifact_root = artifact_root or legacy_paths.artifact_root
+    generated_pages = {
+        r["page_id"]: WikiPage(
+            id=r["page_id"], title=r["title"], content=r["content"],
+            filePaths=[], importance="medium", relatedPages=[],
+        )
+        for r in pages_rows
+    }
+    wiki_structure = None
+    if structure_row:
+        try:
+            wiki_structure = WikiStructureModel(**json.loads(structure_row["structure_json"]))
+        except Exception:
+            pass
+    return WikiCacheData(
+        wiki_structure=wiki_structure,
+        generated_pages=generated_pages,
+        repo=RepoInfo(
+            owner=owner,
+            repo=repo,
+            type="local",
+            localPath=source_path,
+            repoUrl=source_path,
+        ),
+        source_path=source_path,
+        artifact_root=artifact_root,
+        provider=None,
+        model=model or None,
+        language=language,
+    )
+
+
+async def _legacy_file_fallback(
+    owner: str, repo: str, repo_type: str, language: str, model: Optional[str]
+) -> Optional[WikiCacheData]:
+    """Original 4-stage file-based fallback. Preserved unchanged for backward compat."""
+    cache_data = await read_wiki_cache(owner, repo, repo_type, language, model)
+    if not cache_data and model:
+        cache_data = await read_wiki_cache(owner, repo, repo_type, language)
+    if not cache_data:
+        cache_data = await read_wiki_out_cache(repo, model)
+    if not cache_data and model:
+        cache_data = await read_wiki_out_cache(repo)
+    return cache_data
 
 
 # ── Wiki Cache CRUD ────────────────────────────────────────────────────────────
@@ -42,13 +117,16 @@ async def get_cached_wiki(
     if language not in supported:
         language = configs["lang_config"]["default"]
 
-    cache_data = await read_wiki_cache(owner, repo, repo_type, language, model)
-    if not cache_data and model:
-        cache_data = await read_wiki_cache(owner, repo, repo_type, language)
+    # 1. SQLite 우선
+    cache_data = await _sqlite_read(owner, repo, language, model or "")
     if not cache_data:
-        cache_data = await read_wiki_out_cache(repo, model)
-    if not cache_data and model:
-        cache_data = await read_wiki_out_cache(repo)
+        # 언어 크로스 폴백: ko↔en (FORCED_WIKI_LANGUAGE 변경으로 인한 캐시 미스 방지)
+        other_lang = "en" if language == "ko" else "ko"
+        cache_data = await _sqlite_read(owner, repo, other_lang, model or "")
+
+    # 2. 기존 JSON/wiki-out 파일 폴백 (이전 캐시 하위 호환)
+    if not cache_data:
+        cache_data = await _legacy_file_fallback(owner, repo, repo_type, language, model)
     return cache_data
 
 
@@ -484,6 +562,64 @@ async def get_project_by_slug(slug: str):
     }
 
 
+@router.get("/api/projects/{slug}", response_model=Optional[WikiCacheData])
+async def get_wiki_by_run_slug(slug: str):
+    """wiki_runs.slug로 위키 전체 데이터 조회. /projects/{slug} URL 진입점."""
+    run = await asyncio.to_thread(wiki_run_store.get_run_by_slug, slug)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"위키 '{slug}'를 찾을 수 없습니다.")
+    run_id = run["id"]
+    pages_rows = await asyncio.to_thread(wiki_run_store.get_all_pages, run_id)
+    structure_row = await asyncio.to_thread(wiki_run_store.get_structure, run_id)
+
+    from api.routes.models import RepoInfo, WikiPage, WikiStructureModel
+    # project_id = "owner:repo:language"
+    parts = run["project_id"].split(":")
+    owner = parts[0] if len(parts) > 0 else "local"
+    repo = parts[1] if len(parts) > 1 else slug
+    language = parts[2] if len(parts) > 2 else "ko"
+    project = await asyncio.to_thread(project_store.get, run["project_id"])
+    project_metadata = {}
+    if project and project.get("metadata"):
+        try:
+            project_metadata = json.loads(project["metadata"])
+        except (TypeError, json.JSONDecodeError):
+            project_metadata = {}
+    source_path = project_metadata.get("source_path")
+    artifact_root = project_metadata.get("artifact_root")
+
+    generated_pages = {
+        r["page_id"]: WikiPage(
+            id=r["page_id"], title=r["title"], content=r["content"],
+            filePaths=[], importance="medium", relatedPages=[],
+        )
+        for r in pages_rows
+    }
+    wiki_structure = None
+    if structure_row:
+        try:
+            wiki_structure = WikiStructureModel(**json.loads(structure_row["structure_json"]))
+        except Exception:
+            pass
+
+    return WikiCacheData(
+        wiki_structure=wiki_structure,
+        generated_pages=generated_pages,
+        repo=RepoInfo(
+            owner=owner,
+            repo=repo,
+            type="local",
+            localPath=source_path,
+            repoUrl=source_path,
+        ),
+        source_path=source_path,
+        artifact_root=artifact_root,
+        provider=None,
+        model=run.get("model") or None,
+        language=language,
+    )
+
+
 # ── Git Roots ─────────────────────────────────────────────────────────────────
 
 def _git_remote_to_web_url(remote: str) -> Optional[str]:
@@ -501,7 +637,7 @@ def _git_remote_to_web_url(remote: str) -> Optional[str]:
     return None
 
 
-def _scan_git_roots(base_path: str, max_depth: int = 3) -> list[Dict]:
+def _scan_git_roots(base_path: str, max_depth: int = 5) -> list[Dict]:
     import subprocess
     base_path = os.path.abspath(base_path)
     roots: list[Dict] = []
@@ -522,8 +658,18 @@ def _scan_git_roots(base_path: str, max_depth: int = 3) -> list[Dict]:
         web_url = _git_remote_to_web_url(remote)
         head = _git(["rev-parse", "--abbrev-ref", "origin/HEAD"], repo_dir)
         branch = head.split("/")[-1] if head else (_git(["rev-parse", "--abbrev-ref", "HEAD"], repo_dir) or "main")
+        tracked_files = sorted({
+            line.replace(os.sep, "/")
+            for line in _git(
+                ["ls-files", "--cached", "--others", "--exclude-standard"],
+                repo_dir,
+            ).splitlines()
+            if line.strip()
+        })
         roots.append({"prefix": prefix, "name": os.path.basename(repo_dir),
-                      "remote": remote or None, "webUrl": web_url, "branch": branch or "main"})
+                      "localPath": os.path.abspath(repo_dir),
+                      "remote": remote or None, "webUrl": web_url,
+                      "branch": branch or "main", "files": tracked_files})
 
     def _walk(current: str, depth: int) -> None:
         if os.path.exists(os.path.join(current, ".git")):
@@ -544,19 +690,23 @@ def _scan_git_roots(base_path: str, max_depth: int = 3) -> list[Dict]:
 
 @router.get("/api/git_roots")
 async def get_git_roots(
-    owner: str = Query(...),
-    repo: str = Query(...),
+    path: Optional[str] = Query(None),
+    owner: Optional[str] = Query(None),
+    repo: Optional[str] = Query(None),
     repo_type: str = Query("local"),
     language: str = Query("ko"),
     model: Optional[str] = Query(None),
 ):
-    cache_data = await read_wiki_cache(owner, repo, repo_type, language, model)
-    if cache_data is None and model:
-        cache_data = await read_wiki_cache(owner, repo, repo_type, language)
-
-    local_path = None
-    if cache_data and cache_data.repo:
-        local_path = cache_data.repo.localPath or cache_data.repo.repoUrl
+    # Generation knows the source path before a wiki cache exists. Viewer calls
+    # use the cache identity. Supporting both contracts keeps one .git-based
+    # resolver as the source of truth.
+    local_path = os.path.abspath(path) if path else None
+    if not local_path and owner and repo:
+        cache_data = await read_wiki_cache(owner, repo, repo_type, language, model)
+        if cache_data is None and model:
+            cache_data = await read_wiki_cache(owner, repo, repo_type, language)
+        if cache_data and cache_data.repo:
+            local_path = cache_data.repo.localPath or cache_data.repo.repoUrl
 
     if not local_path or not os.path.isdir(local_path):
         return {"localPath": local_path, "roots": []}

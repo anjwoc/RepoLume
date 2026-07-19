@@ -22,9 +22,9 @@ func NewClaudeRunner(model string) *ClaudeRunner {
 	return &ClaudeRunner{model: model}
 }
 
-func (r *ClaudeRunner) Name() string        { return "claude" }
-func (r *ClaudeRunner) DefaultModel() string { return "claude-haiku-3-5" }
-func (r *ClaudeRunner) FlashModel() string   { return "claude-haiku-3-5" }
+func (r *ClaudeRunner) Name() string         { return "claude" }
+func (r *ClaudeRunner) DefaultModel() string { return "" } // use claude's built-in default
+func (r *ClaudeRunner) FlashModel() string   { return "" }
 func (r *ClaudeRunner) ProModel() string     { return "claude-sonnet-4-5" }
 
 // Available checks whether the `claude` binary is on PATH.
@@ -44,7 +44,7 @@ func (r *ClaudeRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, e
 	if err != nil {
 		return nil, err
 	}
-	return StringsToChunks(lines), nil
+	return OutputsToChunks(lines), nil
 }
 
 // RunCollect executes the prompt synchronously and collects full output.

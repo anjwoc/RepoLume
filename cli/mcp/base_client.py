@@ -38,9 +38,10 @@ class MCPStdioClient:
             result = client.call_tool("list_tables", {})
     """
 
-    def __init__(self, command: list[str], timeout: int = 30):
+    def __init__(self, command: list[str], timeout: int = 30, env: dict | None = None):
         self._command = command
         self._timeout = timeout
+        self._env = env
         self._proc: subprocess.Popen | None = None
         self._req_id = 0
 
@@ -53,13 +54,16 @@ class MCPStdioClient:
 
     def start(self) -> None:
         """Launch the MCP server and perform the initialize handshake."""
+        import os
         logger.debug(f"Starting MCP server: {' '.join(self._command)}")
+        merged_env = {**os.environ, **self._env} if self._env else None
         self._proc = subprocess.Popen(
             self._command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env=merged_env,
         )
         # Give the server a moment to start
         time.sleep(0.5)

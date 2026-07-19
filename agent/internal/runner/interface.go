@@ -4,6 +4,8 @@ package runner
 import (
 	"context"
 	"io"
+
+	"github.com/localwiki/agent/internal/stream"
 )
 
 // Chunk is a single streaming output chunk from the agent.
@@ -58,6 +60,18 @@ func StringsToChunks(lines <-chan string) <-chan Chunk {
 		ch <- Chunk{Done: true}
 	}()
 	return ch
+}
+
+func OutputsToChunks(outputs <-chan stream.Output) <-chan Chunk {
+	chunks := make(chan Chunk, 64)
+	go func() {
+		defer close(chunks)
+		for output := range outputs {
+			chunks <- Chunk{Text: output.Text, Error: output.Error}
+		}
+		chunks <- Chunk{Done: true}
+	}()
+	return chunks
 }
 
 // CollectChunks drains a chunk channel and returns the concatenated text.

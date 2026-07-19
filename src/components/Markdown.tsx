@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -8,10 +8,18 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { FaGithub } from 'react-icons/fa';
 import Mermaid from './Mermaid';
+import { EnhancedMermaid } from './EnhancedMermaid';
+import type { DiagramEdgeData } from '@/lib/diagram-edge-types';
 import { BlockActionWrapper, BlockActionType } from './BlockActionWrapper';
 import { normalizeMarkdownContent } from '@/lib/markdown-normalize';
 import { slugifyHeading } from '@/lib/utils';
 import 'katex/dist/katex.min.css';
+import {
+  isSourceFilePath,
+  repairSourceUrl,
+  resolveSourceLink,
+  type GitRoot,
+} from '@/lib/source-link-resolver';
 
 function extractText(node: React.ReactNode): string {
   if (typeof node === 'string') return node;
@@ -20,13 +28,6 @@ function extractText(node: React.ReactNode): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (React.isValidElement(node)) return extractText((node.props as any).children);
   return '';
-}
-
-export interface GitRoot {
-  prefix: string;       // POSIX path of this repo relative to the project root ("" = root)
-  name: string;         // repository directory name
-  webUrl?: string | null; // browsable base URL derived from the git origin remote
-  branch: string;       // default branch
 }
 
 interface MarkdownProps {
@@ -39,6 +40,8 @@ interface MarkdownProps {
   gitRoots?: GitRoot[] | null;
   hoverBgColor?: string;
   onNavigateToPage?: (target: string) => void;
+  /** Edge metadata for interactive diagrams. When provided, diagrams become hoverable/clickable. */
+  diagramEdgeData?: DiagramEdgeData | null;
 }
 
 // Extract raw markdown text for a node using its position info
@@ -60,53 +63,41 @@ const Markdown: React.FC<MarkdownProps> = ({
   gitRoots,
   hoverBgColor,
   onNavigateToPage,
+  diagramEdgeData,
 }) => {
   const normalizedContent = normalizeMarkdownContent(content);
 
   // Build a GitHub link for a path. `linkType` is 'blob' for files, 'tree' for directories/modules.
   // When git roots are known (a bundling parent directory whose subprojects each have their own .git),
   // root the link at the matching individual repository using its origin remote URL.
-  const buildGithubHref = (rawPath: string, linkType: 'blob' | 'tree' = 'blob'): string => {
-    const path = rawPath.replace(/^\.\//, '').replace(/^\/+/, '');
-    if (!path) return '';
+  const buildGithubHref = useCallback((rawPath: string, linkType: 'blob' | 'tree' = 'blob'): string => {
     // null = loading, [] = localPath missing/no git → both cases: defer, don't guess with repoName
     if (!gitRoots) return '';
     if (gitRoots.length > 0) {
-      const match = gitRoots
-        .filter(r => r.webUrl && (r.prefix === '' || path === r.prefix || path.startsWith(r.prefix + '/')))
-        .sort((a, b) => b.prefix.length - a.prefix.length)[0];
-      if (match && match.webUrl) {
-        const rel = match.prefix ? path.slice(match.prefix.length).replace(/^\/+/, '') : path;
-        return `${match.webUrl.replace(/\/$/, '')}/${linkType}/${match.branch}/${rel}`;
-      }
-      return ''; // gitRoots loaded but no prefix match → polyrepo parent is not a GitHub repo
+      return resolveSourceLink(rawPath, gitRoots, linkType);
     }
     // gitRoots loaded and empty → localPath not configured; repoName fallback only if repositoryBaseUrl set
+    const path = rawPath.replace(/^\.\//, '').replace(/^\/+/, '');
+    if (!path) return '';
     const base = (repositoryBaseUrl || '').replace(/\/$/, '');
     if (!base || !repoName) return '';
     return `${base}/${repoName}/${linkType}/main/${path}`;
-  };
+  }, [gitRoots, repositoryBaseUrl, repoName]);
 
-  const buildSourceHref = (filePath: string): string => {
-    const path = filePath.replace(/^\/+/, '');
+  const buildSourceHref = useCallback((filePath: string): string => {
     if (!gitRoots) return '';
     if (gitRoots.length > 0) {
-      const match = gitRoots
-        .filter(r => r.webUrl && (r.prefix === '' || path === r.prefix || path.startsWith(r.prefix + '/')))
-        .sort((a, b) => b.prefix.length - a.prefix.length)[0];
-      if (match && match.webUrl) {
-        const rel = match.prefix ? path.slice(match.prefix.length).replace(/^\/+/, '') : path;
-        return `${match.webUrl.replace(/\/$/, '')}/blob/${match.branch}/${rel}`;
-      }
-      return '';
+      return resolveSourceLink(filePath, gitRoots, 'blob');
     }
+    const path = filePath.replace(/^\/+/, '');
     const base = (repositoryBaseUrl || 'https://github.com').replace(/\/$/, '');
     return repoName ? `${base}/${repoName}/blob/main/${path}` : `${base}/blob/main/${path}`;
-  };
+  }, [gitRoots, repositoryBaseUrl, repoName]);
 
-  // Define markdown components
+  // Define markdown components — memoized so scroll-triggered parent re-renders don't re-create
+  // component objects and cause ReactMarkdown to re-render every block.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const MarkdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  const MarkdownComponents = useMemo<React.ComponentProps<typeof ReactMarkdown>['components']>(() => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     p({ children, node, ...props }: { children?: React.ReactNode; node?: any }) {
       const { raw, startLine, endLine } = extractRaw(normalizedContent, node);
@@ -201,10 +192,10 @@ const Markdown: React.FC<MarkdownProps> = ({
       return <li className="mb-2 text-sm leading-relaxed dark:text-white" {...props}>{children}</li>;
     },
     a({ children, href, ...props }: { children?: React.ReactNode; href?: string }) {
-      // 1. Internal wiki navigation (file:/// or relative .md)
+      // 1. Internal wiki navigation (relative wiki markdown only).
+      // file:// links point at source files and are resolved through the detected .git root below.
       const isInternal = href && (
-        href.startsWith('file:///') ||
-        (href.endsWith('.md') && !href.startsWith('http'))
+        href.endsWith('.md') && !href.startsWith('http') && !href.startsWith('file://')
       );
       if (isInternal && onNavigateToPage) {
         return (
@@ -221,8 +212,12 @@ const Markdown: React.FC<MarkdownProps> = ({
 
       // 2. Absolute URL → external tab
       if (href?.startsWith('http://') || href?.startsWith('https://')) {
+        const repairedHref = repairSourceUrl(href, gitRoots);
+        if (repairedHref === '') {
+          return <span className="font-mono text-sm text-gray-700 dark:text-gray-300" {...props}>{children}</span>;
+        }
         return (
-          <a href={href} className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
+          <a href={repairedHref ?? href} className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
             target="_blank" rel="noopener noreferrer" {...props}>
             {children}
           </a>
@@ -231,6 +226,12 @@ const Markdown: React.FC<MarkdownProps> = ({
 
       // 3. Non-empty relative path (e.g. "affiliate-gateway" or "./src/Foo.java") → GitHub URL
       if (href) {
+        if (href.startsWith('file://')) {
+          const sourceUrl = buildGithubHref(href, 'blob');
+          if (sourceUrl) {
+            return <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-purple-600 dark:text-purple-400 hover:underline font-medium" {...props}>{children}</a>;
+          }
+        }
         const hasFileExt = /\.[a-zA-Z0-9]{1,6}$/.test(href);
         const ghUrl = buildGithubHref(href, hasFileExt ? 'blob' : 'tree');
         if (ghUrl) {
@@ -241,6 +242,23 @@ const Markdown: React.FC<MarkdownProps> = ({
             </a>
           );
         }
+        // URL 해석 실패 — 레포 정보와 함께 Alert, GitHub에서 직접 검색 안내
+        const repoInfo = gitRoots && gitRoots.length > 0
+          ? gitRoots.map(r => r.webUrl || r.name).filter(Boolean).join('\n')
+          : repoName || '(레포 정보 없음)';
+        const alertMsg = `파일 경로를 GitHub에서 찾을 수 없습니다.\n\n경로: ${href}\n레포:\n${repoInfo}\n\nGitHub에서 직접 검색하거나 해당 레포에서 파일을 확인해 주세요.`;
+        return (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => window.alert(alertMsg)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') window.alert(alertMsg); }}
+            className="text-purple-400 dark:text-purple-500 underline decoration-dashed cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+            title={`경로 해석 실패: ${href} — 클릭하여 레포 정보 확인`}
+          >
+            {children}
+          </span>
+        );
       }
 
       // 4. Empty href — children may already be a self-navigating element (e.g. file pill span).
@@ -340,13 +358,21 @@ const Markdown: React.FC<MarkdownProps> = ({
         return (
           <BlockActionWrapper blockContent={raw} startLine={startLine} endLine={endLine} onBlockAction={onBlockAction} hoverBgColor={hoverBgColor}>
             <div className="my-8 bg-gray-50 dark:bg-gray-800 rounded-md overflow-hidden shadow-sm">
-              <Mermaid
-                chart={codeContent}
-                className="w-full max-w-full"
-                zoomingEnabled={false}
-                onFixError={onFixDiagram ? (chart, prompt) => onFixDiagram(raw, prompt) : undefined}
-                onCodeChange={onCodeChange}
-              />
+              {diagramEdgeData ? (
+                <EnhancedMermaid
+                  chart={codeContent}
+                  className="w-full max-w-full"
+                  edgeData={diagramEdgeData}
+                />
+              ) : (
+                <Mermaid
+                  chart={codeContent}
+                  className="w-full max-w-full"
+                  zoomingEnabled={false}
+                  onFixError={onFixDiagram ? (chart, prompt) => onFixDiagram(raw, prompt) : undefined}
+                  onCodeChange={onCodeChange}
+                />
+              )}
             </div>
           </BlockActionWrapper>
         );
@@ -389,15 +415,7 @@ const Markdown: React.FC<MarkdownProps> = ({
       }
 
       // Handle inline code — file path pill or plain code
-      const sourceExtRegex = /\.(java|ts|tsx|js|jsx|kt|kts|py|go|xml|yaml|yml|json|properties|gradle|sql|rs|c|cpp|h|hpp|cs|swift|rb|php|sh|bash|toml)$/i;
-      const isFilePath = (text: string) => {
-        if (!text) return false;
-        const stripped = text.replace(/^Source:\s*/i, '');
-        if (stripped.includes(' ')) return false;
-        return (stripped.includes('/') || sourceExtRegex.test(stripped)) && /\.[a-zA-Z0-9]+$/.test(stripped);
-      };
-
-      if (!isBlock && isFilePath(codeContent)) {
+      if (!isBlock && isSourceFilePath(codeContent)) {
         const filePath = codeContent.replace(/^Source:\s*/i, '');
         const href = buildSourceHref(filePath);
         if (href) {
@@ -437,7 +455,7 @@ const Markdown: React.FC<MarkdownProps> = ({
         </code>
       );
     },
-  };
+  }), [normalizedContent, onFixDiagram, onCodeChange, onBlockAction, hoverBgColor, onNavigateToPage, buildGithubHref, buildSourceHref, gitRoots, repoName]);
 
   return (
     // pl-10 gives space on the left for the grip handle

@@ -28,3 +28,4 @@ class ChatCompletionRequest(BaseModel):
     cli_tool: Optional[str] = Field(None)
     is_wiki_generation: Optional[bool] = Field(False)
     async_mode: Optional[bool] = Field(False)
+    task_id: Optional[str] = Field(None)

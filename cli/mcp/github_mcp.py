@@ -168,6 +168,65 @@ class GitHubMCPClient:
             context_score=10,
         )
 
+    def check_repo_exists(self, owner: str, repo: str) -> bool:
+        """Return False only if GitHub MCP explicitly says the repo doesn't exist (404).
+        Returns True for all other outcomes (auth errors, timeouts, MCP unavailable)."""
+        if not self._config.enabled or not self.available:
+            return True
+        try:
+            cmd = self._build_command()
+            with MCPStdioClient(cmd, timeout=10) as client:
+                client.call_tool("list_pull_requests", {
+                    "owner": owner, "repo": repo, "state": "closed", "per_page": 1,
+                })
+            return True
+        except MCPError as e:
+            err = str(e).lower()
+            if "404" in err or "not found" in err or "does not exist" in err:
+                return False
+            return True
+        except Exception:
+            return True
+
+    def validate_file_paths(
+        self,
+        owner: str,
+        repo: str,
+        paths: list[str],
+    ) -> dict[str, bool]:
+        """
+        Check which file paths exist in the GitHub repo.
+
+        Returns {path: exists} — paths absent from the repo get False.
+        Silently returns all-False if GitHub MCP is unavailable.
+        """
+        if not self._config.enabled or not self.available:
+            return {p: False for p in paths}
+        if not paths:
+            return {}
+
+        result: dict[str, bool] = {}
+        cmd = self._build_command()
+        try:
+            with MCPStdioClient(cmd, timeout=30) as client:
+                for path in paths:
+                    if not path:
+                        continue
+                    try:
+                        client.call_tool("get_file_contents", {
+                            "owner": owner,
+                            "repo": repo,
+                            "path": path,
+                        })
+                        result[path] = True
+                    except MCPError:
+                        result[path] = False
+        except Exception as e:
+            logger.warning(f"validate_file_paths error: {e}")
+            for p in paths:
+                result.setdefault(p, False)
+        return result
+
     def _build_command(self) -> list[str]:
         pat = self._config.pat or os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
 

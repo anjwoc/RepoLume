@@ -69,6 +69,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy Python dependencies
 COPY --from=py_deps /api/.venv /opt/venv
+COPY cli/ ./cli/
 COPY api/ ./api/
 
 # Copy Node app

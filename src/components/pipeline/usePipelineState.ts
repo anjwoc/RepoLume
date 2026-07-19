@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { StreamLog, AnalysisPhase, ANALYSIS_PHASES } from "@/lib/stream-types";
+import { projectConversationEvents, type ConversationItem } from "@/lib/conversation-events";
 
 export interface DebugEvent {
   id: string;
@@ -48,6 +49,8 @@ export interface PipelineStateProps {
   businessProjectPaths?: string[];
   language: string;
   testMode: boolean;
+  /** ⚗️ TEMP: business flow 페이지만 생성하는 테스트 모드 — 운영 배포 시 제거 */
+  businessFlowOnly?: boolean;
   provider: string;
   model: string;
   apiKey?: string;
@@ -63,6 +66,7 @@ export function usePipelineState({
   businessProjectPaths,
   language,
   testMode,
+  businessFlowOnly,
   provider,
   model,
   apiKey,
@@ -87,6 +91,7 @@ export function usePipelineState({
   const [awaitingApproval, setAwaitingApproval] = useState(false);
   const [pendingStructure, setPendingStructure] = useState<WikiStructureResult | null>(null);
   const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([]);
+  const [conversationItems, setConversationItems] = useState<ConversationItem[]>([]);
 
   const approvalRef = useRef<((d: ApprovalDecision) => void) | null>(null);
   const streamingLogRef = useRef<{ logId: string; phaseIndex: number } | null>(null);
@@ -142,6 +147,7 @@ export function usePipelineState({
       const stream = createTaskStream(streamId, {
         onEvent: (event: any) => {
           if (isCancelled) return;
+          setConversationItems((current) => projectConversationEvents([event], current));
 
           // Debug panel: capture all events including heartbeats
           if (process.env.NEXT_PUBLIC_DEBUG_PANEL === 'true') {
@@ -289,7 +295,7 @@ export function usePipelineState({
               await runWikiGeneration(
                 projectPath, streamId, language, testMode,
                 provider, model, apiKey, mode, cliTool,
-                false, { mcp: mcpEnabled, concurrency: pageConcurrency }, preBuilt,
+                false, { mcp: mcpEnabled, concurrency: pageConcurrency, businessFlowOnly }, preBuilt,
                 { skipPageIds: rd.completedPageIds ?? [], cachedPages: rd.generatedPages ?? {} },
                 stopSignalRef.current,
               );
@@ -308,26 +314,38 @@ export function usePipelineState({
           let approvedStructure: WikiStructureResult | null = null;
           let prevStructure: WikiStructureResult | null = null;
           let feedbackForNext = '';
+          const approvalStorageKey = `localwiki_pending_structure_${sanitizeRepoName(projectPath)}_${language}`;
+          let restoredStructure: WikiStructureResult | null = null;
+          try {
+            const storedStructure = sessionStorage.getItem(approvalStorageKey);
+            if (storedStructure) restoredStructure = JSON.parse(storedStructure) as WikiStructureResult;
+          } catch {
+            sessionStorage.removeItem(approvalStorageKey);
+          }
 
           while (!approvedStructure && !isCancelled) {
-            const result = await runWikiStructure(
-              projectPath, streamId, language, testMode,
-              provider, model, apiKey, mode, cliTool, { mcp: mcpEnabled, concurrency: pageConcurrency },
-              feedbackForNext || undefined,
-              prevStructure?.wikiStructure,
-            );
+            const result: WikiStructureResult = restoredStructure ?? await runWikiStructure(
+                projectPath, streamId, language, testMode,
+                provider, model, apiKey, mode, cliTool,
+                { mcp: mcpEnabled, concurrency: pageConcurrency, businessFlowOnly },
+                feedbackForNext || undefined,
+                prevStructure?.wikiStructure,
+              );
+            restoredStructure = null;
             if (isCancelled) return;
 
             // structure.preview 이벤트가 onEvent를 통해 setPendingStructure를 이미 호출했지만
             // subsystems 등 추가 필드는 runWikiStructure 반환값으로만 확보 가능 — 여기서 보완
             setPendingStructure(result);
             setAwaitingApproval(true);
+            sessionStorage.setItem(approvalStorageKey, JSON.stringify(result));
 
             const decision = await new Promise<ApprovalDecision>((resolve) => {
               approvalRef.current = resolve;
             });
 
             setAwaitingApproval(false);
+            sessionStorage.removeItem(approvalStorageKey);
             if (decision.action === 'cancel') return;
             if (decision.action === 'regenerate') {
               feedbackForNext = decision.feedback;
@@ -340,7 +358,7 @@ export function usePipelineState({
           if (isCancelled || !approvedStructure) return;
 
           // ── Phase 2.5+: 승인된 구조로 나머지 파이프라인 실행 ─────────────
-          await runWikiGeneration(projectPath, streamId, language, testMode, provider, model, apiKey, mode, cliTool, enableBusiness, { mcp: mcpEnabled, concurrency: pageConcurrency }, approvedStructure, undefined, stopSignalRef.current);
+          await runWikiGeneration(projectPath, streamId, language, testMode, provider, model, apiKey, mode, cliTool, enableBusiness, { mcp: mcpEnabled, concurrency: pageConcurrency, businessFlowOnly }, approvedStructure, undefined, stopSignalRef.current);
 
           if (enableBusiness && !isCancelled) {
             addLogImmediate(0, {
@@ -557,5 +575,6 @@ export function usePipelineState({
     onCancelApproval: () => approvalRef.current?.({ action: 'cancel' }),
     debugEvents,
     clearDebugEvents,
+    conversationItems,
   };
 }

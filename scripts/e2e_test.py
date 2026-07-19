@@ -11,12 +11,12 @@ Canonical verification gate — if this passes, the full wiki generation pipelin
   STEP 6  Cache verify      → GET  /api/wiki_cache returns saved data
 
 Run after any refactor to confirm correctness:
-  poetry -C api run python scripts/e2e_test.py --fast --repo /Users/jaecjeong/lab/vscode
+  poetry -C api run python scripts/e2e_test.py --fast --repo /path/to/repository
 
 Flags:
   --fast  (default) test with 1 page only — ~2 minutes
   --full  test all pages
-  --repo  target repo path (default: ~/lab/vscode)
+  --repo  target repo path (default: this LocalWiki checkout)
 
 Exit 0 = all checks passed, Exit 1 = failure.
 """
@@ -26,10 +26,11 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 import httpx
 
 BACKEND = os.environ.get("BACKEND_URL", "http://localhost:8001")
-DEFAULT_REPO = "/Users/jaecjeong/lab/vscode"
+DEFAULT_REPO = os.environ.get("LOCALWIKI_E2E_REPO", str(Path(__file__).resolve().parents[1]))
 STREAM_ID = f"e2e-test-{int(time.time())}"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

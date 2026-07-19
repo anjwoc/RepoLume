@@ -5,7 +5,10 @@
 package runner
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -34,10 +37,11 @@ func (r *GeminiRunner) Available() bool {
 }
 
 // Run executes the prompt in headless mode and returns a streaming channel.
+// stderr is captured and forwarded as an error chunk when stdout produces no content.
 //
-//	gemini -p "PROMPT" [-m MODEL]
+//	gemini --prompt "" [-m MODEL]  (stdin carries the actual prompt)
 func (r *GeminiRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
-	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
+	args := []string{"--prompt", ""}
 	model := r.resolveModel(req)
 	if model != "" {
 		args = append(args, "--model", model)
@@ -47,16 +51,46 @@ func (r *GeminiRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, e
 	cmd.Dir = req.Cwd
 	cmd.Stdin = strings.NewReader(req.Prompt)
 
-	lines, err := stream.PipeCmd(cmd)
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
 	}
-	return StringsToChunks(lines), nil
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	ch := make(chan Chunk, 64)
+	go func() {
+		defer close(ch)
+		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+		hasContent := false
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line != "" {
+				hasContent = true
+				ch <- Chunk{Text: line + "\n"}
+			}
+		}
+		_ = cmd.Wait()
+		if !hasContent && stderrBuf.Len() > 0 {
+			// Surface the tail of stderr (where the actual error lives) as an error chunk.
+			errText := stderrBuf.String()
+			if len(errText) > 800 {
+				errText = "..." + errText[len(errText)-800:]
+			}
+			ch <- Chunk{Text: fmt.Sprintf("[gemini stderr] %s", strings.TrimSpace(errText)), Source: "error"}
+		}
+	}()
+	return ch, nil
 }
 
 // RunCollect executes the prompt synchronously and collects full output.
 func (r *GeminiRunner) RunCollect(ctx context.Context, req RunRequest) (RunResult, error) {
-	args := []string{"--prompt", "", "--dangerously-skip-permissions"}
+	args := []string{"--prompt", ""}
 	model := r.resolveModel(req)
 	if model != "" {
 		args = append(args, "--model", model)

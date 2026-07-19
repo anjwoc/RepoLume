@@ -14,7 +14,6 @@ Supported agents:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -23,6 +22,8 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Dict, List, Optional
+
+from api.process_supervisor import ProcessIdleTimeout, ProcessOverallTimeout, SupervisedProcess
 
 logger = logging.getLogger(__name__)
 
@@ -133,30 +134,25 @@ class BaseRunner(ABC):
 
         t0 = time.monotonic()
         try:
-            proc = await asyncio.create_subprocess_exec(
-                self.cli_binary,
-                *args,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            proc = await SupervisedProcess.start(
+                [self.cli_binary, *args],
+                stdin=stdin_text.encode(),
                 cwd=cwd,
                 env=proc_env,
+                idle_timeout=min(300, timeout),
+                overall_timeout=timeout,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(stdin_text.encode()),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            try:
-                proc.kill()
-            except Exception:
-                pass
+            stdout_parts: list[bytes] = []
+            async for output in proc.iter_output():
+                if output.stream == "stdout":
+                    stdout_parts.append(output.data)
+        except (ProcessIdleTimeout, ProcessOverallTimeout) as exc:
             return RunResult(
                 agent=self.name,
                 model=resolved_model,
                 content="",
                 elapsed_ms=int((time.monotonic() - t0) * 1000),
-                error=f"Timeout after {timeout}s",
+                error=str(exc),
             )
         except Exception as exc:
             return RunResult(
@@ -168,10 +164,10 @@ class BaseRunner(ABC):
             )
 
         elapsed_ms = int((time.monotonic() - t0) * 1000)
-        content = stdout_bytes.decode("utf-8", errors="replace")
+        content = b"".join(stdout_parts).decode("utf-8", errors="replace")
         content = self._post_process(content)
 
-        err_str = stderr_bytes.decode("utf-8", errors="replace").strip()
+        err_str = proc.stderr_text.strip()
         if proc.returncode != 0:
             logger.error(
                 f"[{self.name}] exited {proc.returncode}: {err_str}"
@@ -217,43 +213,20 @@ class BaseRunner(ABC):
 
         t0 = time.monotonic()
         try:
-            proc = await asyncio.create_subprocess_exec(
-                self.cli_binary,
-                *args,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            proc = await SupervisedProcess.start(
+                [self.cli_binary, *args],
+                stdin=stdin_text.encode(),
                 cwd=cwd,
                 env=proc_env,
+                idle_timeout=min(300, timeout),
+                overall_timeout=timeout,
             )
-            # Write stdin without blocking the read loop
-            if proc.stdin:
-                proc.stdin.write(stdin_text.encode())
-                await proc.stdin.drain()
-                proc.stdin.close()
-
             full_chunks: List[str] = []
 
-            while True:
-                try:
-                    # Apply timeout per-line so long generations don't timeout overall
-                    raw_line = await asyncio.wait_for(proc.stdout.readline(), timeout=timeout)
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    yield JsonlEvent(
-                        type="error",
-                        agent=self.name,
-                        model=resolved_model,
-                        error=f"Timeout after {timeout}s",
-                    )
-                    return
-
-                if not raw_line:
-                    break
-
-                line = raw_line.decode("utf-8", errors="replace")
-                
-                # Yield chunk immediately for streaming
+            async for output in proc.iter_output():
+                if output.stream == "stderr":
+                    continue
+                line = output.data.decode("utf-8", errors="replace")
                 yield JsonlEvent(
                     type="chunk",
                     agent=self.name,
@@ -262,15 +235,13 @@ class BaseRunner(ABC):
                 )
                 full_chunks.append(line)
 
-            await proc.wait()
-            stderr_bytes = await proc.stderr.read()  # type: ignore[union-attr]
-            err_str = stderr_bytes.decode("utf-8", errors="replace").strip()
+            err_str = proc.stderr_text.strip()
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
             # Reconstruct full output and post-process for complete event
             # But do not send content in complete event to avoid duplication in UI
             # since we already streamed the chunks.
-            full_output = self._post_process("".join(full_chunks))
+            self._post_process("".join(full_chunks))
 
             if proc.returncode != 0:
                 yield JsonlEvent(
@@ -289,6 +260,13 @@ class BaseRunner(ABC):
                 elapsed_ms=elapsed_ms,
             )
 
+        except (ProcessIdleTimeout, ProcessOverallTimeout) as exc:
+            yield JsonlEvent(
+                type="error",
+                agent=self.name,
+                model=resolved_model,
+                error=str(exc),
+            )
         except Exception as exc:
             yield JsonlEvent(
                 type="error",
@@ -422,27 +400,22 @@ class ClaudeRunner(BaseRunner):
 
         t0 = time.monotonic()
         try:
-            proc = await asyncio.create_subprocess_exec(
-                self.cli_binary,
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            proc = await SupervisedProcess.start(
+                [self.cli_binary, *args],
                 cwd=cwd,
                 env=proc_env,
+                idle_timeout=min(300, timeout),
+                overall_timeout=timeout,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            try:
-                proc.kill()
-            except Exception:
-                pass
+            stdout_parts: list[bytes] = []
+            async for output in proc.iter_output():
+                if output.stream == "stdout":
+                    stdout_parts.append(output.data)
+        except (ProcessIdleTimeout, ProcessOverallTimeout) as exc:
             return RunResult(
                 agent=self.name, model=resolved_model, content="",
                 elapsed_ms=int((time.monotonic() - t0) * 1000),
-                error=f"Timeout after {timeout}s",
+                error=str(exc),
             )
         except Exception as exc:
             return RunResult(
@@ -452,8 +425,8 @@ class ClaudeRunner(BaseRunner):
             )
 
         elapsed_ms = int((time.monotonic() - t0) * 1000)
-        content = stdout_bytes.decode("utf-8", errors="replace").strip()
-        err_str = stderr_bytes.decode("utf-8", errors="replace").strip()
+        content = b"".join(stdout_parts).decode("utf-8", errors="replace").strip()
+        err_str = proc.stderr_text.strip()
 
         if proc.returncode != 0:
             return RunResult(
@@ -487,11 +460,11 @@ class CodexRunner(BaseRunner):
 
     @property
     def default_model(self) -> str:
-        return "gpt-5.5-mini"
+        return "gpt-5.4-mini"
 
     @property
     def flash_model(self) -> str:
-        return "gpt-5.5-mini"
+        return "gpt-5.4-mini"
 
     @property
     def pro_model(self) -> str:
@@ -502,12 +475,21 @@ class CodexRunner(BaseRunner):
         return m if m else self.default_model
 
     def _build_args(self, model: str) -> List[str]:
-        args = ["exec", "--dangerously-bypass-approvals-and-sandbox"]
+        args = [
+            "exec",
+            "--ignore-user-config",
+            "--ignore-rules",
+            "--disable", "plugins",
+            "--disable", "multi_agent",
+            "--disable", "apps",
+            "--disable", "hooks",
+            "--ephemeral",
+            "--skip-git-repo-check",
+            "--dangerously-bypass-approvals-and-sandbox",
+        ]
         if model:
-            args += ["-c", f'model="{model}"']
-        perms = self._sandbox_perms or "disk-full-read-access"
-        args += ["-c", f'sandbox_permissions=["{perms}"]']
-        return args
+            args += ["--model", model]
+        return [*args, "-"]
 
     def _build_stdin(self, prompt: str) -> str:
         return prompt
@@ -549,6 +531,13 @@ class AntigravityRunner(BaseRunner):
         "standard output so the caller can read it. Do not include any "
         "conversational filler, output ONLY the raw requested format (e.g., JSON or Markdown)."
     )
+    _MODEL_NAMES = {
+        "agy-gemini-3.5-flash-medium": "Gemini 3.5 Flash (Medium)",
+        "agy-gemini-3.5-flash-high": "Gemini 3.5 Flash (High)",
+        "agy-gemini-3.5-flash-low": "Gemini 3.5 Flash (Low)",
+        "agy-gemini-3.1-pro-low": "Gemini 3.1 Pro (Low)",
+        "agy-gemini-3.1-pro-high": "Gemini 3.1 Pro (High)",
+    }
 
     @property
     def name(self) -> str:
@@ -560,30 +549,30 @@ class AntigravityRunner(BaseRunner):
 
     @property
     def default_model(self) -> str:
-        return "gemini-3.5-flash"
+        return "agy-gemini-3.5-flash-high"
 
     @property
     def flash_model(self) -> str:
-        return "gemini-3.5-flash"
+        return "agy-gemini-3.5-flash-medium"
 
     @property
     def pro_model(self) -> str:
-        return "gemini-3.5-pro"
+        return "agy-gemini-3.1-pro-high"
 
     def _build_args(self, model: str) -> List[str]:
         args = ["--dangerously-skip-permissions"]
         if model:
-            args += ["--model", model]
+            args += ["--model", self._MODEL_NAMES.get(model, model)]
         return args
 
     def _build_args_for_prompt(self, model: str, prompt: str) -> List[str]:
-        args = ["--dangerously-skip-permissions", "--prompt", ""]
+        args = ["--dangerously-skip-permissions", "--prompt", prompt + self._STRICT_SUFFIX]
         if model:
-            args += ["--model", model]
+            args += ["--model", self._MODEL_NAMES.get(model, model)]
         return args
 
     def _build_stdin(self, prompt: str) -> str:
-        return prompt + self._STRICT_SUFFIX
+        return ""
 
     async def run_collect(self, prompt: str, cwd: str = ".", model: str = "", timeout: int = 300, env: Optional[Dict[str, str]] = None) -> RunResult:
         new_env = {**(env or {}), "BROWSER": "none"}

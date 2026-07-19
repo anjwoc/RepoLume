@@ -82,5 +82,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=is_development,
+        reload_dirs=["api", "cli"] if is_development else None,
         reload_excludes=["**/logs/**", "**/data/**", "**/__pycache__/**", "**/*.pyc"] if is_development else None,
     )
