@@ -32,15 +32,47 @@ class MCPTestResult(BaseModel):
 
 class MCPCollectRequest(BaseModel):
     project_path: str
-    entities: dict[str, Any] = {}   # CodeEntities dict
+    project_id: Optional[str] = None   # "{owner}:{repo}:{language}" for per-project config
+    entities: dict[str, Any] = {}      # CodeEntities dict
     topic_hint: str = ""
     stream_id: Optional[str] = None
+    file_contents: Optional[list[str]] = None  # sample source files for DB type detection
 
 
 class MCPCollectResult(BaseModel):
     ok: bool
     contexts: dict[str, str] = {}   # {provider_label: context_text}
     skipped: list[str] = []
+
+
+class McpClientState(BaseModel):
+    enabled: bool = False
+    available: bool = False
+
+
+class McpDbState(McpClientState):
+    schema: str = ""          # Full DB schema text (### TABLE headings + DDL)
+    table_names: list[str] = []
+
+
+class McpGithubState(McpClientState):
+    owner: str = ""
+    repo: str = ""
+
+
+class McpInitResult(BaseModel):
+    """Pre-flight MCP state returned before wiki generation starts."""
+    ok: bool = True
+    db: McpDbState = McpDbState()
+    github: McpGithubState = McpGithubState()
+    atlassian: McpClientState = McpClientState()
+    any_available: bool = False
+    validated_repos: list[dict] = []  # [{path, owner, repo, web_url, valid}]
+
+
+class McpInitRequest(BaseModel):
+    project_path: str = ""
+    project_id: Optional[str] = None  # "{owner}:{repo}:{language}" for per-project config
 
 
 # ─── MCP cross-check collect endpoint ────────────────────────────────────────
@@ -89,15 +121,171 @@ def _run_cross_check(request: MCPCollectRequest) -> MCPCollectResult:
     """Synchronous MCPManager call — runs in thread pool."""
     try:
         from cli.mcp.manager import MCPManager
-        mgr = MCPManager.from_config()
+        if request.project_id:
+            mgr = MCPManager.for_project(request.project_id)
+        else:
+            mgr = MCPManager.from_config()
+
+        # DBGraph: if fresh index exists, disable live DB clients and inject indexed context
+        _dbindex_ctx: str = ""
+        try:
+            from cli.db_index.indexer import is_fresh as _fresh, get_table_context as _tbl_ctx
+            _db_tables: list[str] = (request.entities or {}).get("db_tables", [])
+            if request.project_id and _db_tables and _fresh(request.project_id):
+                # Disable DB clients on this local mgr instance (safe — per-request object)
+                for _c in mgr._db_clients:
+                    _c._config.enabled = False
+                _dbindex_ctx = _tbl_ctx(_db_tables, request.project_id)
+                if _dbindex_ctx:
+                    logger.info(
+                        "MCP collect: DB context from db-index (%d tables, %d chars) — live MCP 건너뜀",
+                        len(_db_tables), len(_dbindex_ctx),
+                    )
+        except Exception as _e:
+            logger.debug("db-index collect fallback (live MCP): %s", _e)
+
         contexts = mgr.collect_cross_check_context(
             entities=request.entities,
             topic_hint=request.topic_hint,
+            code_snippets=request.file_contents,
         )
+
+        if _dbindex_ctx:
+            contexts["DB (db-index)"] = _dbindex_ctx
+
         return MCPCollectResult(ok=True, contexts=contexts)
     except Exception as e:
         logger.error("_run_cross_check error: %s", e)
         return MCPCollectResult(ok=False, skipped=[str(e)])
+
+
+# ─── MCP pre-flight init endpoint ───────────────────────────────────────────
+
+@router.post("/api/mcp/init")
+async def init_mcp(request: McpInitRequest) -> McpInitResult:
+    """
+    Phase 0 of the wiki generation pipeline.
+
+    Checks which MCPs are configured AND reachable, pre-fetches DB schema,
+    and detects the GitHub owner/repo from the git remote.
+
+    Called once before page generation starts; results are cached in the
+    frontend for the entire wiki run so no per-page MCP calls are needed.
+    """
+    try:
+        result = await asyncio.to_thread(_run_mcp_init, request.project_path, request.project_id)
+        return result
+    except Exception as e:
+        logger.error("MCP init error: %s", e)
+        return McpInitResult(ok=False)
+
+
+def _run_mcp_init(project_path: str, project_id: str | None = None) -> McpInitResult:
+    """Synchronous MCP pre-initialization — runs in thread pool."""
+    try:
+        from cli.mcp.manager import MCPManager
+        from cli.mcp.github_mcp import detect_github_remote
+
+        mgr = MCPManager.for_project(project_id) if project_id else MCPManager.from_config()
+        status = mgr.status()
+
+        result = McpInitResult()
+
+        # ── DB ────────────────────────────────────────────────────────────────
+        db_enabled = any(v for k, v in status.items() if k.startswith("db_"))
+
+        # DBGraph index: skip live MCP if index is fresh
+        _dbindex_used = False
+        try:
+            from cli.db_index.indexer import (
+                is_fresh as _dbindex_fresh,
+                build_schema_text as _build_schema_text,
+            )
+            import re as _re
+            if project_id and _dbindex_fresh(project_id):
+                _schema = _build_schema_text(project_id)
+                if _schema:
+                    result.db.enabled = True
+                    result.db.available = True
+                    result.db.schema = _schema
+                    result.db.table_names = _re.findall(r"^###\s+(\S+)", _schema, _re.MULTILINE)
+                    logger.info(
+                        "MCP init: DB schema from db-index (%d tables, %d chars) — MCP 건너뜀",
+                        len(result.db.table_names), len(result.db.schema),
+                    )
+                    _dbindex_used = True
+                    db_enabled = False  # skip live MCP below
+        except Exception as _e:
+            logger.debug("db-index 로드 실패 (live MCP fallback): %s", _e)
+
+        if db_enabled:
+            for db_client in mgr._db_clients:
+                if not db_client._config.enabled or not db_client.available:
+                    continue
+                result.db.enabled = True
+                result.db.available = True
+                try:
+                    ctx = db_client.get_schema_context()
+                    if ctx and ctx.content:
+                        result.db.schema = ctx.content
+                        import re as _re
+                        result.db.table_names = _re.findall(
+                            r"^###\s+(\S+)", ctx.content, _re.MULTILINE
+                        )
+                        logger.info(
+                            "MCP init: DB schema fetched (%d tables, %d chars)",
+                            len(result.db.table_names), len(result.db.schema),
+                        )
+                except Exception as e:
+                    err_str = str(e)
+                    if "nodename nor servname" in err_str or "Name or service not known" in err_str or "getaddrinfo" in err_str:
+                        logger.warning(
+                            "MCP init: DB schema fetch failed — DNS 해석 불가 (%s). VPN 연결 여부 확인.",
+                            db_client._config.display_name,
+                        )
+                    else:
+                        logger.warning("MCP init: DB schema fetch failed: %s", e)
+                break  # one DB client is enough
+
+        # ── GitHub ────────────────────────────────────────────────────────────
+        gh_enabled = status.get("github", False)
+        if gh_enabled and mgr._github_client:
+            result.github.enabled = True
+            result.github.available = True
+            owner = mgr._github_client._config.owner
+            repo = mgr._github_client._config.repo
+            if not owner or not repo:
+                detected = detect_github_remote(project_path) if project_path else None
+                if detected:
+                    owner, repo = detected
+            result.github.owner = owner or ""
+            result.github.repo = repo or ""
+            logger.info("MCP init: GitHub %s/%s", owner, repo)
+
+        # ── Validate git sub-repos ─────────────────────────────────────────
+        if project_path:
+            raw_roots = mgr.scan_git_roots(project_path)
+            result.validated_repos = mgr.validate_git_roots(raw_roots)
+            invalid = [r["repo"] for r in result.validated_repos if not r["valid"]]
+            if invalid:
+                logger.info("MCP init: invalid repos (GitHub 404): %s", invalid)
+
+        # ── Atlassian ─────────────────────────────────────────────────────────
+        atlassian_enabled = status.get("atlassian", False)
+        if atlassian_enabled:
+            result.atlassian.enabled = True
+            result.atlassian.available = True
+
+        result.any_available = (
+            result.db.available
+            or result.github.available
+            or result.atlassian.available
+        )
+        return result
+
+    except Exception as e:
+        logger.error("_run_mcp_init error: %s", e)
+        return McpInitResult(ok=False)
 
 
 # ─── Custom providers endpoint ───────────────────────────────────────────────
@@ -224,8 +412,8 @@ async def get_local_mcp_config():
                     break
             _register("meta", {
                 "scriptDir": script_dir,
-                "username": env.get("GMARKET_AD_ID", ""),
-                "password": env.get("GMARKET_AD_PWD", ""),
+                "username": env.get("META_USERNAME", ""),
+                "password": env.get("META_PASSWORD", ""),
             })
 
     result: dict[str, dict] = {}
@@ -447,13 +635,15 @@ async def _test_atlassian(provider_type: str, config: dict) -> MCPTestResult:
     api_url = (config.get("apiUrl") or "").rstrip("/")
     if not api_url:
         return MCPTestResult(ok=False, message="❌ Host URL이 입력되지 않았습니다.", details=details)
+    token = (config.get("apiToken") or "").strip()
+    if not token:
+        return MCPTestResult(ok=False, message="❌ API Token이 입력되지 않았습니다.", details=details)
 
     # 3. Jira DC: GET /rest/api/2/myself (v2, no auth token — SSO via session)
     #    Accept any 2xx or 3xx (redirect to SSO login also proves server is reachable)
     try:
         import httpx
 
-        token = (config.get("apiToken") or "").strip()
         headers: dict = {"Accept": "application/json"}
         if token:
             import base64
@@ -559,7 +749,7 @@ def _ping_oracle(db_url: str) -> dict:
         oracledb.init_oracle_client = lambda *a, **kw: None  # thin mode — no client needed
         conn = oracledb.connect(user=user, password=password, dsn=f"{host}:{port}/{service}", mode=oracledb.SYSDBA if False else 0)
         conn.close()
-        return {"ok": True, "message": f"✅ Oracle UDVORA 연결 성공! ({host}:{port}/{service})"}
+        return {"ok": True, "message": f"✅ Oracle 연결 성공! ({host}:{port}/{service})"}
     except ModuleNotFoundError:
         # oracledb not importable here; just accept uvx will handle it at runtime
         return {"ok": True, "message": "✅ uvx + DB_URL 설정 확인 완료 (런타임 연결은 mcp-alchemy가 처리)"}
@@ -603,7 +793,7 @@ async def _test_devdb(config: dict) -> MCPTestResult:
 async def _test_meta(config: dict) -> MCPTestResult:
     """
     meta MCP: uv run --directory <scriptDir> main.py
-    env: GMARKET_AD_ID=<username>  GMARKET_AD_PWD=<password>
+    env: META_USERNAME=<username>  META_PASSWORD=<password>
     Test: verify uv available + scriptDir/main.py exists + credentials provided.
     """
     import os
@@ -653,6 +843,42 @@ async def _test_meta(config: dict) -> MCPTestResult:
             "uv": shutil.which("uv"),
         },
     )
+
+
+# ─── Per-project MCP config ───────────────────────────────────────────────────
+
+class ProjectMcpConfigBody(BaseModel):
+    config: dict[str, Any]
+
+
+@router.get("/api/projects/{project_id:path}/mcp-config")
+async def get_project_mcp_config(project_id: str):
+    from api.db.store import project_settings_store
+    cfg = project_settings_store.get(project_id, "mcp_config")
+    return {"project_id": project_id, "config": cfg, "found": cfg is not None}
+
+
+@router.put("/api/projects/{project_id:path}/mcp-config")
+async def put_project_mcp_config(project_id: str, body: ProjectMcpConfigBody):
+    from api.db.store import project_settings_store, project_store
+    # Ensure project row exists first (upsert with minimal fields)
+    existing = project_store.get(project_id)
+    if not existing:
+        parts = project_id.split(":")
+        if len(parts) >= 3:
+            owner, repo_name, lang = parts[0], parts[1], parts[2]
+            project_store.upsert(project_id, owner, repo_name, lang)
+        else:
+            return {"ok": False, "error": "project not found and project_id format invalid"}
+    project_settings_store.set(project_id, "mcp_config", body.config)
+    return {"ok": True}
+
+
+@router.delete("/api/projects/{project_id:path}/mcp-config")
+async def delete_project_mcp_config(project_id: str):
+    from api.db.store import project_settings_store
+    project_settings_store.delete(project_id, "mcp_config")
+    return {"ok": True}
 
 
 # ─── Utils ────────────────────────────────────────────────────────────────────

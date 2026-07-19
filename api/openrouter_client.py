@@ -36,8 +36,9 @@ class OpenRouterClient(ModelClient):
         ```
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, api_key: str | None = None, **kwargs) -> None:
         """Initialize the OpenRouter client."""
+        self.api_key = api_key
         super().__init__(*args, **kwargs)
         self.sync_client = self.init_sync_client()
         self.async_client = None  # Initialize async client only when needed
@@ -45,7 +46,7 @@ class OpenRouterClient(ModelClient):
     def init_sync_client(self):
         """Initialize the synchronous OpenRouter client."""
         from api.config import OPENROUTER_API_KEY
-        api_key = OPENROUTER_API_KEY
+        api_key = self.api_key or OPENROUTER_API_KEY
         if not api_key:
             log.warning("OPENROUTER_API_KEY not configured")
 
@@ -58,7 +59,7 @@ class OpenRouterClient(ModelClient):
     def init_async_client(self):
         """Initialize the asynchronous OpenRouter client."""
         from api.config import OPENROUTER_API_KEY
-        api_key = OPENROUTER_API_KEY
+        api_key = self.api_key or OPENROUTER_API_KEY
         if not api_key:
             log.warning("OPENROUTER_API_KEY not configured")
 
@@ -86,8 +87,7 @@ class OpenRouterClient(ModelClient):
             else:
                 raise ValueError(f"Unsupported input format for OpenRouter: {type(input)}")
 
-            # For debugging
-            log.info(f"Messages for OpenRouter: {messages}")
+            log.info("Prepared %s message(s) for OpenRouter", len(messages))
 
             api_kwargs = {
                 "messages": messages,
@@ -118,11 +118,7 @@ class OpenRouterClient(ModelClient):
         if not self.async_client.get("api_key"):
             error_msg = "OPENROUTER_API_KEY not configured. Please set this environment variable to use OpenRouter."
             log.error(error_msg)
-            # Instead of raising an exception, return a generator that yields the error message
-            # This allows the error to be displayed to the user in the streaming response
-            async def error_generator():
-                yield error_msg
-            return error_generator()
+            raise ValueError(error_msg)
 
         api_kwargs = api_kwargs or {}
 
@@ -141,8 +137,7 @@ class OpenRouterClient(ModelClient):
             # Make the API call
             try:
                 log.info(f"Making async OpenRouter API call to {self.async_client['base_url']}/chat/completions")
-                log.info(f"Request headers: {headers}")
-                log.info(f"Request body: {api_kwargs}")
+                log.info("OpenRouter request prepared for model %s", api_kwargs.get("model"))
 
                 async with aiohttp.ClientSession() as session:
                     try:
@@ -155,15 +150,19 @@ class OpenRouterClient(ModelClient):
                             if response.status != 200:
                                 error_text = await response.text()
                                 log.error(f"OpenRouter API error ({response.status}): {error_text}")
-
-                                # Return a generator that yields the error message
-                                async def error_response_generator():
-                                    yield f"OpenRouter API error ({response.status}): {error_text}"
-                                return error_response_generator()
+                                raise RuntimeError(
+                                    f"OpenRouter API error ({response.status}): {error_text}"
+                                )
 
                             # Get the full response
                             data = await response.json()
-                            log.info(f"Received response from OpenRouter: {data}")
+                            choices = data.get("choices")
+                            if not choices:
+                                raise RuntimeError("OpenRouter response did not contain choices")
+                            message = choices[0].get("message") or {}
+                            if not isinstance(message.get("content"), str) or not message["content"]:
+                                raise RuntimeError("OpenRouter response did not contain message content")
+                            log.info("Received a valid OpenRouter response")
 
                             # Create a generator that yields the content
                             async def content_generator():
@@ -321,40 +320,21 @@ class OpenRouterClient(ModelClient):
 
                             return content_generator()
                     except aiohttp.ClientError as e:
-                        e_client = e
-                        log.error(f"Connection error with OpenRouter API: {str(e_client)}")
-
-                        # Return a generator that yields the error message
-                        async def connection_error_generator():
-                            yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
-                        return connection_error_generator()
+                        log.error(f"Connection error with OpenRouter API: {str(e)}")
+                        raise RuntimeError(f"OpenRouter connection error: {str(e)}") from e
 
             except RequestException as e:
-                e_req = e
-                log.error(f"Error calling OpenRouter API asynchronously: {str(e_req)}")
-
-                # Return a generator that yields the error message
-                async def request_error_generator():
-                    yield f"Error calling OpenRouter API: {str(e_req)}"
-                return request_error_generator()
+                log.error(f"Error calling OpenRouter API asynchronously: {str(e)}")
+                raise RuntimeError(f"OpenRouter request error: {str(e)}") from e
 
             except Exception as e:
-                e_unexp = e
-                log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}")
-
-                # Return a generator that yields the error message
-                async def unexpected_error_generator():
-                    yield f"Unexpected error calling OpenRouter API: {str(e_unexp)}"
-                return unexpected_error_generator()
+                log.error(f"Unexpected error calling OpenRouter API asynchronously: {str(e)}")
+                raise
 
         else:
             error_msg = f"Unsupported model type: {model_type}"
             log.error(error_msg)
-
-            # Return a generator that yields the error message
-            async def model_type_error_generator():
-                yield error_msg
-            return model_type_error_generator()
+            raise ValueError(error_msg)
 
     def _process_completion_response(self, data: Dict) -> GeneratorOutput:
         """Process a non-streaming completion response from OpenRouter."""

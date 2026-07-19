@@ -1,13 +1,9 @@
 // Package runner — Antigravity CLI runner.
-//
-// agy reads from stdin when --prompt "" is given:
-//   echo "PROMPT" | agy --prompt ""
 package runner
 
 import (
 	"context"
 	"os/exec"
-	"strings"
 
 	"github.com/localwiki/agent/internal/stream"
 )
@@ -21,10 +17,10 @@ func NewAntigravityRunner() *AntigravityRunner {
 	return &AntigravityRunner{}
 }
 
-func (r *AntigravityRunner) Name() string        { return "antigravity" }
-func (r *AntigravityRunner) DefaultModel() string { return "gemini-3.1-flash" }
-func (r *AntigravityRunner) FlashModel() string   { return "gemini-3.1-flash" }
-func (r *AntigravityRunner) ProModel() string     { return "gemini-3.1-pro" }
+func (r *AntigravityRunner) Name() string         { return "antigravity" }
+func (r *AntigravityRunner) DefaultModel() string { return "agy-gemini-3.5-flash-high" }
+func (r *AntigravityRunner) FlashModel() string   { return "agy-gemini-3.5-flash-medium" }
+func (r *AntigravityRunner) ProModel() string     { return "agy-gemini-3.1-pro-high" }
 
 // Available checks whether the `agy` binary is on PATH.
 func (r *AntigravityRunner) Available() bool {
@@ -32,25 +28,44 @@ func (r *AntigravityRunner) Available() bool {
 	return err == nil
 }
 
-// Run executes the prompt via stdin (agy reads stdin when --prompt "" is set)
-// and returns a streaming channel of output lines.
-func (r *AntigravityRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
-	cmd := exec.CommandContext(ctx, "agy", "--prompt", "")
+func (r *AntigravityRunner) buildCmd(ctx context.Context, req RunRequest) *exec.Cmd {
+	args := []string{"--dangerously-skip-permissions", "--prompt", req.Prompt}
+	if req.Model != "" {
+		args = append(args, "--model", normalizeAntigravityModel(req.Model))
+	}
+	cmd := exec.CommandContext(ctx, "agy", args...)
 	cmd.Dir = req.Cwd
-	cmd.Stdin = strings.NewReader(req.Prompt)
+	return cmd
+}
+
+func normalizeAntigravityModel(model string) string {
+	models := map[string]string{
+		"agy-gemini-3.5-flash-medium": "Gemini 3.5 Flash (Medium)",
+		"agy-gemini-3.5-flash-high":   "Gemini 3.5 Flash (High)",
+		"agy-gemini-3.5-flash-low":    "Gemini 3.5 Flash (Low)",
+		"agy-gemini-3.1-pro-low":      "Gemini 3.1 Pro (Low)",
+		"agy-gemini-3.1-pro-high":     "Gemini 3.1 Pro (High)",
+	}
+	if normalized, ok := models[model]; ok {
+		return normalized
+	}
+	return model
+}
+
+// Run executes the prompt and returns a streaming channel of output lines.
+func (r *AntigravityRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, error) {
+	cmd := r.buildCmd(ctx, req)
 
 	lines, err := stream.PipeCmd(cmd)
 	if err != nil {
 		return nil, err
 	}
-	return StringsToChunks(lines), nil
+	return OutputsToChunks(lines), nil
 }
 
 // RunCollect executes the prompt synchronously and collects full output.
 func (r *AntigravityRunner) RunCollect(ctx context.Context, req RunRequest) (RunResult, error) {
-	cmd := exec.CommandContext(ctx, "agy", "--prompt", "")
-	cmd.Dir = req.Cwd
-	cmd.Stdin = strings.NewReader(req.Prompt)
+	cmd := r.buildCmd(ctx, req)
 
 	out, err := stream.CollectOutput(cmd)
 	if err != nil {

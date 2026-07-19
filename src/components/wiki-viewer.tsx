@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Search, Moon, Sun, ChevronRight,
   FileText, Folder, FolderOpen, X, Home,
-  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles, ArrowUp, Link,
+  AlignCenter, AlignJustify, RefreshCw, Share, Sparkles, ArrowUp, Link, FlaskConical,
 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import { slugifyHeading } from "@/lib/utils";
@@ -14,6 +14,11 @@ import { sanitizeMermaidChart } from "./Mermaid";
 import { regenerateWikiPage, wikiLanguageInstruction } from "@/lib/wiki-generator";
 import { WikiAskPanel } from "./WikiAskPanel";
 import { FaGithub } from "react-icons/fa";
+import { TestScenarioViewer } from "./TestScenarioViewer";
+import type { TestGenProgress } from "@/lib/test-scenario-types";
+import type { DiagramEdgeData } from "@/lib/diagram-edge-types";
+import { manifestToViewerScenarios } from "@/lib/scenario-manifest";
+import type { GitRoot } from "@/lib/source-link-resolver";
 
 
 const APP_SETTINGS_KEY = "localwiki_app_settings";
@@ -285,6 +290,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [readingMode, setReadingMode] = useState(true); // 기본값: 읽기 모드 (노션처럼)
   const [showAsk, setShowAsk] = useState(false); // "위키에 질문하기" 우측 패널
   const [repoPath, setRepoPath] = useState(""); // 원본 레포 로컬 경로 (소스 기반 질의용)
+  const [artifactRoot, setArtifactRoot] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -315,7 +321,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   // Per-subproject git roots (each dir with its own .git) used to build GitHub
   // links rooted at the individual repository instead of the bundling parent.
   // null = still loading (don't generate any GitHub links yet); [] = loaded but no roots
-  const [gitRoots, setGitRoots] = useState<{ prefix: string; name: string; webUrl: string | null; branch: string }[] | null>(null);
+  const [gitRoots, setGitRoots] = useState<GitRoot[] | null>(null);
   const [isResyncingLinks, setIsResyncingLinks] = useState(false);
   const [resyncResult, setResyncResult] = useState<{ links_fixed: number } | null>(null);
   // Per-project GitHub URL override (persisted in localStorage, editable by user).
@@ -335,9 +341,55 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [regeneratingSectionId, setRegeneratingSectionId] = useState<string | null>(null);
   const [sectionRegenProgress, setSectionRegenProgress] = useState({ current: 0, total: 0 });
   const [isGeneratingBusiness, setIsGeneratingBusiness] = useState(false);
+  const [showTestScenarios, setShowTestScenarios] = useState(false);
+  const [testGenProgress, setTestGenProgress] = useState<TestGenProgress | null>(null);
+  const [testScenarioResults, setTestScenarioResults] = useState<any[]>([]);
+  const [diagramEdgeData, setDiagramEdgeData] = useState<DiagramEdgeData | null>(null);
+  // Cache fetched edge data to avoid repeated network calls: flowId → data|null
+  const edgeDataCacheRef = useRef<Map<string, DiagramEdgeData | null>>(new Map());
+  const [isGeneratingTests, setIsGeneratingTests] = useState(false);
   const [isBulkRegening, setIsBulkRegening] = useState(false);
   const [bulkRegenProgress, setBulkRegenProgress] = useState({ current: 0, total: 0 });
   const regenPromptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Fetch diagram edge data when selected page changes
+  useEffect(() => {
+    if (!selectedPage) { setDiagramEdgeData(null); return; }
+
+    const currentTitle = generatedPages[selectedPage]?.title ?? selectedPage;
+    const normalizedTitle = currentTitle.toLowerCase().replace(/[-_]/g, ' ');
+
+    const load = async () => {
+      try {
+        const catRes = await fetch('/api/catalog');
+        if (!catRes.ok) { setDiagramEdgeData(null); return; }
+        const { flows } = await catRes.json() as { flows: { id: string; name: string; diagramDataFile?: string }[] };
+
+        // Match page title against flow name (simple word overlap)
+        const matched = flows.find(fl => {
+          if (!fl.diagramDataFile) return false;
+          const flowName = fl.name.toLowerCase();
+          const pageWords = normalizedTitle.split(' ').filter(w => w.length > 3);
+          return pageWords.some(w => flowName.includes(w)) || normalizedTitle.includes(flowName);
+        });
+
+        if (!matched) { setDiagramEdgeData(null); return; }
+
+        // Check cache
+        const cache = edgeDataCacheRef.current;
+        if (cache.has(matched.id)) { setDiagramEdgeData(cache.get(matched.id)!); return; }
+
+        const detailRes = await fetch(`/api/catalog/detail?flowId=${matched.id}`);
+        const data: DiagramEdgeData | null = detailRes.ok ? await detailRes.json() : null;
+        cache.set(matched.id, data);
+        setDiagramEdgeData(data);
+      } catch {
+        setDiagramEdgeData(null);
+      }
+    };
+
+    load();
+  }, [selectedPage, generatedPages]);
 
   // Scroll to top when selected page changes
   useEffect(() => {
@@ -470,7 +522,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
           setGeneratedPages(cachedData.generated_pages);
           if (cachedData.model) setWikiModel(cachedData.model);
           // 소스 기반 질의(P4)에 쓰일 원본 레포 경로 (생성 시 캐시에 저장됨)
-          setRepoPath(cachedData.repo?.localPath || cachedData.repo?.repoUrl || "");
+          setRepoPath(cachedData.source_path || cachedData.repo?.localPath || cachedData.repo?.repoUrl || "");
+          setArtifactRoot(cachedData.artifact_root || "");
 
           // Resolve per-subproject git roots so GitHub links point at each
           // individual repository (.git root) rather than the bundling parent.
@@ -481,14 +534,18 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
             : null;
           if (cachedRepoUrl) setAutoDetectedGithubUrl(cachedRepoUrl);
 
-          const applyGitRoots = (roots: { prefix: string; name: string; webUrl: string | null; branch: string }[]) => {
+          const applyGitRoots = (roots: GitRoot[]) => {
             if (roots.length > 0) {
               // Save the auto-detected primary URL
               const primary = roots.find(r => r.prefix === '' && r.webUrl) || roots.find(r => r.webUrl);
               if (primary?.webUrl) setAutoDetectedGithubUrl(primary.webUrl.replace(/\.git$/, '').replace(/\/$/, ''));
               if (customGithubUrl) {
-                // User has a custom override — keep gitRoots as custom, but roots from API are still recorded
-                setGitRoots([{ prefix: '', name: projectData.repo, webUrl: customGithubUrl.replace(/\.git$/, '').replace(/\/$/, ''), branch: 'main' }]);
+                // Override only the primary remote while preserving .git-derived
+                // localPath/files/branch metadata used for exact path validation.
+                const primaryIndex = Math.max(0, roots.findIndex(r => r === primary));
+                setGitRoots(roots.map((root, index) => index === primaryIndex
+                  ? { ...root, webUrl: customGithubUrl.replace(/\.git$/, '').replace(/\/$/, '') }
+                  : root));
               } else {
                 setGitRoots(roots);
               }
@@ -712,6 +769,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
       mode:            (s.useCli ?? true) ? "cli" : "api",
       provider:        s.provider        || "",
       model:           s.model           || "",
+      cliTool:         s.cliTool         || (s.provider === "openai" ? "codex" : s.provider === "anthropic" ? "claude" : "gemini"),
       pageConcurrency: s.pageConcurrency ?? 3,
     };
   };
@@ -944,6 +1002,88 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     }
   };
 
+  const handleGenerateTestScenarios = async (flowId?: string) => {
+    if (!projectData || isGeneratingTests) return;
+    if (!repoPath || !artifactRoot) { alert('소스 또는 위키 산출물 경로를 찾을 수 없습니다. 위키를 다시 열어 주세요.'); return; }
+
+    setIsGeneratingTests(true);
+    setShowTestScenarios(true);
+    setTestScenarioResults([]);
+    const ts0 = new Date().toISOString();
+    setTestGenProgress({ flowId: flowId ?? 'all', phase: 'parsing', phaseLabel: '파싱', progress: 0, message: '시나리오 생성 시작...', timestamp: ts0 });
+
+    const streamId = `test-${Date.now()}`;
+    const { provider, model, apiKey, mode, cliTool } = readGenSettings();
+
+    const loadGeneratedScenarios = async () => {
+      const response = await fetch(`/api/wiki/test-scenarios?artifactRoot=${encodeURIComponent(artifactRoot)}`, { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json();
+      setTestScenarioResults(manifestToViewerScenarios(payload.manifest, payload.documents));
+    };
+
+    try {
+      const catRes = await fetch('/api/catalog');
+      const catalogFlows = catRes.ok ? (await catRes.json()).flows ?? [] : [];
+
+      const { createTaskStream } = await import('@/lib/taskStreamClient');
+      const es = createTaskStream(streamId, {
+        onEvent: (ev: any) => {
+          const PHASE_MAP: Record<string, import('@/lib/test-scenario-types').TestGenPhase> = {
+            parsing: 'parsing', 'analyzing-cross-flow': 'analyzing-cross-flow',
+            'building-prompt': 'building-prompt', generating: 'generating', 'writing-output': 'writing-output',
+          };
+          if (ev.type === 'agent_log' || ev.type === 'phase_start') {
+            setTestGenProgress((prev) => {
+              const entry: import('@/lib/test-scenario-types').LogEntry = { level: 'info', message: ev.message, timestamp: ev.ts ?? new Date().toISOString() };
+              const phase = PHASE_MAP[ev.phase] ?? prev?.phase ?? 'parsing';
+              return { flowId: flowId ?? 'all', phase, phaseLabel: ev.phase ?? phase, progress: ev.data?.percent ?? prev?.progress ?? 0, message: ev.message, timestamp: ev.ts ?? new Date().toISOString(), logEntries: [...(prev?.logEntries ?? []), entry] };
+            });
+          }
+          if (ev.type === 'complete') {
+            setTestGenProgress((prev) => prev ? { ...prev, phase: 'writing-output', progress: 100, message: '생성 완료', timestamp: new Date().toISOString() } : null);
+            es.close();
+            void loadGeneratedScenarios().finally(() => {
+              setIsGeneratingTests(false);
+              setTestGenProgress(null);
+            });
+          }
+          if (ev.type === 'error') {
+            setTestGenProgress((prev) => prev ? { ...prev, message: `오류: ${ev.message}`, timestamp: new Date().toISOString() } : null);
+            es.close();
+            void loadGeneratedScenarios().finally(() => setIsGeneratingTests(false));
+          }
+        },
+      });
+
+      const startResponse = await fetch('/api/wiki/test-scenarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePath: repoPath,
+          artifactRoot,
+          flowIds: flowId ? [flowId] : [],
+          streamId,
+          provider,
+          model,
+          mode,
+          cliTool,
+          language: currentLang,
+          ...(apiKey ? { apiKey } : {}),
+          catalogFlows,
+        }),
+      });
+      if (!startResponse.ok) {
+        es.close();
+        const failure = await startResponse.json().catch(() => ({ error: startResponse.statusText }));
+        throw new Error(failure.error ?? `HTTP ${startResponse.status}`);
+      }
+    } catch (err: any) {
+      setTestGenProgress((prev) => prev ? { ...prev, message: `오류: ${err.message}`, timestamp: new Date().toISOString() } : null);
+      setIsGeneratingTests(false);
+    }
+  };
+
   const handleFixDiagram = async (chartCode: string, customInstruction?: string, targetPageId?: string) => {
     if (!selectedPage || !projectData || !wikiStructure) return;
     const currentPageData = generatedPages[selectedPage];
@@ -1044,7 +1184,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
     }
   };
 
-  const handleBlockAction = async (type: "fix" | "delete", blockContent: string, startLine?: number, endLine?: number, prompt?: string) => {
+  const handleBlockAction = useCallback(async (type: "fix" | "delete", blockContent: string, startLine?: number, endLine?: number, prompt?: string) => {
     if (!selectedPage || !projectData || !wikiStructure) return;
     const currentPageData = generatedPages[selectedPage];
     if (!currentPageData) return;
@@ -1191,7 +1331,7 @@ ${blockContent}`;
     } catch (e: any) {
       alert(`블록 수정 실패: ${e.message}`);
     }
-  };
+  }, [selectedPage, projectData, wikiStructure, generatedPages, currentLang]);
 
   const handleManualCodeChange = async (oldCode: string, newCode: string, targetPageId: string) => {
     if (!projectData || !wikiStructure || !generatedPages[targetPageId]) return;
@@ -1591,7 +1731,7 @@ ${chartCode}
       }}
     >
       {/* ── Top header ── */}
-      <div style={{
+      <div className="localwiki-window-drag" style={{
         height: 52,
         display: "flex",
         alignItems: "center",
@@ -1832,6 +1972,17 @@ ${chartCode}
           </div>
 
           <button
+            onClick={() => setShowTestScenarios((v) => !v)}
+            title="테스트 시나리오 생성"
+            style={{ height: 36, padding: "0 12px", borderRadius: 10, background: showTestScenarios ? '#f59e0b' : t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: showTestScenarios ? '#fff' : t.textSecondary, fontSize: 12, fontWeight: 600, transition: "background 0.15s", fontFamily: "inherit" }}
+            onMouseEnter={(e) => { if (!showTestScenarios) e.currentTarget.style.background = t.surfaceHover; }}
+            onMouseLeave={(e) => { if (!showTestScenarios) e.currentTarget.style.background = t.surface; }}
+          >
+            <FlaskConical size={15} />
+            테스트 시나리오
+          </button>
+
+          <button
             onClick={onGoHome}
             title="홈으로"
             style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.textSecondary, transition: "background 0.15s" }}
@@ -1862,6 +2013,20 @@ ${chartCode}
             <TreeNode key={item.id} item={item} />
           ))}
         </div>
+
+        {/* Test Scenario Panel */}
+        {showTestScenarios && (
+          <div style={{ width: 520, flexShrink: 0, borderLeft: `1px solid ${t.divider}`, overflowY: "auto" }}>
+            <TestScenarioViewer
+              isDark={isDark}
+              flowId="all"
+              flowName="Business Flows"
+              scenarios={testScenarioResults}
+              progress={testGenProgress ?? undefined}
+              onGenerateScenarios={() => handleGenerateTestScenarios()}
+            />
+          </div>
+        )}
 
         {/* Content */}
         <div
@@ -1946,6 +2111,7 @@ ${chartCode}
                       gitRoots={gitRoots}
                       hoverBgColor={hoverBgColor}
                       onNavigateToPage={navigateToPageByTarget}
+                      diagramEdgeData={diagramEdgeData}
                     />
                   )}
                 </article>

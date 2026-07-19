@@ -70,6 +70,7 @@ class DataFlowTracer:
         file_tree: str,
         readme: str,
         lang: str = "en",
+        db_schema_context: str = "",
     ) -> List[DataFlowGraph]:
         """Run LLM-based data flow analysis and return list of flow graphs."""
         from cli.pipeline.structure_planner import LANGUAGE_NAMES
@@ -79,6 +80,7 @@ class DataFlowTracer:
             file_tree=file_tree,
             readme=readme,
             language_name=language_name,
+            db_schema_context=db_schema_context,
         )
 
         try:

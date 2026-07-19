@@ -1,7 +1,22 @@
 {
   "name": "localwiki",
-  "version": "0.1.0",
+  "version": "0.1.3",
+  "description": "A local-first AI workspace that turns source repositories into navigable wikis and test guides.",
+  "author": "LocalWiki contributors",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anjwoc/local-wiki.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anjwoc/local-wiki/issues"
+  },
+  "homepage": "https://github.com/anjwoc/local-wiki#readme",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
   "main": "electron/main.js",
   "packageManager": "pnpm@10.15.1",
   "scripts": {
@@ -15,17 +30,21 @@
     "build": "next build",
     "build:agent": "make build-agent",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "benchmark": "poetry -C api run python ../scripts/benchmark.py",
     "benchmark:auto": "poetry -C api run python ../scripts/benchmark.py --auto",
     "test": "pnpm test:e2e",
     "test:unit": "vitest run",
+    "check:repo": "node scripts/check-repository-hygiene.mjs",
+    "check:package": "node scripts/check-package-contents.mjs",
     "test:e2e": "bash scripts/test-e2e.sh --fast",
     "test:e2e:full": "bash scripts/test-e2e.sh --full",
     "export-showcase": "node scripts/export-showcase.js",
     "deploy:vercel": "NEXT_PUBLIC_SHOWCASE_MODE=true next build",
     "desktop": "NODE_ENV=development electron .",
-    "desktop:build": "next build && electron-builder build --mac --win"
+    "desktop:prepare": "node scripts/build-desktop.mjs",
+    "desktop:dir": "pnpm desktop:prepare && electron-builder --dir",
+    "desktop:build": "pnpm desktop:prepare && node scripts/package-desktop.mjs"
   },
   "build": {
     "appId": "com.localwiki.desktop",
@@ -33,14 +52,31 @@
     "directories": {
       "output": "dist-electron"
     },
+    "asar": true,
     "files": [
-      "electron/main.js",
-      "package.json",
-      "api/**/*",
-      ".next/**/*",
-      "public/**/*"
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/desktop/api/localwiki-api",
+        "to": "api/localwiki-api"
+      },
+      {
+        "from": "build/desktop/bin",
+        "to": "bin"
+      },
+      {
+        "from": "build/desktop/web",
+        "to": "web"
+      }
     ],
     "mac": {
+      "extendInfo": {
+        "NSDocumentsFolderUsageDescription": "LocalWiki는 사용자가 선택한 프로젝트를 분석하고 위키 산출물을 내보낼 때만 Documents 폴더에 접근합니다.",
+        "NSDesktopFolderUsageDescription": "LocalWiki는 사용자가 Desktop의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다.",
+        "NSDownloadsFolderUsageDescription": "LocalWiki는 사용자가 Downloads의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다."
+      },
       "target": [
         "dmg",
         "zip"

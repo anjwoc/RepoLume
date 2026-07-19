@@ -23,8 +23,9 @@ def setup_logging(format: str = None):
     both rotating file and console handlers.
     """
     # Determine log directory and default file path
-    base_dir = Path(__file__).parent
-    log_dir = base_dir / "logs"
+    default_data_dir = Path(__file__).parent / "data"
+    data_dir = Path(os.environ.get("LOCALWIKI_DATA_DIR", str(default_data_dir)))
+    log_dir = data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     default_log_file = log_dir / "application.log"
 

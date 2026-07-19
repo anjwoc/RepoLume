@@ -10,7 +10,10 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cli.pipeline.source_tracker import SourcedContext
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,19 @@ class MCPManager:
     def from_config(cls, config_path: str | Path | None = None) -> "MCPManager":
         """Create an MCPManager from the config file."""
         return cls(load_config(config_path))
+
+    @classmethod
+    def for_project(cls, project_id: str, global_config_path: str | Path | None = None) -> "MCPManager":
+        """Project-specific config first; falls back to global yaml file."""
+        try:
+            from api.db.store import project_settings_store
+            project_cfg = project_settings_store.get(project_id, "mcp_config")
+            if project_cfg and isinstance(project_cfg, dict):
+                logger.info("MCP: using per-project config for %s", project_id)
+                return cls(project_cfg)
+        except Exception as e:
+            logger.debug("MCP: project settings lookup failed (%s): %s", project_id, e)
+        return cls.from_config(global_config_path)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -124,6 +140,7 @@ class MCPManager:
         self,
         entities: dict,
         topic_hint: str = "",
+        code_snippets: list[str] | None = None,
     ) -> dict[str, str]:
         """
         Reverse-lookup MCP data from code-extracted entities.
@@ -147,7 +164,18 @@ class MCPManager:
         skipped: list[str] = []
 
         # ── DB cross-check ────────────────────────────────────────────────
-        for db_client in self._db_clients:
+        # If code snippets provided, only query DB types that appear in the code
+        if code_snippets:
+            from cli.mcp.db_mcp import DatabaseMCPClient
+            detected = DatabaseMCPClient.detect_db_types(code_snippets)
+            active_db_clients = [c for c in self._db_clients if not detected or c._config.db_type in detected]
+            if detected and len(active_db_clients) < len(self._db_clients):
+                logger.info("MCP: DB type detection narrowed %d→%d clients (detected: %s)",
+                            len(self._db_clients), len(active_db_clients), detected)
+        else:
+            active_db_clients = self._db_clients
+
+        for db_client in active_db_clients:
             if not db_client._config.enabled or not db_client.available:
                 continue
             label = f"DB ({db_client._config.db_type})"
@@ -233,6 +261,48 @@ class MCPManager:
 
         return results
 
+    def scan_git_roots(self, project_path: str) -> list[dict]:
+        """Walk project_path and return [{path, owner, repo, web_url}] for each .git found."""
+        import os
+        import re
+        import subprocess
+        roots = []
+        try:
+            for dirpath, dirnames, _ in os.walk(project_path):
+                if ".git" in dirnames:
+                    dirnames.remove(".git")  # don't recurse into .git itself
+                    try:
+                        result = subprocess.run(
+                            ["git", "remote", "get-url", "origin"],
+                            capture_output=True, text=True, cwd=dirpath, timeout=5,
+                        )
+                        url = result.stdout.strip()
+                        m = re.search(r"[:/]([^/]+)/([^/.]+?)(?:\.git)?$", url)
+                        if m:
+                            roots.append({
+                                "path": dirpath,
+                                "owner": m.group(1),
+                                "repo": m.group(2),
+                                "web_url": url,
+                                "valid": True,
+                            })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return roots
+
+    def validate_git_roots(self, roots: list[dict]) -> list[dict]:
+        """Add/update `valid` field by checking each repo against GitHub MCP.
+        Repos that return 404 get valid=False; all others stay True."""
+        if not self._github_client or not self._github_client._config.enabled:
+            return roots  # no GitHub MCP — leave all valid as-is
+        validated = []
+        for root in roots:
+            exists = self._github_client.check_repo_exists(root["owner"], root["repo"])
+            validated.append({**root, "valid": exists})
+        return validated
+
     def status(self) -> dict[str, bool]:
         """Return enabled/available status of each MCP source."""
         status = {}
@@ -278,8 +348,6 @@ class MCPManager:
                 enabled=section.get("enabled", False),
                 display_name=section.get("display_name", db_type.upper()),
             )
-            if not cfg.enabled:
-                continue
             clients.append(DatabaseMCPClient(cfg))
         return clients
 

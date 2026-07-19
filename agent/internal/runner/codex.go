@@ -14,7 +14,7 @@ import (
 
 // CodexRunner runs prompts via the `codex exec` subcommand (0.134.0+).
 type CodexRunner struct {
-	model       string // override; empty = use DefaultModel()
+	model        string // override; empty = use DefaultModel()
 	sandboxPerms string // e.g. "disk-full-read-access"
 }
 
@@ -23,9 +23,9 @@ func NewCodexRunner(model, sandboxPerms string) *CodexRunner {
 	return &CodexRunner{model: model, sandboxPerms: sandboxPerms}
 }
 
-func (r *CodexRunner) Name() string        { return "codex" }
-func (r *CodexRunner) DefaultModel() string { return "gpt-5.5-mini" }
-func (r *CodexRunner) FlashModel() string   { return "gpt-5.5-mini" }
+func (r *CodexRunner) Name() string         { return "codex" }
+func (r *CodexRunner) DefaultModel() string { return "gpt-5.4-mini" }
+func (r *CodexRunner) FlashModel() string   { return "gpt-5.4-mini" }
 func (r *CodexRunner) ProModel() string     { return "gpt-5.5" }
 
 // Available checks whether the `codex` binary is on PATH.
@@ -46,7 +46,7 @@ func (r *CodexRunner) Run(ctx context.Context, req RunRequest) (<-chan Chunk, er
 	if err != nil {
 		return nil, err
 	}
-	return StringsToChunks(lines), nil
+	return OutputsToChunks(lines), nil
 }
 
 // RunCollect executes the prompt synchronously and collects full output.
@@ -83,7 +83,7 @@ func cleanCodexOutput(out string) string {
 		}
 		result = append(result, line)
 	}
-	
+
 	// Fallback if 'codex' wasn't found, just return original out
 	if !started && len(result) == 0 {
 		return strings.TrimSpace(out)
@@ -93,26 +93,27 @@ func cleanCodexOutput(out string) string {
 }
 
 func (r *CodexRunner) buildArgs(req RunRequest) []string {
-	args := []string{"exec"}
+	args := []string{
+		"exec",
+		"--ignore-user-config",
+		"--ignore-rules",
+		"--disable", "plugins",
+		"--disable", "multi_agent",
+		"--disable", "apps",
+		"--disable", "hooks",
+		"--ephemeral",
+		"--skip-git-repo-check",
+	}
 
 	model := r.resolveModel(req)
 	if model != "" {
-		args = append(args, "-c", `model="`+model+`"`)
+		args = append(args, "--model", model)
 	}
-
-	// Grant read access to the repo so codex can inspect files.
-	perms := r.sandboxPerms
-	if perms == "" {
-		perms = "disk-full-read-access"
-	}
-	args = append(args, "-c", `sandbox_permissions=["`+perms+`"]`)
 
 	// Automatically approve permissions for non-interactive execution
 	args = append(args, "--dangerously-bypass-approvals-and-sandbox")
 
-	// Do not append req.Prompt to args to avoid ARG_MAX "Argument list too long" errors.
-	// We will pass it via Stdin.
-	return args
+	return append(args, "-")
 }
 
 func (r *CodexRunner) resolveModel(req RunRequest) string {

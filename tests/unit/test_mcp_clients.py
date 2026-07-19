@@ -331,14 +331,14 @@ class TestRedactPassword:
 
 class TestDispatchUnknownProvider:
     def test_unknown_provider_returns_not_ok(self):
-        result = asyncio.get_event_loop().run_until_complete(_dispatch("notion", {}))
+        result = asyncio.run(_dispatch("notion", {}))
         assert result.ok is False
         assert "지원되지 않습니다" in result.message
 
 
 class TestDispatchDBMissingHost:
     def test_missing_host_returns_error(self):
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             _dispatch("postgresql", {"username": "u", "password": "p"})
         )
         assert result.ok is False
@@ -348,7 +348,7 @@ class TestDispatchDBMissingHost:
 class TestDispatchGitHubMissingToken:
     def test_missing_token_returns_error(self):
         with patch("shutil.which", return_value="/usr/bin/docker"):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 _dispatch("github", {})
             )
         assert result.ok is False
@@ -358,7 +358,7 @@ class TestDispatchGitHubMissingToken:
 class TestDispatchAtlassianMissingConfig:
     def test_missing_url_returns_error(self):
         with patch("shutil.which", return_value="/usr/bin/uvx"):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 _dispatch("jira", {"apiToken": "tok"})
             )
         assert result.ok is False
@@ -366,7 +366,7 @@ class TestDispatchAtlassianMissingConfig:
 
     def test_missing_token_returns_error(self):
         with patch("shutil.which", return_value="/usr/bin/uvx"):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = asyncio.run(
                 _dispatch("confluence", {"apiUrl": "https://my.atlassian.net"})
             )
         assert result.ok is False

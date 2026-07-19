@@ -13,7 +13,7 @@ import logging
 import json
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 
 from cli.prompts import WORKFLOW_PROMPT
 
@@ -28,6 +28,8 @@ class WorkflowStep:
     actor: str          # "user" | "system" | "external"
     source_file: str = ""
     description: str = ""
+    query_evidence: str = ""        # Representative SQL from db_schema_context
+    sql_verified: bool | None = None  # True=verified against DB schema, False=unverified, None=no DB step
 
 
 @dataclass
@@ -62,6 +64,7 @@ class WorkflowMapper:
         readme: str,
         entities=None,
         lang: str = "en",
+        db_schema_context: str = "",
     ) -> List[BusinessWorkflow]:
         """Run LLM-based workflow mapping."""
         from cli.pipeline.structure_planner import LANGUAGE_NAMES
@@ -76,6 +79,7 @@ class WorkflowMapper:
             readme=readme,
             entity_names=entity_names or "(see file tree)",
             language_name=language_name,
+            db_schema_context=db_schema_context,
         )
 
         try:
@@ -108,6 +112,7 @@ class WorkflowMapper:
                     actor=s.get("actor", "system"),
                     source_file=s.get("source_file", ""),
                     description=s.get("description", ""),
+                    query_evidence=s.get("sql_query", ""),
                 )
                 for i, s in enumerate(item.get("steps", []))
             ]
@@ -208,6 +213,19 @@ class WorkflowMapper:
                     lines.append(f"{i}. **{step.label}** ({actor_label}){src}")
                     if step.description:
                         lines.append(f"   _{step.description}_")
+                    if step.query_evidence:
+                        if step.sql_verified is True:
+                            badge = "✅ DB Verified"
+                        elif step.sql_verified is False:
+                            badge = "⚠️ Unverified (table not in schema)"
+                        else:
+                            badge = "🧭 SQL (codebase-inferred — DB MCP not configured)"
+                        lines.append(f"   > {badge}")
+                        lines += [
+                            "   ```sql",
+                            *[f"   {line}" for line in step.query_evidence.splitlines()],
+                            "   ```",
+                        ]
                 lines.append("")
 
         return "\n".join(lines)

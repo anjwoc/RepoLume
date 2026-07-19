@@ -27,7 +27,10 @@ See `NOTICE` for the required attribution text.
 
 ## Release Checklist
 
+- Run `pnpm check:repo` and confirm only source, tests, build scripts, and public docs are tracked.
 - Keep `.env`, service account JSON files, API keys, generated logs, and private repository outputs out of Git.
+- Keep Electron installers, SQLite files, code indexes, benchmark output, and agent execution traces out of Git; attach installers to a release instead.
+- Replace organization-specific hosts, schemas, credentials, absolute user paths, and business-flow catalogs with sanitized examples.
 - Include `LICENSE` and `NOTICE` in source and binary distributions.
 - Ensure `.env.example` contains placeholders only.
 - Search for legacy hosted-service branding or absolute local paths before release.

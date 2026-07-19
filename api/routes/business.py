@@ -118,7 +118,10 @@ async def analyze_business(request: AnalyzeBusinessRequest):
             repos[0].path.name if len(repos) == 1
             else f"{repos[0].path.name} and {len(repos) - 1} related repos"
         )
-        analyzer = BusinessAnalyzer(provider, repo, repo_name=repo_name)
+        from cli.mcp.manager import MCPManager
+        mcp_manager = MCPManager.from_config()
+
+        analyzer = BusinessAnalyzer(provider, repo, repo_name=repo_name, mcp_manager=mcp_manager)
         analysis = await asyncio.to_thread(analyzer.analyze, lang=request.language)
 
         return {

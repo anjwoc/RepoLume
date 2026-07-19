@@ -3,14 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import re
-import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from api.routes.cache import save_wiki_cache, _extract_summary
+from api.routes.cache import read_wiki_cache, save_wiki_cache, _extract_summary
 from api.routes.models import (
     RepoInfo, WikiCacheRequest, WikiPage, WikiSection, WikiStructureModel,
 )
@@ -45,6 +40,10 @@ def _make_request() -> WikiCacheRequest:
     )
 
 
+def _output_dir(root: Path) -> Path:
+    return root / "wiki-out" / "affiliate_gemini-3.5-flash_01"
+
+
 class TestExtractSummary:
     def test_skips_heading_returns_first_paragraph(self):
         content = "# Title\n\nFirst paragraph here."
@@ -66,26 +65,26 @@ class TestIndexMd:
     def test_index_md_created(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        index_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md"
+        index_path = _output_dir(tmp_path) / "index.md"
         assert index_path.exists(), "index.md was not created"
 
     def test_index_md_contains_page_titles(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md").read_text()
+        content = (_output_dir(tmp_path) / "index.md").read_text()
         assert "Overview" in content
         assert "Dev Setup" in content
 
     def test_index_md_contains_section_header(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md").read_text()
+        content = (_output_dir(tmp_path) / "index.md").read_text()
         assert "getting-started" in content
 
     def test_index_md_summary_skips_heading(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "index.md").read_text()
+        content = (_output_dir(tmp_path) / "index.md").read_text()
         assert "This is the affiliate system overview." in content
         assert "# Overview" not in content
 
@@ -94,13 +93,13 @@ class TestLogMd:
     def test_log_md_created_on_first_run(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        log_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md"
+        log_path = _output_dir(tmp_path) / "log.md"
         assert log_path.exists(), "log.md was not created"
 
     def test_log_md_contains_repo_and_page_count(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md").read_text()
+        content = (_output_dir(tmp_path) / "log.md").read_text()
         assert "affiliate" in content
         assert "2 pages" in content
         assert "gemini-3.5-flash" in content
@@ -109,12 +108,71 @@ class TestLogMd:
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
         asyncio.run(save_wiki_cache(_make_request()))
-        log_path = tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md"
-        entries = [l for l in log_path.read_text().splitlines() if l.startswith("## [")]
+        log_path = _output_dir(tmp_path) / "log.md"
+        entries = [
+            line
+            for line in log_path.read_text().splitlines()
+            if line.startswith("## [")
+        ]
         assert len(entries) == 2, f"Expected 2 log entries, got {len(entries)}"
 
     def test_log_md_entry_format(self, tmp_path, monkeypatch):
         monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
         asyncio.run(save_wiki_cache(_make_request()))
-        content = (tmp_path / "wiki-out" / "affiliate_gemini-3.5-flash" / "log.md").read_text()
+        content = (_output_dir(tmp_path) / "log.md").read_text()
         assert re.search(r"^## \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}\] generate \|", content, re.MULTILINE)
+
+
+class TestWikiPathContract:
+    def test_cache_keeps_source_and_artifact_paths_separate(self, tmp_path, monkeypatch):
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        monkeypatch.setattr("api.routes.cache.WIKI_CACHE_DIR", str(cache_dir))
+        monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
+
+        request = _make_request()
+        request.repo.localPath = "/workspace/source-repository"
+
+        assert asyncio.run(save_wiki_cache(request)) is True
+        cached = asyncio.run(
+            read_wiki_cache(
+                request.repo.owner,
+                request.repo.repo,
+                request.repo.type,
+                request.language,
+                request.model,
+            )
+        )
+
+        assert cached is not None
+        assert cached.source_path == "/workspace/source-repository"
+        assert cached.artifact_root == str(_output_dir(tmp_path))
+        assert cached.source_path != cached.artifact_root
+
+    def test_incremental_save_does_not_erase_existing_source_path(self, tmp_path, monkeypatch):
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        monkeypatch.setattr("api.routes.cache.WIKI_CACHE_DIR", str(cache_dir))
+        monkeypatch.setattr("api.routes.cache._PROJECT_ROOT", str(tmp_path))
+
+        initial = _make_request()
+        initial.repo.localPath = "/workspace/source-repository"
+        assert asyncio.run(save_wiki_cache(initial)) is True
+
+        incremental = _make_request()
+        incremental.repo.localPath = None
+        assert asyncio.run(save_wiki_cache(incremental)) is True
+        cached = asyncio.run(
+            read_wiki_cache(
+                incremental.repo.owner,
+                incremental.repo.repo,
+                incremental.repo.type,
+                incremental.language,
+                incremental.model,
+            )
+        )
+
+        assert cached is not None
+        assert cached.source_path == "/workspace/source-repository"
+        assert cached.repo is not None
+        assert cached.repo.localPath == "/workspace/source-repository"

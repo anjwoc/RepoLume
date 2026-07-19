@@ -14,6 +14,8 @@ from api.routes.admin import router as admin_router
 from api.routes.code import router as code_router
 from api.routes.graph import router as graph_router
 from api.routes.mcp import router as mcp_router
+from api.routes.db_index import router as db_index_router
+from api.routes.test_scenarios import router as test_scenarios_router
 
 router = APIRouter()
 router.include_router(config_router)
@@ -29,5 +31,7 @@ router.include_router(admin_router)
 router.include_router(code_router)
 router.include_router(graph_router)
 router.include_router(mcp_router)
+router.include_router(db_index_router)
+router.include_router(test_scenarios_router)
 
 __all__ = ["router"]

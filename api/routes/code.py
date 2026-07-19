@@ -221,6 +221,7 @@ _SKIP_WORDS = frozenset({
 _SOURCE_EXTENSIONS = frozenset({
     ".py", ".java", ".kt", ".ts", ".tsx", ".js", ".jsx",
     ".go", ".cs", ".rb", ".php", ".scala",
+    ".sql", ".xml", ".yaml", ".yml", ".properties", ".gradle",
 })
 
 

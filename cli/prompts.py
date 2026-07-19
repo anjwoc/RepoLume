@@ -216,6 +216,12 @@ You are a senior business analyst and software architect.
 
 Analyze the repository "{repo_name}" to extract its business domain.
 
+STRICT ACCURACY RULES:
+- When referencing any service or sub-project, use its ACTUAL directory name from the
+  file tree (e.g., "affiliate-aggregator-api"). Never use codes like F01, F09, etc.
+- Only assert facts you can confirm from the provided file tree and README.
+
+
 File tree:
 <file_tree>
 {file_tree}
@@ -288,6 +294,17 @@ README:
 {readme}
 </readme>
 
+{db_schema_context}
+STRICT ACCURACY RULES — violations make the output useless:
+1. ONLY reference table names, column names, and entity names that are EXPLICITLY present
+   in the file tree or README. Never infer or guess database schema.
+   If you see a JPA @Entity class named "Member", use "Member" — do NOT assume a table
+   called "member_archive" or any other prefixed variant unless it appears in the code.
+2. When referencing a service or project in a multi-repo context, ALWAYS use the actual
+   repository directory name shown in the file tree (e.g., "affiliate-aggregator-api").
+   NEVER use generic codes like F01, F09, SVC-1, or similar identifiers.
+3. If you cannot confirm a detail from the provided files, omit it rather than guessing.
+
 Focus on BUSINESS DATA FLOWS (not just technical ones):
 - How does user data flow through registration/authentication?
 - How do orders/transactions flow through processing?
@@ -343,6 +360,17 @@ README:
 
 Key business entities found: {entity_names}
 
+{db_schema_context}
+STRICT ACCURACY RULES:
+1. When referencing a service or project, ALWAYS use the actual repository directory
+   name as shown in the file tree (e.g., "affiliate-aggregator-api"). NEVER use
+   codes like F01, F09, SVC-2, or any generic identifier.
+2. Only reference source files and method names you can confirm exist in the file tree.
+3. Do not infer database table names beyond what is explicitly visible in the code.
+4. For workflow steps that interact with a database, include `sql_query` — the representative
+   SQL for that step (SELECT/INSERT/UPDATE/DELETE). Only use table and column names that
+   appear in the db_schema_context above (or in the code if no schema provided).
+
 Identify workflows like:
 - User onboarding / authentication
 - Core feature usage flows
@@ -364,7 +392,8 @@ Return a JSON array of workflows (no markdown fences):
         "label": "<step action>",
         "actor": "user",
         "source_file": "<file.py>",
-        "description": "<what happens in this step>"
+        "description": "<what happens in this step>",
+        "sql_query": "<representative SQL if this step touches DB, else empty string>"
       }}
     ]
   }}
@@ -373,6 +402,8 @@ Return a JSON array of workflows (no markdown fences):
 workflow type: "user" | "system" | "integration" | "error"
 business_importance: "high" | "medium" | "low"
 actor: "user" | "system" | "external"
+sql_query: leave empty ("") for non-DB steps. For DB steps, write ONE representative query
+           using ONLY table/column names from the provided db_schema_context (or code if no schema).
 Identify 3–7 key workflows.
 Write all content in {language_name}. Return ONLY the JSON array.
 """
@@ -417,4 +448,3 @@ monitoring_priority: "critical" | "high" | "medium" | "low"
 Identify 5–12 components.
 Write all content in {language_name}. Return ONLY the JSON array.
 """
-

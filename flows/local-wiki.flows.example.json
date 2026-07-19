@@ -2,21 +2,21 @@
   "_comment": "Copy this file to local-wiki.flows.json and adjust tool names and scope to your environment.",
   "mcpInstances": [
     {
-      "instanceName": "oracle-gaffiliate",
+      "instanceName": "oracle-orders",
       "tool": "oracle",
       "roles": ["db-schema", "db-stored-proc", "db-query"],
       "scope": {
-        "databases": ["O_GAFFILIATE"],
-        "description": "Oracle affiliate schema"
+        "databases": ["ORDERS"],
+        "description": "Oracle order schema"
       }
     },
     {
-      "instanceName": "devdb-nautomaildb",
+      "instanceName": "sqlserver-notifications",
       "tool": "devdb",
       "roles": ["db-schema"],
       "scope": {
-        "databases": ["nautomaildb", "neption"],
-        "description": "MSSQL email dispatch DB"
+        "databases": ["notifications"],
+        "description": "SQL Server notification database"
       }
     },
     {
@@ -24,8 +24,8 @@
       "tool": "github",
       "roles": ["code-reader"],
       "scope": {
-        "host": "github.gmarket.com",
-        "description": "In-house GitHub Enterprise"
+        "host": "github.example.com",
+        "description": "Example GitHub Enterprise instance"
       }
     }
   ]

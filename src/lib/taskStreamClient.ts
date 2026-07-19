@@ -22,14 +22,26 @@ export interface TaskStreamHandlers {
   onOpen?: () => void;
 }
 
+interface TaskStreamHealth {
+  last_persisted_seq: number;
+  job_status: string | null;
+  background_running: boolean;
+}
+
+const DEFAULT_HEALTH_INTERVAL_MS = 15_000;
+const DEFAULT_STALL_THRESHOLD_MS = 30_000;
+
 export function createTaskStream(
   streamId: string,
   handlers: TaskStreamHandlers,
-  options?: { events?: string[] }
+  options?: { events?: string[]; lastEventId?: number }
 ): EventSource {
   const params = new URLSearchParams();
   if (options?.events?.length) {
     params.set('events', options.events.join(','));
+  }
+  if (options?.lastEventId && options.lastEventId > 0) {
+    params.set('last_event_id', String(options.lastEventId));
   }
   const suffix = params.toString() ? `?${params}` : '';
   const source = new EventSource(`/api/task-streams/${encodeURIComponent(streamId)}/stream${suffix}`);
@@ -100,12 +112,14 @@ export async function fetchContent(
     pageId?: string | null;
     onChunk?: (text: string) => void;
     signal?: AbortSignal;
+    healthIntervalMs?: number;
+    stallThresholdMs?: number;
   }
 ): Promise<string> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, async_mode: true }),
+    body: JSON.stringify({ ...body, async_mode: true, task_id: options?.pageId ?? 'chat' }),
     signal: options?.signal,
   });
 
@@ -119,43 +133,103 @@ export async function fetchContent(
 
   return new Promise<string>((resolve, reject) => {
     const accumulated: string[] = [];
+    const healthIntervalMs = options?.healthIntervalMs ?? DEFAULT_HEALTH_INTERVAL_MS;
+    const stallThresholdMs = options?.stallThresholdMs ?? DEFAULT_STALL_THRESHOLD_MS;
+    let source: EventSource | null = null;
+    let lastEventId = 0;
+    let lastEventAt = Date.now();
+    let settled = false;
+    let watchdogInFlight = false;
+    let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+    let abortHandler: (() => void) | null = null;
 
-    const es = createTaskStream(job_id, {
-      onEvent(event) {
-        // Accept both canonical (agent.chunk) and legacy (agent_log / chunk)
-        if (
-          event.type === EventType.AGENT_CHUNK ||
-          event.type === 'agent_log' ||
-          event.type === 'chunk'
-        ) {
-          // data.text (canonical) → data.content (legacy background_task) → message
-          const text =
-            (event.data?.text as string) ??
-            (event.data?.content as string) ??
-            event.message ??
-            '';
-          accumulated.push(text);
-          options?.onChunk?.(text);
-        } else if (event.type === EventType.COMPLETE || event.type === 'complete') {
-          es.close();
-          resolve(accumulated.join(''));
-        } else if (event.type === EventType.ERROR || event.type === 'error') {
-          es.close();
-          reject(new Error(event.message || 'Stream error'));
-        }
-      },
-      onError() {
-        es.close();
-        reject(new Error('SSE connection error'));
-      },
-    });
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (watchdogTimer) clearInterval(watchdogTimer);
+      source?.close();
+      if (abortHandler && options?.signal) {
+        options.signal.removeEventListener('abort', abortHandler);
+      }
+      if (error) reject(error);
+      else resolve(accumulated.join(''));
+    };
 
-    // AbortSignal 연동 — 워커 타임아웃 시 SSE 즉시 닫기
+    const connect = () => {
+      let nextSource: EventSource;
+      nextSource = createTaskStream(job_id, {
+        onEvent(event) {
+          if (source !== nextSource || settled) return;
+          lastEventAt = Date.now();
+          if (event.id > 0) lastEventId = Math.max(lastEventId, event.id);
+          if (
+            event.type === EventType.AGENT_CHUNK ||
+            event.type === 'agent_log' ||
+            event.type === 'chunk'
+          ) {
+            const text =
+              (event.data?.text as string) ??
+              (event.data?.content as string) ??
+              event.message ??
+              '';
+            accumulated.push(text);
+            options?.onChunk?.(text);
+          } else if (event.type === EventType.COMPLETE || event.type === 'complete') {
+            finish();
+          } else if (event.type === EventType.ERROR || event.type === 'error') {
+            finish(new Error(event.message || 'Stream error'));
+          }
+        },
+        onError() {
+          if (source === nextSource && nextSource.readyState === EventSource.CLOSED) {
+            finish(new Error('SSE connection closed before a terminal event'));
+          }
+        },
+      }, { lastEventId });
+      source = nextSource;
+    };
+
+    connect();
+
+    watchdogTimer = setInterval(() => {
+      if (settled || watchdogInFlight) return;
+      watchdogInFlight = true;
+      void fetch(`/api/task-streams/${encodeURIComponent(job_id)}/health`, {
+        cache: 'no-store',
+      })
+        .then(async (healthResponse) => {
+          if (!healthResponse.ok) return null;
+          return healthResponse.json() as Promise<TaskStreamHealth>;
+        })
+        .then((health) => {
+          if (
+            !health ||
+            !Number.isFinite(health.last_persisted_seq) ||
+            health.last_persisted_seq <= lastEventId ||
+            Date.now() - lastEventAt < stallThresholdMs
+          ) {
+            return;
+          }
+          const previous = source;
+          connect();
+          previous?.close();
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          watchdogInFlight = false;
+        });
+    }, healthIntervalMs);
+
     if (options?.signal) {
-      options.signal.addEventListener('abort', () => {
-        es.close();
-        reject(new DOMException('Aborted', 'AbortError'));
-      }, { once: true });
+      abortHandler = () => {
+        void fetch(`/api/task-streams/${encodeURIComponent(job_id)}/cancel`, {
+          method: 'POST',
+          keepalive: true,
+        });
+        finish(new DOMException('Aborted', 'AbortError'));
+      };
+      options.signal.addEventListener('abort', abortHandler, { once: true });
+      if (options.signal.aborted) abortHandler();
     }
   });
 }

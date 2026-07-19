@@ -3,6 +3,7 @@ name = "open-localwiki-api"
 version = "1.0.0"
 description = "Backend API for LocalWiki, providing smart code analysis and AI-powered documentation generation."
 license = {text = "MIT License"}
+requires-python = ">=3.11,<3.13"
 
 [tool.poetry]
 packages = [
@@ -10,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.13"
 fastapi = ">=0.95.0"
 uvicorn = { extras = ["standard"], version = ">=0.21.1" }
 pydantic = ">=2.0.0"
@@ -36,3 +37,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.0.0"
+pyinstaller = ">=6.0.0,<7.0.0"

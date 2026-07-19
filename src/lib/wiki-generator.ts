@@ -1,6 +1,10 @@
 import { emitTaskEvent, fetchContent } from "./taskStreamClient";
 import mermaid from 'mermaid';
 import { normalizeMarkdownContent } from "./markdown-normalize";
+import { requireGenerationCompleteness } from "./generation-completeness";
+import { annotateSqlVerification, buildCodebaseDbEvidence } from "./db-grounding";
+
+export { annotateSqlVerification } from "./db-grounding";
 
 // ─── Project Classification ────────────────────────────────────────────────
 // Detected once per generation run (Phase 1.5) using file-tree + README
@@ -487,10 +491,11 @@ function projectTypeTopicRequirements(type: ProjectType, sectionTitle: string, p
     if (has('business flow', '비즈니스 플로우', '플로우', 'flow', 'journey', '흐름'))
       return `
 ### 멀티 프로젝트 비즈니스 플로우 필수 요구사항
-- 각 플로우마다 \`sequenceDiagram\` 필수: Client → ProjectA → ProjectB → DB → EventBus → ProjectC 순서로.
+- 각 플로우마다 \`sequenceDiagram\` 필수: participant 이름에 반드시 실제 서비스 디렉토리 이름을 사용 (예: \`affiliate-event\`, \`affiliate-batch\`). ProjectA/ProjectB/F01/SVC-1 같은 제네릭 코드는 절대 사용 금지.
 - 각 화살표에 HTTP method+endpoint 또는 event topic명 명시.
 - 실패 경로(error response, dead-letter, timeout, fallback) 별도 표시.
-- 플로우가 여러 개면 페이지를 분리 — 하나의 페이지에 모든 플로우를 우겨넣지 말 것.`;
+- 플로우가 여러 개면 페이지를 분리 — 하나의 페이지에 모든 플로우를 우겨넣지 말 것.
+- STRICT NAMING: 모든 서비스, 테이블, 컬럼 이름은 파일 트리와 코드에 실제로 존재하는 이름만 사용. 추론하거나 가정하지 말 것.`;
 
     if (has('api contract', 'api 계약', 'endpoint', 'interface', '인터페이스', '계약'))
       return `
@@ -591,17 +596,41 @@ function topicRequirements(sectionTitle: string, pageTitle: string): string {
   if (has('business flow', 'business flows', 'flow analysis', 'flow detail', '비즈니스 플로우', '플로우 분석'))
     return `
 ### MANDATORY for this BUSINESS FLOW page
-- Include a \`sequenceDiagram\` with DB tables as named participants (e.g. \`participant DB_Req as "Oracle: LINKREW_MESSAGE_REQUEST"\`). Every arrow must show the real method name or SQL operation.
+- Include a \`sequenceDiagram\` with DB tables as named participants (e.g. \`participant DB_Order as "PostgreSQL: ORDER_REQUEST"\`). Every arrow must show the real method name or SQL operation.
 - Include a **DB-Level Data Flow** section with:
   - Full table map: \`| Table | DB | Role |\`
   - Per-step SQL: [STEP 1]…[STEP N], each with real SELECT/INSERT/UPDATE/EXEC, actual column names, WHERE clause values, and enum constants ('N'/'Y', etc.)
   - JPA methods annotated as: \`-- JPA: methodName(param)\`
-  - Unverifiable SQL: \`-- NOTE: MCP not connected — manual verification required\`
+  - Without DB MCP, infer SQL only from repository/JPA/migration/query evidence and annotate it as: \`-- INFERRED FROM CODE: file:line or symbol\`
   - Processing order summary line per step: \`[Oracle] TABLE ← INSERT (COL='VAL')\`
   - Text ERD showing table relationships for this flow
 - Include a **Component Chain Completeness** table: \`| # | Component | file:line | Status (✅/🔧/❌) |\`
 - DO NOT include: local dev environment issues, service startup order, Docker/k8s, deployment/CI details.`;
   return '';
+}
+
+/**
+ * Annotate GitHub links in `content` that point to repos marked valid=false.
+ * Those links get an ⚠️ Unverified badge appended.
+ */
+export function annotateGitHubLinks(
+  content: string,
+  validatedRepos: Array<{ owner: string; repo: string; valid: boolean }>,
+): string {
+  if (!validatedRepos.length) return content;
+  const invalidSet = new Set(
+    validatedRepos.filter(r => !r.valid).map(r => `${r.owner}/${r.repo}`.toLowerCase()),
+  );
+  if (!invalidSet.size) return content;
+  return content.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+github[^)]+\/([^/\s)]+)\/([^/\s)#?]+)[^)]*)\)/g,
+    (match, label: string, url: string, owner: string, repo: string) => {
+      if (invalidSet.has(`${owner}/${repo}`.toLowerCase())) {
+        return `${match} ⚠️ Unverified`;
+      }
+      return match;
+    },
+  );
 }
 
 // Temporary fixed default until the per-wiki language setting is properly wired.
@@ -734,6 +763,86 @@ function _normalizeStructureIds(structure: any): void {
   );
 }
 
+/**
+ * Infer filePaths for each page from subsystem paths + directory map pattern matching.
+ * Called after structure generation (which no longer includes filePaths to reduce output size).
+ */
+function _inferPageFilePaths(
+  pages: any[],
+  subsystems: Array<{ id: string; name: string; paths: string[]; description: string }>,
+  directoryMap: string,
+  maxPaths = 3,
+): void {
+  const dirLines = directoryMap.split('\n').filter(Boolean);
+  for (const page of pages) {
+    if (page.filePaths && page.filePaths.length > 0) continue; // already set
+    // Subsystem-owned page: use subsystem paths
+    const sub = subsystems.find(s => page.id.startsWith(s.id + '-') || page.id === s.id);
+    if (sub && sub.paths.length > 0) {
+      page.filePaths = sub.paths.slice(0, maxPaths);
+      continue;
+    }
+    // Pattern match from directory map using page ID tokens
+    const tokens = page.id.split('-').filter((t: string) => t.length > 2);
+    const matches: string[] = [];
+    for (const line of dirLines) {
+      const l = line.toLowerCase();
+      if (tokens.some((t: string) => l.includes(t.toLowerCase()))) {
+        matches.push(line.trim());
+        if (matches.length >= maxPaths) break;
+      }
+    }
+    page.filePaths = matches;
+  }
+}
+
+/** Build wiki structure deterministically for multi-project repos.
+ *  Eliminates LLM output-size failures: subsystems + catalogFlows are already known. */
+function _buildMultiProjectStructure(
+  repo: string,
+  subsystems: Array<{ id: string; name: string; paths: string[] }>,
+  catalogFlows: Array<{ id: string; name: string }>,
+): any {
+  const hasFlows = catalogFlows.length > 0;
+  const sysOverviewPages = hasFlows
+    ? ['service-map', 'data-flow']
+    : ['service-map', 'business-flow', 'data-flow'];
+
+  const rootSections = [
+    'system-overview',
+    ...(hasFlows ? ['business-flows'] : []),
+    ...subsystems.map(s => s.id),
+    'cross-cutting',
+  ];
+
+  const sections = [
+    { id: 'system-overview', title: 'System Overview', pages: sysOverviewPages },
+    ...(hasFlows ? [{ id: 'business-flows', title: 'Business Flows', pages: [] }] : []),
+    ...subsystems.map(s => ({
+      id: s.id,
+      title: s.name,
+      pages: [`${s.id}-api`, `${s.id}-domain`, `${s.id}-architecture`],
+    })),
+    { id: 'cross-cutting', title: 'Cross-Cutting Concerns', pages: ['auth', 'observability', 'error-handling'] },
+  ];
+
+  const pages = [
+    { id: 'service-map', title: 'Service Map' },
+    ...(hasFlows ? [] : [{ id: 'business-flow', title: 'Business Flow' }]),
+    { id: 'data-flow', title: 'Data Flow' },
+    ...subsystems.flatMap(s => [
+      { id: `${s.id}-api`, title: `${s.name} — API Contract` },
+      { id: `${s.id}-domain`, title: `${s.name} — Domain Model` },
+      { id: `${s.id}-architecture`, title: `${s.name} — Internal Architecture` },
+    ]),
+    { id: 'auth', title: 'Authentication & Authorization' },
+    { id: 'observability', title: 'Observability' },
+    { id: 'error-handling', title: 'Error Handling' },
+  ];
+
+  return { id: 'wiki', title: `${repo} Wiki`, description: `${repo} multi-project system`, rootSections, sections, pages };
+}
+
 // ─── Directory Map Extraction ─────────────────────────────────────────────────
 
 function autoFixMermaid(code: string): string {
@@ -841,7 +950,7 @@ export async function runWikiStructure(
   apiKey?: string,
   mode: "cli" | "api" = "cli",
   cliTool?: string,
-  pipelineFlags?: { mcp?: boolean; concurrency?: number },
+  pipelineFlags?: { mcp?: boolean; concurrency?: number; businessFlowOnly?: boolean },
   userFeedback?: string,
   previousStructure?: any,
 ): Promise<WikiStructureResult> {
@@ -953,9 +1062,35 @@ export async function runWikiStructure(
         try { return JSON.parse(body.slice(fi, li + 1)); } catch {}
       }
     }
-    const fi = body.indexOf('{'), li = body.lastIndexOf('}');
-    if (fi === -1 || li <= fi) return null;
-    try { return JSON.parse(body.slice(fi, li + 1)); } catch { return null; }
+    const fi = body.indexOf('{');
+    if (fi === -1) return null;
+    const li = body.lastIndexOf('}');
+    // Try standard slice with common suffixes to close truncated wiki structure
+    if (li > fi) {
+      for (const suffix of ['', ']}', ']}}}', ']}]}']) {
+        try { return JSON.parse(body.slice(fi, li + 1) + suffix); } catch {}
+      }
+    }
+    // Bracket-counting repair for mid-string and mid-key truncations
+    const partial = body.slice(fi);
+    let braces = 0, brackets = 0, inString = false, escape = false;
+    for (let i = 0; i < partial.length; i++) {
+      const c = partial[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\' && inString) { escape = true; continue; }
+      if (c === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (c === '{') braces++; else if (c === '}') braces--;
+      else if (c === '[') brackets++; else if (c === ']') brackets--;
+    }
+    const repaired = partial.trimEnd().replace(/,\s*$/, '');
+    const closeTail = ']'.repeat(Math.max(0, brackets)) + '}'.repeat(Math.max(0, braces));
+    // Try all repair strategies: close string as value, then as key:null
+    const strSuffixes = inString ? ['"', '":null'] : [''];
+    for (const s of strSuffixes) {
+      try { return JSON.parse(repaired + s + closeTail); } catch {}
+    }
+    return null;
   };
 
   // ── Phase 2a: 아키텍처 서브시스템 발견 ──────────────────────────────────
@@ -985,6 +1120,22 @@ export async function runWikiStructure(
       }
     }
   } catch { /* Graphify 없으면 directoryMap fallback */ }
+
+  // Catalog flows: multi-project일 때 per-flow 페이지 생성을 위해 catalog.yaml 조회
+  let catalogFlows: Array<{id: string; name: string}> = [];
+  if (projectType === 'multi-project') {
+    try {
+      const catalogRes = await fetch(`/api/catalog?path=${encodeURIComponent(projectPath)}`);
+      if (catalogRes.ok) {
+        const catalogData = await catalogRes.json();
+        if (Array.isArray(catalogData.flows) && catalogData.flows.length > 0) {
+          catalogFlows = catalogData.flows;
+          await emitStep(streamId, 'agent_log', 'structure',
+            `✅ 카탈로그 로드 완료 — ${catalogFlows.length}개 비즈니스 플로우`);
+        }
+      }
+    } catch { /* catalog 없으면 단일 business-flow 페이지 fallback */ }
+  }
 
   // For multi-project: extract top-level sub-project dirs from flat file paths before Phase 2a
   let topLevelServiceDirs = '';
@@ -1087,21 +1238,39 @@ Rules:
   // ide/compiler는 subsystems=[] 이므로 projectTypeHints가 유일한 섹션 지시가 됨.
   const subsystemSection = subsystems.length > 0
     ? (projectType === 'multi-project'
-      ? `\n### MANDATORY: Multi-Project rootSection Structure
+      ? (() => {
+          const flowPageIds = catalogFlows.map(f =>
+            f.id.toLowerCase() + '-' + f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')
+          );
+          const hasFlows = catalogFlows.length > 0;
+          const sysOverviewPages = hasFlows
+            ? 'service-map (graph TD), data-flow'
+            : 'service-map (graph TD), business-flow (sequenceDiagram), data-flow';
+          // ponytail: business-flows pages pre-built from catalog — LLM only generates skeleton
+          const flowsSection = hasFlows
+            ? `  2. "business-flows" — title: "Business Flows" — pages are PRE-BUILT from catalog; leave "pages" array EMPTY for this section (do NOT list flow page IDs)\n`
+            : '';
+          const offset = hasFlows ? 2 : 1;
+          const requiredIds = hasFlows
+            ? `"system-overview", "business-flows", ${subsystems.map(s => `"${s.id}"`).join(', ')}, "cross-cutting"`
+            : `"system-overview", ${subsystems.map(s => `"${s.id}"`).join(', ')}, "cross-cutting"`;
+          const minPages = subsystems.length * 3 + 5; // flow pages are pre-built separately
+          return `\n### MANDATORY: Multi-Project rootSection Structure
 This system has ${subsystems.length} independent sub-projects. The JSON MUST use this exact rootSections layout:
 
 rootSections MUST include ALL of the following (in this order):
-  1. "system-overview" — title: "System Overview", pages: service-map (graph TD), business-flow (sequenceDiagram), data-flow
-${subsystems.map((s, i) => `  ${i + 2}. "${s.id}" — title: "${s.name}", pages: ${s.id}-api (API Contract), ${s.id}-domain (Domain Model), ${s.id}-architecture (Internal Architecture)`).join('\n')}
-  ${subsystems.length + 2}. "cross-cutting" — title: "Cross-Cutting Concerns", pages: auth, observability, error-handling
+  1. "system-overview" — title: "System Overview", pages: ${sysOverviewPages}
+${flowsSection}${subsystems.map((s, i) => `  ${i + 1 + offset}. "${s.id}" — title: "${s.name}", pages: ${s.id}-api (API Contract), ${s.id}-domain (Domain Model), ${s.id}-architecture (Internal Architecture)`).join('\n')}
+  ${subsystems.length + 1 + offset}. "cross-cutting" — title: "Cross-Cutting Concerns", pages: auth, observability, error-handling
 
 HARD CONSTRAINTS — violation = wrong output:
-- rootSections array MUST contain: "system-overview", ${subsystems.map(s => `"${s.id}"`).join(', ')}, "cross-cutting"
+- rootSections array MUST contain: ${requiredIds}
 - Each sub-project is its OWN rootSection — NEVER group them inside a "Deep Dive" or "Services" parent
-- Minimum ${subsystems.length * 3 + 5} total pages
+- Minimum ${minPages} total pages
 - Sub-project descriptions for context:
 ${subsystems.map(s => `  ${s.name}: ${s.description}`).join('\n')}
-`
+`;
+        })()
       : `\n### Identified Architectural Subsystems (MUST become sections)\n${
           subsystems.map(s => `- ${s.name}: ${s.description}`).join('\n')
         }\n\nDECOMPOSITION RULES (MANDATORY):\n1. Each subsystem above becomes its own SECTION in rootSections.\n2. Within each section, create separate pages for distinct sub-components (core data structures, key algorithms, public API/extension points, integration points).\n3. NEVER merge two distinct subsystems into one section.\n4. NEVER create a single "Overview" page that covers multiple subsystems — split it.\n`)
@@ -1115,7 +1284,7 @@ ${subsystems.map(s => `  ${s.name}: ${s.description}`).join('\n')}
 
   // 모든 타입: directory map을 프롬프트에 포함해 LLM이 섹션→실제 경로 매핑 가능하게 함
   const directoryMapBlock = directoryMap
-    ? `\n### Actual Directory Structure (use to map sections to real paths and generate accurate filePaths)\n<directory_map>\n${directoryMap}\n</directory_map>\n`
+    ? `\n### Actual Directory Structure (reference for section IDs — do NOT add filePaths to the JSON output)\n<directory_map>\n${directoryMap}\n</directory_map>\n`
     : '';
 
   // For large projects, directoryMap is the AUTHORITATIVE structure source.
@@ -1181,21 +1350,34 @@ This project has ${actualFileCount} files.
 ### Section Ordering
 rootSections order: Getting Started first, then Architecture, then feature subsystems, then advanced/internals.
 
-CRITICAL: Output ONLY a single valid JSON object:
+CRITICAL: Output ONLY a single valid JSON object. FORBIDDEN fields: filePaths, description (on pages), importance, content — pages have ONLY "id" and "title".
 {
   "title": "...",
   "description": "...",
   "rootSections": ["section1"],
   "sections": [{ "id": "section1", "title": "...", "pages": ["page1"] }],
-  "pages": [{ "id": "page1", "title": "...", "filePaths": ["src/index.ts"] }]
+  "pages": [{ "id": "page1", "title": "..." }]
 }
+Do NOT add filePaths, do NOT add descriptions to pages, do NOT add any extra fields.
 Your FIRST character must be "{" and LAST must be "}". No prose, no markdown fences, no wiki content.`;
 
+  // Multi-project: build deterministically — subsystems + catalogFlows already known,
+  // no need to generate JSON via LLM (where output-size truncation causes parse failures).
+  let wikiStructure: any = null;
+  if (projectType === 'multi-project' && subsystems.length >= 2) {
+    wikiStructure = _buildMultiProjectStructure(repo, subsystems, catalogFlows);
+    _normalizeStructureIds(wikiStructure);
+    _inferPageFilePaths(wikiStructure.pages, subsystems, fullTreeForDirMap || directoryMap);
+    await emitStep(streamId, 'agent_log', 'structure',
+      `✅ Multi-project 구조 결정론적 생성 완료 (${subsystems.length}개 서브프로젝트, ${wikiStructure.pages.length}개 페이지)`);
+  }
+
   await emitStep(streamId, 'agent_log', 'structure',
-    `📋 ToC 생성 프롬프트 전송 (subsystems=${subsystems.length})...`);
+    wikiStructure
+      ? `📋 ToC 결정론적 생성됨 — LLM 호출 skip`
+      : `📋 ToC 생성 프롬프트 전송 (subsystems=${subsystems.length})...`);
 
   const STRICT_SUFFIX = '\n\nREMINDER: Output ONLY the JSON object. First char "{", last "}". No prose, no markdown.';
-  let wikiStructure: any = null;
   let lastErr = '';
 
   for (let attempt = 0; attempt < 2 && !wikiStructure; attempt++) {
@@ -1229,6 +1411,8 @@ Your FIRST character must be "{" and LAST must be "}". No prose, no markdown fen
       if (!Array.isArray(wikiStructure.rootSections)) wikiStructure.rootSections = [];
       // Normalize all IDs to kebab-case regardless of what the LLM produced
       _normalizeStructureIds(wikiStructure);
+      // Infer filePaths post-hoc (structure prompt no longer requests them to reduce output size)
+      _inferPageFilePaths(wikiStructure.pages, subsystems, fullTreeForDirMap || directoryMap);
     } else {
       lastErr = `AI 응답에서 JSON 없음 (${content.length}자): ${content.slice(0, 300)}`;
     }
@@ -1267,6 +1451,58 @@ Your FIRST character must be "{" and LAST must be "}". No prose, no markdown fen
     }
   }
 
+  // ── Business-flows post-processing: always rebuild from catalog when available ──
+  // LLM is instructed to leave business-flows.pages empty; we inject catalog pages here.
+  if (catalogFlows.length > 0) {
+    const flowPageIds = catalogFlows.map(f =>
+      f.id.toLowerCase() + '-' + f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')
+    );
+    wikiStructure.sections = wikiStructure.sections || [];
+    wikiStructure.pages = wikiStructure.pages || [];
+    wikiStructure.rootSections = wikiStructure.rootSections || [];
+
+    const bfSection = wikiStructure.sections.find((s: any) => s.id === 'business-flows');
+    if (bfSection) {
+      // Section exists (LLM created skeleton) — overwrite pages with catalog
+      bfSection.pages = flowPageIds;
+    } else {
+      // Section missing — insert after system-overview
+      const sysIdx = wikiStructure.rootSections.indexOf('system-overview');
+      wikiStructure.rootSections.splice(sysIdx >= 0 ? sysIdx + 1 : 1, 0, 'business-flows');
+      wikiStructure.sections.push({ id: 'business-flows', title: 'Business Flows', pages: flowPageIds });
+    }
+    if (!wikiStructure.rootSections.includes('business-flows')) {
+      const sysIdx = wikiStructure.rootSections.indexOf('system-overview');
+      wikiStructure.rootSections.splice(sysIdx >= 0 ? sysIdx + 1 : 1, 0, 'business-flows');
+    }
+
+    const existingPageIds = new Set((wikiStructure.pages).map((p: any) => p.id));
+    catalogFlows.forEach((f, i) => {
+      if (!existingPageIds.has(flowPageIds[i])) {
+        wikiStructure.pages.push({ id: flowPageIds[i], title: f.name, filePaths: [] });
+        existingPageIds.add(flowPageIds[i]);
+      }
+    });
+    await emitStep(streamId, 'agent_log', 'structure',
+      `✅ business-flows 섹션 catalog에서 주입 — ${catalogFlows.length}개 플로우 페이지`);
+  }
+
+  // ⚗️ TEMP: businessFlowOnly — 목차를 비즈니스 플로우 섹션만으로 축소
+  if (pipelineFlags?.businessFlowOnly) {
+    const bizSec = (wikiStructure.sections || []).find((s: any) => s.id === 'business-flows');
+    if (bizSec) {
+      const bizPageIds = new Set<string>(bizSec.pages || []);
+      wikiStructure.pages = (wikiStructure.pages || []).filter((p: any) => bizPageIds.has(p.id));
+      wikiStructure.sections = [bizSec];
+      wikiStructure.rootSections = ['business-flows'];
+      await emitStep(streamId, 'agent_log', 'structure',
+        `⚗️ [비즈니스 플로우 전용] 목차 축소 → ${wikiStructure.pages.length}개 페이지만 생성합니다.`);
+    } else {
+      await emitStep(streamId, 'agent_log', 'structure',
+        `⚠️ businessFlowOnly: 'business-flows' 섹션을 찾지 못했습니다 — 전체 목차로 진행합니다.`);
+    }
+  }
+
   const pageCount = (wikiStructure.pages || []).length;
   const sectionCount = (wikiStructure.sections || []).length;
 
@@ -1297,7 +1533,7 @@ export async function runWikiGeneration(
   mode: "cli" | "api" = "cli",
   cliTool?: string,
   enableBusiness?: boolean,
-  pipelineFlags?: { mcp?: boolean; concurrency?: number },
+  pipelineFlags?: { mcp?: boolean; concurrency?: number; businessFlowOnly?: boolean },
   preBuiltStructure?: WikiStructureResult,
   resumeData?: { skipPageIds?: string[]; cachedPages?: Record<string, any> },
   stopSignal?: { stopped: boolean },
@@ -1320,18 +1556,67 @@ export async function runWikiGeneration(
   const pipelineStart = Date.now();
 
   // ──────────────────────────────────────────────────────────
-  // Phase 0: MCP 활성 여부 결정 (설정 기반 자동 감지)
+  // Phase 0: MCP 사전 초기화 — 설정된 MCP를 한 번만 초기화하고
+  //          전체 위키 생성 동안 캐시로 사용. 없으면 코드베이스만 사용.
   // ──────────────────────────────────────────────────────────
+  interface McpClientState { enabled: boolean; available: boolean; }
+  interface McpDbState extends McpClientState { schema: string; table_names: string[]; }
+  interface McpGithubState extends McpClientState { owner: string; repo: string; }
+  interface ValidatedRepo { owner: string; repo: string; web_url: string; valid: boolean; }
+  interface McpInitResult {
+    ok: boolean;
+    db: McpDbState;
+    github: McpGithubState;
+    atlassian: McpClientState;
+    any_available: boolean;
+    validated_repos: ValidatedRepo[];
+  }
+  const _mcpOff: McpInitResult = {
+    ok: true,
+    db: { enabled: false, available: false, schema: '', table_names: [] },
+    github: { enabled: false, available: false, owner: '', repo: '' },
+    atlassian: { enabled: false, available: false },
+    any_available: false,
+    validated_repos: [],
+  };
+
+  let mcpInitResult: McpInitResult = _mcpOff;
   let mcpEnabled = pipelineFlags?.mcp ?? false;
-  if (pipelineFlags?.mcp === undefined) {
+
+  // Only call init if settings say at least one MCP provider is on
+  if (pipelineFlags?.mcp !== false) {
     try {
-      const r = await fetch('/api/settings/mcp_settings');
-      if (r.ok) {
-        const data = await r.json();
-        const providers: any[] = data.value?.providers ?? [];
-        mcpEnabled = providers.some((p: any) => p.isEnabled === true);
+      const settingsRes = await fetch('/api/settings/mcp_settings');
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        const providers: any[] = settingsData.value?.providers ?? [];
+        const anyEnabled = providers.some((p: any) => p.isEnabled === true);
+        if (anyEnabled) {
+          await emitStep(streamId, 'agent_log', 'mcp', '🔌 MCP 사전 초기화 중...');
+          const initRes = await fetch('/api/mcp/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_path: projectPath, project_id: `${owner}:${repo}:${language}` }),
+          });
+          if (initRes.ok) {
+            mcpInitResult = await initRes.json() as McpInitResult;
+            mcpEnabled = mcpInitResult.any_available;
+            const parts: string[] = [];
+            if (mcpInitResult.db.available) parts.push(`DB (${mcpInitResult.db.table_names.length}개 테이블)`);
+            if (mcpInitResult.github.available) parts.push(`GitHub (${mcpInitResult.github.owner}/${mcpInitResult.github.repo})`);
+            if (mcpInitResult.atlassian.available) parts.push('Atlassian');
+            if (parts.length > 0) {
+              await emitStep(streamId, 'agent_log', 'mcp', `✅ MCP 초기화 완료: ${parts.join(', ')}`);
+            } else {
+              await emitStep(streamId, 'agent_log', 'mcp', '⏭️ MCP 설정됨 but 연결 불가 — 코드베이스 전용 모드');
+              mcpEnabled = false;
+            }
+          }
+        }
       }
-    } catch {}
+    } catch {
+      mcpEnabled = false;
+    }
   }
 
   // Register job in DB for checkpoint/resume tracking (non-fatal)
@@ -1404,8 +1689,9 @@ export async function runWikiGeneration(
             })
             .join('\n');
           const exRoot = roots.find((r: any) => r.webUrl) as any;
-          const exUrl = exRoot
-            ? `${exRoot.webUrl}/blob/${exRoot.branch || 'main'}/path/to/SomeFile.java`
+          const exTrackedFile = exRoot?.files?.[0];
+          const exUrl = exRoot && exTrackedFile
+            ? `${exRoot.webUrl}/blob/${exRoot.branch || 'main'}/${exTrackedFile}`
             : '';
           const isPolyrepo = roots.filter((r: any) => r.prefix).length > 1;
           if (rootLines) {
@@ -1423,7 +1709,7 @@ export async function runWikiGeneration(
               + rootLines + '\n'
               + (exUrl ? 'File link example: ' + exUrl + '\n' : '')
               + 'LINKING RULES (strictly enforced):\n'
-              + '1. Every hyperlink to a file, class, or module MUST start with https://.'
+              + '1. Every hyperlink to a file, class, or module MUST start with https:// and use an EXACT path from the source-file list or git-tracked symbol context. Never turn extension labels such as .ts, .tsx, .rs, or .go into links.'
               + polyrepoRules + '\n';
           }
         }
@@ -1431,29 +1717,33 @@ export async function runWikiGeneration(
     } catch { /* non-fatal — generation continues without URL hints */ }
 
     // ──────────────────────────────────────────────────────────
-    // Phase 3 + 4: MCP 활성화된 경우에만 실행
+    // Phase 3: codebase entity extraction always runs. MCP is an optional
+    // cross-check layer, never a prerequisite for DB-flow inference.
     // ──────────────────────────────────────────────────────────
     let codeEntities: Record<string, any> | null = null;
     let mcpContext: Record<string, string> = {};
 
-    if (mcpEnabled) {
-      // Phase 2.5: 코드 엔티티 추출 (CodeGraph 우선 / regex 폴백)
-      const allFilePaths = [...new Set(
-        (wikiStructure.pages || []).flatMap((p: any) => p.filePaths || [])
-      )];
-      try {
-        const entRes = await fetch('/api/code/extract-entities', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_path: projectPath, file_paths: allFilePaths, stream_id: streamId }),
-        });
-        if (entRes.ok) {
-          codeEntities = await entRes.json();
+    const allFilePaths = [...new Set(
+      (wikiStructure.pages || []).flatMap((p: any) => p.filePaths || [])
+    )];
+    try {
+      const entRes = await fetch('/api/code/extract-entities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_path: projectPath, file_paths: allFilePaths, stream_id: streamId }),
+      });
+      if (entRes.ok) {
+        codeEntities = await entRes.json();
+        if (!mcpInitResult.db.available && (codeEntities?.db_tables?.length ?? 0) > 0) {
+          await emitStep(streamId, 'agent_log', 'extract',
+            `🧭 DB MCP 없음 — 코드에서 추출한 ${codeEntities?.db_tables?.length ?? 0}개 테이블을 근거로 플로우를 추론합니다`);
         }
-      } catch (e) {
-        await emitStep(streamId, 'agent_log', 'extract', `⚠️ 엔티티 추출 실패, 계속 진행: ${e}`);
       }
+    } catch (e) {
+      await emitStep(streamId, 'agent_log', 'extract', `⚠️ 엔티티 추출 실패, 계속 진행: ${e}`);
+    }
 
+    if (mcpEnabled) {
       // Phase 3: MCP 크로스체크 (엔티티 기반 역조회)
       const hasMeaningfulEntities = (
         (codeEntities?.db_tables?.length ?? 0) > 0 ||
@@ -1470,9 +1760,11 @@ export async function runWikiGeneration(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             project_path: projectPath,
+            project_id: `${owner}:${repo}:${language}`,
             entities: codeEntities ?? {},
             topic_hint: (wikiStructure as any).description || '',
             stream_id: streamId,
+            file_contents: (codeEntities as any)?._sample_files ?? null,
           }),
         });
         if (mcpRes.ok) {
@@ -1513,6 +1805,27 @@ export async function runWikiGeneration(
       }
     }
 
+    // ⚗️ TEMP TEST MODE: business flow 페이지만 생성 (운영 배포 시 제거)
+    if (pipelineFlags?.businessFlowOnly && pagesToGenerate.length > 0) {
+      const allSections: any[] = wikiStructure.sections || [];
+      const bizSection = allSections.find((s: any) => s.id === 'business-flows')
+        ?? allSections.find((s: any) => String(s.id).includes('business'));
+      if (bizSection) {
+        const bizPageIds = new Set<string>(bizSection.pages || []);
+        pagesToGenerate = pagesToGenerate.filter((p: any) => bizPageIds.has(p.id));
+        wikiStructure.pages = pagesToGenerate;
+        wikiStructure.sections = [bizSection];
+        wikiStructure.rootSections = ['business-flows'];
+        await emitStep(streamId, 'agent_log', 'generation',
+          `⚗️ [비즈니스 플로우 전용] ${pagesToGenerate.length}개 페이지만 생성합니다.`);
+      } else {
+        await emitStep(streamId, 'agent_log', 'generation',
+          `⚠️ businessFlowOnly: 'business-flows' 섹션을 찾지 못했습니다 (sections: ${allSections.map((s: any) => s.id).join(', ')}) — 전체 생성으로 진행합니다.`);
+      }
+    }
+
+    const expectedBasePageIds = (wikiStructure.pages || []).map((page: any) => page.id);
+
     let successPages = 0;
     let failPages = 0;
 
@@ -1536,15 +1849,41 @@ export async function runWikiGeneration(
       'schema', 'database', 'table', 'model', 'migration', 'sql',
       'kafka', 'queue', 'topic', 'redis', 'cache',
       'api', 'endpoint', 'route', 'confluence', 'issue',
+      // business flow pages must always receive DB schema context
+      'business', 'flow', 'workflow', 'journey', '비즈니스', '플로우', '흐름',
     ];
-    const buildMcpContextForPage = (page: { title: string }): string => {
-      if (Object.keys(mcpContext).length === 0) return '';
+    const buildMcpContextForPage = (page: { title: string; id?: string }): string => {
       const titleLower = page.title.toLowerCase();
-      if (!MCP_TOPIC_KEYWORDS.some(kw => titleLower.includes(kw))) return '';
-      return '\n' + Object.entries(mcpContext).slice(0, 2)
-        .map(([label, ctx]) => `<mcp_context source="${label}">\n${ctx.slice(0, 1500)}\n</mcp_context>`)
-        .join('\n\n') +
-        '\n\n### MCP Cross-Check Data\nThe XML blocks above contain REAL data fetched from connected MCP sources (DB schemas, stored procedures, GitHub issues, Confluence docs). Reference this data directly when writing about relevant components.\n';
+      const isBusinessFlow = (page as any).id
+        ? (wikiStructure.sections || []).some(
+            (s: any) => s.id === 'business-flows' && (s.pages || []).includes((page as any).id)
+          )
+        : false;
+      const isTopicMatch = MCP_TOPIC_KEYWORDS.some(kw => titleLower.includes(kw));
+
+      // mcpInitResult.db.schema is pre-fetched — inject directly for relevant pages
+      const dbBlock = (isBusinessFlow || isTopicMatch) && mcpInitResult.db.available && mcpInitResult.db.schema
+        ? `<mcp_context source="DB (pre-initialized)">\n${mcpInitResult.db.schema.slice(0, 3000)}\n</mcp_context>`
+        : '';
+
+      // entity-based cross-check context (from Phase 3 collect)
+      const collectBlocks = (isBusinessFlow || isTopicMatch) && Object.keys(mcpContext).length > 0
+        ? Object.entries(mcpContext).slice(0, 2)
+            .map(([label, ctx]) => `<mcp_context source="${label}">\n${ctx.slice(0, 1500)}\n</mcp_context>`)
+            .join('\n\n')
+        : '';
+
+      const codebaseDbBlock = (isBusinessFlow || isTopicMatch) && !mcpInitResult.db.available
+        ? buildCodebaseDbEvidence(codeEntities)
+        : '';
+
+      const combined = [dbBlock, codebaseDbBlock, collectBlocks].filter(Boolean).join('\n\n');
+      if (!combined) return '';
+
+      return '\n' + combined +
+        (mcpInitResult.db.available
+          ? '\n\n### MCP Cross-Check Data\nThe XML blocks above contain REAL data fetched from connected MCP sources. Use table names, column names, and procedures EXACTLY as shown — do NOT invent or guess.\n'
+          : '\n\n### Codebase DB Evidence\nUse only database facts visible in repository code, migrations, ORM/JPA declarations, and SQL strings. Label the resulting flow as code-inferred; do not claim runtime verification.\n');
     };
 
     const isRateLimitError = (err: unknown): boolean => {
@@ -1636,6 +1975,19 @@ ${STRICT_FORMAT_RULES}`;
 
       let pageContent = await fetchContent('/api/chat/stream', pageReqBody, { pageId: page.id, signal });
       pageContent = normalizeMarkdownContent(pageContent);
+
+      // SQL 검증 어노테이션 — mcpInitResult 캐시 기반 (per-page MCP 조회 없음)
+      if (mcpInitResult.db.available) {
+        const _knownTables = new Set(mcpInitResult.db.table_names.map(t => t.toLowerCase()));
+        pageContent = annotateSqlVerification(pageContent, _knownTables, true);
+      } else {
+        pageContent = annotateSqlVerification(pageContent, new Set(), false);
+      }
+
+      // GitHub 링크 유효성 배지 — validated_repos 기반
+      if (mcpInitResult.validated_repos.length > 0) {
+        pageContent = annotateGitHubLinks(pageContent, mcpInitResult.validated_repos);
+      }
 
       // Mermaid 자가수정 레이어
       const mermaidRegex = /```mermaid\n([\s\S]*?)\n```/g;
@@ -1760,7 +2112,7 @@ ${STRICT_FORMAT_RULES}`;
           } else {
             // 최대 재시도 초과 또는 치명 오류 → stub 처리
             failPages++;
-            emitStep(streamId, 'error', 'generation',
+            await emitStep(streamId, 'error', 'generation',
               `❌ "${page.title}" 생성 실패: ${errMsg}`,
               { page_id: page.id, error: errMsg }
             );
@@ -1784,6 +2136,18 @@ ${STRICT_FORMAT_RULES}`;
         `⏸ 생성 중지됨 — ${successPages}개 완료, ${taskQueue.length}개 남음`);
       return;
     }
+
+    if (rateLimitHit) {
+      await emitStep(streamId, 'agent_log', 'generation',
+        `⏸ 레이트 리밋으로 생성 중단 — ${successPages}개 완료, ${taskQueue.length}개 대기`);
+      return;
+    }
+
+    if (taskQueue.length > 0) {
+      throw new Error(`Generation queue stopped with ${taskQueue.length} unprocessed page(s)`);
+    }
+
+    requireGenerationCompleteness(expectedBasePageIds, generatedPages, 'generation');
 
     await emitStep(streamId, 'phase_complete', 'generation',
       `✅ 페이지 생성 완료 — ${successPages}개 성공, ${failPages}개 실패 (${elapsed(t3)}ms)`,
@@ -1861,6 +2225,7 @@ ${STRICT_FORMAT_RULES}`;
       : '';
 
     const synthesisPageIds: string[] = [];
+    let synthesisFailures = 0;
 
     for (const spec of SYNTHESIS_PAGES) {
       const tSyn = Date.now();
@@ -1926,8 +2291,21 @@ ${STRICT_FORMAT_RULES}`;
         );
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        generatedPages[spec.id] = {
+          id: spec.id,
+          title: spec.title,
+          content: `# ${spec.title}\n\n> ⚠️ 생성 실패: ${errMsg}`,
+          filePaths: [],
+          importance: 'high',
+          relatedPages: [],
+          failed: true,
+          error: errMsg,
+        };
+        synthesisPageIds.push(spec.id);
+        synthesisFailures++;
+        failPages++;
         await emitStep(streamId, 'agent_log', 'synthesis',
-          `⚠️ "${spec.title}" 생성 실패, 건너뜀: ${errMsg}`,
+          `⚠️ "${spec.title}" 생성 실패, 명시적 실패 페이지로 기록: ${errMsg}`,
           { page_id: spec.id, error: errMsg }
         );
       }
@@ -1941,12 +2319,27 @@ ${STRICT_FORMAT_RULES}`;
         pages: synthesisPageIds,
       });
       if (!wikiStructure.pages) wikiStructure.pages = [];
-      wikiStructure.pages.push(...synthesisPageIds.map(id => generatedPages[id]));
+      const existingPageIds = new Set(wikiStructure.pages.map((page: any) => page.id));
+      wikiStructure.pages.push(
+        ...synthesisPageIds
+          .filter(id => !existingPageIds.has(id))
+          .map(id => generatedPages[id])
+      );
     }
 
+    const expectedAllPageIds = [
+      ...expectedBasePageIds,
+      ...SYNTHESIS_PAGES.map(spec => spec.id),
+    ];
+    const completeness = requireGenerationCompleteness(
+      expectedAllPageIds,
+      generatedPages,
+      'synthesis',
+    );
+
     await emitStep(streamId, 'phase_complete', 'synthesis',
-      `✅ 종합 인사이트 생성 완료 — ${synthesisPageIds.length}개 페이지 (${elapsed(t45)}ms)`,
-      { page_count: synthesisPageIds.length, elapsed_ms: elapsed(t45) }
+      `✅ 종합 인사이트 생성 종료 — ${synthesisPageIds.length}개 터미널, ${synthesisFailures}개 실패 (${elapsed(t45)}ms)`,
+      { page_count: synthesisPageIds.length, failed: synthesisFailures, elapsed_ms: elapsed(t45) }
     );
 
     // ──────────────────────────────────────────────────────────
@@ -2006,6 +2399,9 @@ ${STRICT_FORMAT_RULES}`;
         total_elapsed_ms: elapsed(pipelineStart),
         pages_generated: successPages,
         pages_failed: failPages,
+        expected_pages: completeness.expected,
+        terminal_pages: completeness.terminal,
+        status: failPages > 0 ? 'partial' : 'succeeded',
       }
     );
 

@@ -16,7 +16,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-const API = "http://localhost:8001";
+import { BACKEND_URL as API } from "@/lib/backend-url";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

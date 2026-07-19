@@ -97,6 +97,28 @@ python3 -m cli.wiki publish ./wiki-out/my-repo \
   --root-title "My Repo Wiki"
 ```
 
+## Desktop App (Electron)
+
+The desktop build bundles the Next.js UI, FastAPI backend, and Go agent into a standalone app. End users do not need `pnpm`, Poetry, Python, or Go installed. Those tools are required only on the machine building the installer.
+
+Run in development mode (no build step):
+
+```bash
+pnpm run desktop
+```
+
+Build a distributable installer:
+
+```bash
+pnpm run desktop:build
+```
+
+Output lands in `dist-electron/`. The built `.dmg` (macOS) or `.exe` (Windows) can be installed and run independently. Runtime databases, caches, and generated artifacts are stored under Electron's per-user application-data directory and are never part of the source tree.
+
+The current desktop product intentionally generates Korean documentation. The initial setup and settings screens therefore do not expose a language selector.
+
+> **Note:** For air-gapped or locked-down machines, Docker Compose is the simpler install path.
+
 ## Configuration
 
 Common environment variables:
@@ -146,6 +168,16 @@ See [docs/architecture.md](docs/architecture.md) and [docs/workflow.md](docs/wor
 This repository includes original LocalWiki code and portions adapted from MIT-licensed third-party projects. Keep `LICENSE` and `NOTICE` with source and binary distributions. User-facing product documentation refers to the static analysis layer as LocalWiki Sonar; detailed third-party attribution lives in `NOTICE` and source file headers.
 
 See [NOTICE](NOTICE) and [docs/open-source.md](docs/open-source.md).
+
+## Repository Hygiene
+
+Only source code, reproducible build scripts, tests, public documentation, and sanitized examples belong in Git. Installers, databases, generated wikis, benchmark output, local indexes, execution traces, and organization-specific configuration are ignored.
+
+Run the same guard used by CI before publishing:
+
+```bash
+pnpm check:repo
+```
 
 ## Security
 

@@ -1,4 +1,4 @@
-// localwiki-agent — CLI launcher for Gemini, Codex, and Claude Code.
+// localwiki-agent — CLI launcher for Antigravity, Gemini, Codex, and Claude Code.
 //
 // Usage:
 //
@@ -71,7 +71,7 @@ func main() {
 // cmdRun handles `localwiki-agent run ...`
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	agentName := fs.String("agent", "gemini", "Agent to use: gemini | codex | claude")
+	agentName := fs.String("agent", "gemini", "Agent to use: antigravity | agy | gemini | codex | claude")
 	prompt := fs.String("prompt", "", "Prompt string (use --prompt-file for long prompts)")
 	promptFile := fs.String("prompt-file", "", "File containing the prompt")
 	cwd := fs.String("cwd", ".", "Working directory (repo path)")
@@ -211,7 +211,7 @@ func sourceOrDefault(source string) string {
 func cmdList() int {
 	reg := runner.NewRegistry("", "", "")
 	available := reg.Available()
-	all := []string{"gemini", "codex", "claude"}
+	all := []string{"antigravity", "codex", "claude", "gemini"}
 
 	fmt.Println("LocalWiki Agent Status:")
 	for _, name := range all {
@@ -266,6 +266,7 @@ Subcommands:
 
 Run usage:
   localwiki-agent run --agent gemini --prompt "Hello" [--cwd /repo] [--model gemini-2.5-pro]
+  localwiki-agent run --agent agy --prompt "..." [--model agy-gemini-3.5-flash-high]
   localwiki-agent run --agent codex  --prompt-file /tmp/p.txt [--timeout 120]
   localwiki-agent run --agent claude --prompt "..." [--model claude-sonnet-4-5]
   localwiki-agent analyze-flow --flow F18 [--catalog flows/catalog.yaml] [--config flows/local-wiki.flows.json] [--agent claude] [--out .]
@@ -274,11 +275,11 @@ Run usage:
 
 func cmdAnalyzeFlow(args []string) int {
 	fs := flag.NewFlagSet("analyze-flow", flag.ExitOnError)
-	flowID      := fs.String("flow", "", "Flow ID (e.g. F18)")
+	flowID := fs.String("flow", "", "Flow ID (e.g. F18)")
 	catalogPath := fs.String("catalog", "flows/catalog.yaml", "Path to catalog.yaml")
-	configPath  := fs.String("config", "flows/local-wiki.flows.json", "Path to MCP instance config")
-	agentName   := fs.String("agent", "claude", "AI agent to use (claude/gemini/codex)")
-	outDir      := fs.String("out", ".", "Output directory")
+	configPath := fs.String("config", "flows/local-wiki.flows.json", "Path to MCP instance config")
+	agentName := fs.String("agent", "claude", "AI agent to use (antigravity/agy/claude/gemini/codex)")
+	outDir := fs.String("out", ".", "Output directory")
 	_ = fs.Parse(args)
 
 	if *flowID == "" {

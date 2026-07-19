@@ -133,8 +133,6 @@ def load_custom_mcps(config: dict) -> list[CustomMCPClient]:
     for key, cfg in (section or {}).items():
         if not isinstance(cfg, dict):
             continue
-        if not cfg.get("enabled", True):
-            continue
         cmd = cfg.get("command", [])
         if not cmd:
             logger.warning("CustomMCP %s: missing 'command', skipping", key)

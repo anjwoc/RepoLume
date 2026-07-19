@@ -11,7 +11,7 @@ type Registry struct {
 	runners map[string]Runner
 }
 
-// NewRegistry returns a Registry pre-populated with Gemini, Codex, and Claude.
+// NewRegistry returns a Registry pre-populated with Antigravity, Gemini, Codex, and Claude.
 // model overrides are applied only when non-empty.
 func NewRegistry(geminiModel, codexModel, claudeModel string) *Registry {
 	r := &Registry{runners: make(map[string]Runner)}

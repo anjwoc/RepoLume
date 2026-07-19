@@ -3,6 +3,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.localwiki-window-drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.localwiki-window-drag button,
+.localwiki-window-drag a,
+.localwiki-window-drag input,
+.localwiki-window-drag select,
+.localwiki-window-drag textarea,
+.localwiki-window-drag [role="button"] {
+  -webkit-app-region: no-drag;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -127,4 +141,44 @@
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.pipeline-inspector-toggle,
+.pipeline-inspector-close {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .pipeline-phase-rail {
+    display: none;
+  }
+
+  .pipeline-inspector-toggle,
+  .pipeline-inspector-close {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pipeline-inspector {
+    position: fixed;
+    z-index: 40;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(320px, 88vw) !important;
+    box-shadow: -18px 0 48px rgba(15, 23, 42, 0.2);
+    transform: translateX(105%);
+    transition: transform 180ms ease;
+  }
+
+  .pipeline-inspector.is-open {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-inspector {
+    transition: none;
+  }
 }

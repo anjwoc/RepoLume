@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS events (
     message  TEXT NOT NULL DEFAULT '',
     data     TEXT NOT NULL DEFAULT '{}',
     ts       TEXT NOT NULL,
-    FOREIGN KEY (job_id) REFERENCES jobs(id)
+    FOREIGN KEY (job_id) REFERENCES jobs(id),
+    UNIQUE(job_id, seq)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -62,3 +63,42 @@ CREATE INDEX IF NOT EXISTS idx_events_type      ON events(type);
 CREATE INDEX IF NOT EXISTS idx_jobs_project     ON jobs(project_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status      ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_job  ON page_checkpoints(job_id);
+
+-- Wiki run registry: one row per (project, model) — language is embedded in project_id
+CREATE TABLE IF NOT EXISTS wiki_runs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id   TEXT    NOT NULL REFERENCES projects(id),
+    model        TEXT    NOT NULL DEFAULT '',
+    slug         TEXT    UNIQUE,
+    generated_at TEXT    NOT NULL,
+    UNIQUE(project_id, model)
+);
+
+-- Page content store (replaces per-run JSON cache files)
+CREATE TABLE IF NOT EXISTS wiki_pages (
+    run_id       INTEGER NOT NULL REFERENCES wiki_runs(id) ON DELETE CASCADE,
+    page_id      TEXT    NOT NULL,
+    title        TEXT    NOT NULL DEFAULT '',
+    content      TEXT    NOT NULL DEFAULT '',
+    generated_at TEXT    NOT NULL,
+    PRIMARY KEY (run_id, page_id)
+);
+
+-- Wiki structure per run
+CREATE TABLE IF NOT EXISTS wiki_structures (
+    run_id         INTEGER PRIMARY KEY REFERENCES wiki_runs(id) ON DELETE CASCADE,
+    structure_json TEXT    NOT NULL,
+    updated_at     TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wiki_runs_project ON wiki_runs(project_id);
+CREATE INDEX IF NOT EXISTS idx_wiki_pages_run    ON wiki_pages(run_id);
+
+-- Per-project MCP config overrides (key = "mcp_config", value = JSON matching mcp-config.yaml schema)
+CREATE TABLE IF NOT EXISTS project_settings (
+    project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    key         TEXT NOT NULL,
+    value       TEXT NOT NULL DEFAULT '{}',
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (project_id, key)
+);

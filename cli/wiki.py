@@ -284,7 +284,17 @@ def cmd_generate(args: argparse.Namespace) -> int:
     # ── 8. Export to disk ──────────────────────────────────────────────────
     from cli.pipeline.file_exporter import FileExporter
 
-    output = args.output or f"./wiki-out/{repo_name}"
+    if args.output:
+        output = args.output
+    else:
+        _wiki_out_root = Path("./wiki-out")
+        _base = repo_name
+        _idx = next(
+            (i for i in range(1, 100)
+             if not (_wiki_out_root / f"{_base}_{i:02d}").exists()),
+            99,
+        )
+        output = str(_wiki_out_root / f"{_base}_{_idx:02d}")
     print(f"\n💾  Exporting wiki to: {output}")
     try:
         exporter = FileExporter(output)

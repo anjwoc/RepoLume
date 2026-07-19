@@ -113,7 +113,7 @@ class TestParseGraphifyOutput:
 # ─── _extract_via_regex ───────────────────────────────────────────────────────
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 class TestRegexExtraction:
@@ -131,6 +131,15 @@ class TestRegexExtraction:
         entities = _run(_extract_via_regex(str(tmp_path), [str(f)], None))
         assert "users" in entities.db_tables
         assert "orders" in entities.db_tables
+
+    def test_extracts_tables_from_sql_migrations_without_db_mcp(self, tmp_path):
+        migration = tmp_path / "migrations" / "001_worktrees.sql"
+        migration.parent.mkdir()
+        migration.write_text("CREATE TABLE worktrees (id TEXT); SELECT id FROM worktrees")
+
+        entities = _run(_extract_via_regex(str(tmp_path), [], None))
+
+        assert "worktrees" in entities.db_tables
 
     def test_extracts_kafka_topics(self, tmp_path):
         f = tmp_path / "events.py"

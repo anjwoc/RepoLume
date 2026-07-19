@@ -1,60 +1,86 @@
 import { test, expect } from '@playwright/test';
 
+const brokenDiagram = 'graph TD\n  A -->';
+const fixedDiagram = 'graph TD\n  A --> B\n  B --> C';
+
+function wikiCache(diagram: string) {
+  return {
+    wiki_structure: {
+      id: 'mock-wiki',
+      title: 'Mock Wiki',
+      description: '',
+      sections: [
+        {
+          id: 'overview',
+          title: 'Overview',
+          pages: ['mock-page'],
+          subsections: [],
+        },
+      ],
+      rootSections: ['overview'],
+      pages: [
+        {
+          id: 'mock-page',
+          title: 'Mock Page',
+          description: '',
+          importance: 'high',
+          relevant_files: [],
+          related_pages: [],
+          parent_section: 'overview',
+        },
+      ],
+    },
+    generated_pages: {
+      'mock-page': {
+        id: 'mock-page',
+        title: 'Mock Page',
+        content: `# Mock Page\n\n\`\`\`mermaid\n${diagram}\n\`\`\`\n`,
+        source_files: [],
+        related_pages: [],
+      },
+    },
+  };
+}
+
 test.describe('Diagram Error Recovery', () => {
-  test('should detect mermaid error, click fix, and process mocked LLM stream', async ({ page }) => {
-    // 1. Mock the Wiki Cache response to inject a faulty Mermaid diagram
+  test('repairs a Mermaid error through the durable task stream', async ({ page }) => {
+    let repaired = false;
+
     await page.route('**/api/wiki_cache*', async (route) => {
-      const url = route.request().url();
-      if (route.request().method() === 'GET' && url.includes('comprehensive=true')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            wiki_structure: {
-              id: 'mock-page',
-              title: 'Mock Page',
-              children: []
-            },
-            generated_pages: {
-              'mock-page': {
-                content: '# Mock Page\\n\\n```mermaid\\ngraph TD\\n  A --> B\\n  INVALID SYNTAX HERE\\n```\\n'
-              }
-            }
-          })
-        });
-      } else {
+      if (route.request().method() !== 'GET') {
         await route.continue();
+        return;
       }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(wikiCache(repaired ? fixedDiagram : brokenDiagram)),
+      });
     });
 
-    // 2. Mock the Chat Stream response to return fixed Mermaid
-    await page.route('**/api/chat/stream', async (route) => {
-      if (route.request().method() === 'POST') {
-        const bodyStr = '```mermaid\\ngraph TD\\n  A --> B\\n  B --> C\\n```';
-        await route.fulfill({
-          status: 200,
-          contentType: 'text/plain',
-          body: bodyStr
-        });
-      } else {
-        await route.continue();
-      }
+    await page.route('**/api/fix_diagram', async (route) => {
+      repaired = true;
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({ job_id: 'mock-fix-job' }),
+      });
     });
 
-    // We can't easily jump to a project without triggering other API calls, 
-    // so we just go to the home page, and forcefully trigger the open wiki
-    await page.goto('/?screen=wiki&owner=local&repo=mock&repo_type=local&language=en&id=mock-page');
+    await page.route('**/api/task-streams/mock-fix-job/stream', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: `event: complete\ndata: ${JSON.stringify({ data: { page_id: 'mock-page' } })}\n\n`,
+      });
+    });
 
-    // Wait for the "다이어그램 파싱 에러" or similar text
-    // The error text is usually "다이어그램 렌더링 에러" or "다이어그램 고치기"
-    const fixButton = page.locator('button:has-text("다이어그램 고치기")').first();
-    await expect(fixButton).toBeVisible({ timeout: 10000 });
+    await page.goto('/wiki/local/mock?repo_type=local&language=en&page=mock-page');
 
-    // Click the fix button
+    const fixButton = page.getByRole('button', { name: '다이어그램 고치기' }).first();
+    await expect(fixButton).toBeVisible({ timeout: 15_000 });
     await fixButton.click();
-
-    // Verify that the error overlay disappears and diagram is fixed.
-    // The "다이어그램 복구" button should disappear after successful fix.
-    await expect(fixButton).not.toBeVisible({ timeout: 10000 });
+    await expect(fixButton).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('다이어그램 렌더링 에러')).not.toBeVisible();
   });
 });
