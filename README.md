@@ -15,7 +15,15 @@ It is designed for teams that want high-quality code onboarding material without
 - MCP context hooks for GitHub, Jira/Confluence, and databases.
 - Source citation blocks appended to generated pages.
 
-## Quick Start With Docker Compose
+## Getting Started
+
+Choose the path that matches how you plan to use LocalWiki:
+
+- **Installed desktop app:** download the `.dmg` or `.exe` attached to a GitHub Release. No Node.js, Python, Poetry, or Go installation is required.
+- **Docker Compose:** the shortest reproducible path for self-hosting.
+- **Source checkout:** intended for contributors and custom builds.
+
+### Docker Compose
 
 Create an environment file:
 
@@ -42,7 +50,17 @@ Generated repositories, embeddings, and logs are persisted through Docker volume
 - `~/.adalflow` for repository and embedding cache.
 - `./api/logs` for application logs.
 
-## Local Development
+Confirm the backend is ready:
+
+```bash
+curl http://localhost:8001/health
+```
+
+Then open `http://localhost:3000`, select a repository folder, approve the requested folder permission, choose a model, and start analysis. LocalWiki writes runtime databases, logs, and generated content outside the tracked source files.
+
+### Local Development
+
+Source builds require Node.js 20+, pnpm 10+, Python 3.11–3.12 with Poetry, and Go 1.24.4+.
 
 Install dependencies for both frontend and backend:
 
@@ -107,17 +125,19 @@ Run in development mode (no build step):
 pnpm run desktop
 ```
 
-Build a distributable installer:
+Build a clean distributable release:
 
 ```bash
-pnpm run desktop:build
+npm run release:desktop
 ```
 
-Output lands in `dist-electron/`. The built `.dmg` (macOS) or `.exe` (Windows) can be installed and run independently. Runtime databases, caches, and generated artifacts are stored under Electron's per-user application-data directory and are never part of the source tree.
+Every run removes the previous `dist/` and legacy `dist-electron*` outputs, then places only the current build in `dist/`. The built `.dmg` (macOS) or `.exe` (Windows) can be installed and run independently. Runtime databases, caches, and generated artifacts are stored under Electron's per-user application-data directory and are never part of the source tree.
 
 The current desktop product intentionally generates Korean documentation. The initial setup and settings screens therefore do not expose a language selector.
 
 > **Note:** For air-gapped or locked-down machines, Docker Compose is the simpler install path.
+
+See [docs/release.md](docs/release.md) for the release contract, publishing checklist, and rollback policy.
 
 ## Configuration
 

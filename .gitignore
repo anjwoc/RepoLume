@@ -13,6 +13,10 @@
 /.next/
 /out/
 /coverage/
+/.turbo/
+/.cache/
+/.eslintcache
+/storybook-static/
 *.tsbuildinfo
 next-env.d.ts
 npm-debug.log*
@@ -32,6 +36,8 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+/htmlcov/
 develop-eggs/
 downloads/
 eggs/
@@ -50,6 +56,8 @@ eggs/
 /build/
 /dist/
 /dist-electron*/
+/release/
+/artifacts/
 /bin/
 /backend/
 /localwiki-agent
@@ -70,6 +78,17 @@ eggs/
 /playwright-report/
 /screenshots/
 /public/showcase-data/
+/logs/
+/tmp/
+/temp/
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
 
 # Secrets and local environment
 .env*
@@ -78,6 +97,12 @@ eggs/
 /secrets/
 /certs/
 *.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
 
 # Local tools, indexes, and scratch files
 /.codegraph/
@@ -86,7 +111,12 @@ eggs/
 /.vscode/
 /.idea/
 /.claude/
+/.history/
 /.vercel/
+/private/
+/internal/
+/drafts/
+/notes/
 /scratch/
 scratch_*.md
 /api/scratch_*.md
@@ -101,5 +131,20 @@ scratch_*.md
 /scripts/test_provider_comparison.py
 /scripts/sanitize_affiliate.py
 
+# Release installers belong on GitHub Releases, never in source control
+/*.dmg
+/*.pkg
+/*.exe
+/*.msi
+/*.AppImage
+/*.deb
+/*.rpm
+/*.blockmap
+/latest*.yml
+/builder-*.yml
+/release*.zip
+
 # OS metadata
 .DS_Store
+Thumbs.db
+Desktop.ini

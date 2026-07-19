@@ -35,22 +35,26 @@
     "benchmark:auto": "poetry -C api run python ../scripts/benchmark.py --auto",
     "test": "pnpm test:e2e",
     "test:unit": "vitest run",
+    "test:desktop": "node --test electron/*.test.js scripts/*.test.mjs",
     "check:repo": "node scripts/check-repository-hygiene.mjs",
     "check:package": "node scripts/check-package-contents.mjs",
+    "check:release": "node scripts/check-desktop-release.mjs",
     "test:e2e": "bash scripts/test-e2e.sh --fast",
     "test:e2e:full": "bash scripts/test-e2e.sh --full",
     "export-showcase": "node scripts/export-showcase.js",
     "deploy:vercel": "NEXT_PUBLIC_SHOWCASE_MODE=true next build",
     "desktop": "NODE_ENV=development electron .",
+    "desktop:clean": "node scripts/clean-desktop-output.mjs",
     "desktop:prepare": "node scripts/build-desktop.mjs",
-    "desktop:dir": "pnpm desktop:prepare && electron-builder --dir",
-    "desktop:build": "pnpm desktop:prepare && node scripts/package-desktop.mjs"
+    "desktop:dir": "pnpm desktop:prepare && pnpm desktop:clean && electron-builder --dir",
+    "desktop:build": "pnpm release:desktop",
+    "release:desktop": "pnpm check:release && pnpm check:repo && pnpm test:desktop && pnpm desktop:prepare && node scripts/package-desktop.mjs"
   },
   "build": {
     "appId": "com.localwiki.desktop",
     "productName": "LocalWiki",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist"
     },
     "asar": true,
     "files": [
