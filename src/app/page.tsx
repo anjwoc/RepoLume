@@ -7,6 +7,7 @@ import { HomeScreen } from "@/components/home-screen";
 import { SetupWizard, AppSettings, DEFAULT_APP_SETTINGS, PERMISSION_GUIDE_VERSION } from "@/components/setup-wizard";
 import { probeFolderAccess } from "@/lib/desktop-folder-picker";
 import { migrateLegacyBrowserStorage } from "@/lib/brand-migration";
+import { LandingPage } from "@/components/landing/landing-page";
 
 const APP_SETTINGS_KEY = "repolume_app_settings";
 const DARK_MODE_KEY = "repolume_is_dark";
@@ -32,7 +33,7 @@ function sanitizeRepoName(path: string) {
     .replace(/^[_.\-]+|[_.\-]+$/g, "") || "project";
 }
 
-export default function Page() {
+function AppPage() {
   const router = useRouter();
   const [showSetup, setShowSetup] = useState(false);
   const [isDark, setIsDark] = useState(false);
@@ -193,4 +194,12 @@ export default function Page() {
       </AnimatePresence>
     </div>
   );
+}
+
+export default function Page() {
+  if (process.env.NEXT_PUBLIC_LANDING_MODE === "true") {
+    return <LandingPage />;
+  }
+
+  return <AppPage />;
 }
