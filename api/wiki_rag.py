@@ -31,9 +31,9 @@ WIKI_EMBEDDER_TYPE = "none"
 # content-hash -> transformed documents (with .vector). Survives within the server process.
 _doc_cache: dict = {}
 
-# Disk cache for embedded wiki docs (survives server restarts). repo_root/.localwiki-cache/wiki_rag/
+# Disk cache for embedded wiki docs (survives server restarts). repo_root/.repolume-cache/wiki_rag/
 _CACHE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".localwiki-cache", "wiki_rag"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".repolume-cache", "wiki_rag"
 )
 
 

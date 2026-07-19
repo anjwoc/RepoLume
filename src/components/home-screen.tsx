@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { FolderOpen, ChevronRight, Clock, Folder, Moon, Sun, Settings, ClipboardList, Trash2, FlaskConical, Loader2, ShieldCheck, CircleAlert, Bot, Plus, Send, Activity, BookOpen, ListTree, Shield, MessageSquare, CheckCircle2 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { FolderOpen, ChevronRight, Clock, Folder, Moon, Sun, Settings, ClipboardList, Trash2, FlaskConical, Loader2, ShieldCheck, CircleAlert, Bot, Plus, Send, Activity, BookOpen, ListTree, Shield, CheckCircle2 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
 import { BACKEND_URL } from "@/lib/backend-url";
 import { openPrivacySettings, probeFolderAccess, selectProjectFolder } from "@/lib/desktop-folder-picker";
+import { RepoLumeMark } from "@/components/repolume-mark";
 
 interface ApiProcessedProject {
   id: string;
@@ -46,6 +47,7 @@ interface HomeScreenProps {
 
 export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki, onResumeProject, onOpenSettings, onOpenAdmin, appSettings }: HomeScreenProps) {
   const t = getTheme(isDark);
+  const prefersReducedMotion = useReducedMotion();
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
   const [testMode, setTestMode] = useState<boolean>(false);
@@ -276,7 +278,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         .filter(([, page]) => ((page as any)?.content || '').length >= 50)
         .map(([id]) => id);
 
-      sessionStorage.setItem('localwiki_resume_pending', JSON.stringify({
+      sessionStorage.setItem('repolume_resume_pending', JSON.stringify({
         streamId: '',
         completedPageIds,
         wikiStructure: cacheData.wiki_structure || {},
@@ -338,10 +340,10 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
 
   const renderLegacyHome = () => (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={prefersReducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.35 }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, y: -16 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
       style={{
         width: "100%",
         minHeight: "100dvh",
@@ -503,33 +505,19 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
 
       {/* Logo + headline */}
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={prefersReducedMotion
+          ? { duration: 0 }
+          : { delay: 0.08, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 44 }}
       >
-        <div
-          style={{
-            width: 80,
-            height: 80,
-            background: "linear-gradient(145deg, #4096F7, #1A5FD4)",
-            borderRadius: 24,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 20,
-            boxShadow: "0 8px 32px rgba(49,130,246,0.28)",
-          }}
-        >
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <path d="M10 13h20M10 20h14M10 27h20" stroke="white" strokeWidth="2.8" strokeLinecap="round" />
-            <circle cx="30" cy="27" r="5" fill="white" fillOpacity="0.92" />
-            <path d="M28.5 27l1.3 1.3 2.4-2.6" stroke="#3182F6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        <div style={{ marginBottom: 20, filter: "drop-shadow(0 10px 18px rgba(79,70,229,.24))" }}>
+          <RepoLumeMark size={80} />
         </div>
 
         <h1 style={{ color: t.text, fontSize: 32, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.5px", margin: "0 0 8px" }}>
-          LocalWiki
+          RepoLume
         </h1>
         <p style={{ color: t.textSecondary, fontSize: 16, margin: 0 }}>
           프로젝트 폴더를 선택하면 위키를 자동으로 생성해 드려요
@@ -539,9 +527,11 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
       {/* Drop zone */}
       {process.env.NEXT_PUBLIC_SHOWCASE_MODE !== 'true' && (
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.16, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={prefersReducedMotion
+          ? { duration: 0 }
+          : { delay: 0.16, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(e) => {
@@ -774,9 +764,9 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
 
       {/* Recent projects */}
       <motion.div
-        initial={{ opacity: 0 }}
+        initial={prefersReducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.28, duration: 0.5 }}
+        transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.28, duration: 0.5 }}
         style={{ width: 480, maxWidth: "calc(100vw - 48px)" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, paddingLeft: 4 }}>
@@ -989,17 +979,17 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
       } as React.CSSProperties}
     >
       <style>{`
-        .localwiki-home-body { display:grid; grid-template-columns:240px minmax(0,1fr) 280px; min-height:0; }
-        .localwiki-home-sidebar { min-height:0; overflow:auto; }
-        .localwiki-home-main { min-width:0; overflow:auto; }
-        @media (max-width: 1080px) { .localwiki-home-body { grid-template-columns:220px minmax(0,1fr); } .localwiki-home-inspector { display:none !important; } }
-        @media (max-width: 760px) { .localwiki-home-body { display:block; overflow:auto; } .localwiki-home-sidebar { display:none !important; } .localwiki-home-main { overflow:visible; } }
+        .repolume-home-body { display:grid; grid-template-columns:240px minmax(0,1fr) 280px; min-height:0; }
+        .repolume-home-sidebar { min-height:0; overflow:auto; }
+        .repolume-home-main { min-width:0; overflow:auto; }
+        @media (max-width: 1080px) { .repolume-home-body { grid-template-columns:220px minmax(0,1fr); } .repolume-home-inspector { display:none !important; } }
+        @media (max-width: 760px) { .repolume-home-body { display:block; overflow:auto; } .repolume-home-sidebar { display:none !important; } .repolume-home-main { overflow:visible; } }
       `}</style>
 
       <header style={{ height: 56, borderBottom: `1px solid ${t.divider}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px 0 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, background: t.primary, display: "flex", alignItems: "center", justifyContent: "center" }}><BookOpen size={16} color="#fff" /></div>
-          <div><div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px" }}>LocalWiki</div><div style={{ fontSize: 10, color: t.textMuted }}>AI documentation workspace</div></div>
+          <RepoLumeMark size={30} />
+          <div><div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px" }}>RepoLume</div><div style={{ fontSize: 10, color: t.textMuted }}>Local-first wiki generator</div></div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           {appSettings?.setupComplete && <button onClick={onOpenSettings} style={{ height: 32, padding: "0 11px", borderRadius: 9, border: `1px solid ${t.divider}`, background: t.surface, color: t.textSecondary, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>{appSettings.model} · {appSettings.language.toUpperCase()}</button>}
@@ -1009,8 +999,8 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         </div>
       </header>
 
-      <div className="localwiki-home-body">
-        <aside className="localwiki-home-sidebar" style={{ borderRight: `1px solid ${t.divider}`, padding: 12, display: "flex", flexDirection: "column" }}>
+      <div className="repolume-home-body">
+        <aside className="repolume-home-sidebar" style={{ borderRight: `1px solid ${t.divider}`, padding: 12, display: "flex", flexDirection: "column" }}>
           <button onClick={() => { setProjectPath(""); setFolderAccess(null); setCacheCheck(null); }} style={{ height: 38, borderRadius: 10, background: t.primary, color: "#fff", border: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: 12, fontWeight: 650, cursor: "pointer" }}><Plus size={15} /> 새 분석</button>
           <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "18px 8px 8px", color: t.textMuted, fontSize: 10, fontWeight: 700, letterSpacing: "0.6px", textTransform: "uppercase" }}><Clock size={12} /> 작업 기록</div>
           <div style={{ display: "grid", gap: 3 }}>
@@ -1034,9 +1024,9 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           <div style={{ marginTop: "auto", paddingTop: 16 }}><a href="/benchmark" style={{ height: 34, borderRadius: 8, color: t.textSecondary, display: "flex", alignItems: "center", gap: 8, padding: "0 9px", textDecoration: "none", fontSize: 11 }}><FlaskConical size={14} /> 품질 벤치마크</a></div>
         </aside>
 
-        <main className="localwiki-home-main" style={{ background: isDark ? t.bg : "#fbfcfe" }}>
+        <main className="repolume-home-main" style={{ background: isDark ? t.bg : "#fbfcfe" }}>
           <div style={{ width: "min(820px, calc(100% - 36px))", margin: "0 auto", padding: "54px 0 80px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 24 }}><MessageSquare size={16} color={t.primary} /><span style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase" }}>New conversation</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 24 }}><BookOpen size={16} color={t.primary} /><span style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, letterSpacing: ".5px" }}>새 위키 만들기</span></div>
             <div role="log" aria-label="분석 대화" style={{ display: "grid", gap: 18 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: t.primary, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Bot size={17} color="#fff" /></div>
@@ -1054,7 +1044,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
                 </div>
               </section>
 
-              {folderAccess && <div style={{ marginLeft: 44, display: "flex", gap: 12, padding: "13px 15px", border: `1px solid ${folderAccess.status === "denied" ? "rgba(220,38,38,.28)" : t.divider}`, borderRadius: 13, background: folderAccess.status === "denied" ? "rgba(220,38,38,.05)" : t.surface }}><div style={{ width: 28, height: 28, borderRadius: 9, background: folderAccess.status === "denied" ? "rgba(220,38,38,.1)" : t.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{folderAccess.status === "checking" ? <Loader2 size={14} className="animate-spin" color={t.primary} /> : folderAccess.status === "ready" ? <ShieldCheck size={14} color={t.primary} /> : <CircleAlert size={14} color="#dc2626" />}</div><div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 650 }}>{folderAccess.status === "checking" ? "macOS 권한 창에서 허용해 주세요" : folderAccess.status === "ready" ? "폴더 접근 준비 완료" : "폴더 접근이 필요합니다"}</div><div style={{ marginTop: 3, color: t.textMuted, fontSize: 11, lineHeight: 1.5 }}>{folderAccess.status === "ready" ? `${folderAccess.name} · ${folderAccess.summary || "전체 트리 확인 완료"}` : folderAccess.status === "denied" ? folderAccess.error || "macOS 설정에서 LocalWiki의 파일 접근을 확인해 주세요." : "하위 폴더와 코드 파일을 실제 분석 프로세스로 확인하고 있습니다."}</div></div>{folderAccess.status === "denied" && <button onClick={() => void openPrivacySettings()} style={{ alignSelf: "center", border: `1px solid ${t.divider}`, borderRadius: 8, background: t.surface, color: t.textSecondary, padding: "6px 9px", fontSize: 10, cursor: "pointer" }}>시스템 설정 열기</button>}</div>}
+              {folderAccess && <div style={{ marginLeft: 44, display: "flex", gap: 12, padding: "13px 15px", border: `1px solid ${folderAccess.status === "denied" ? "rgba(220,38,38,.28)" : t.divider}`, borderRadius: 13, background: folderAccess.status === "denied" ? "rgba(220,38,38,.05)" : t.surface }}><div style={{ width: 28, height: 28, borderRadius: 9, background: folderAccess.status === "denied" ? "rgba(220,38,38,.1)" : t.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{folderAccess.status === "checking" ? <Loader2 size={14} className="animate-spin" color={t.primary} /> : folderAccess.status === "ready" ? <ShieldCheck size={14} color={t.primary} /> : <CircleAlert size={14} color="#dc2626" />}</div><div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 650 }}>{folderAccess.status === "checking" ? "macOS 권한 창에서 허용해 주세요" : folderAccess.status === "ready" ? "폴더 접근 준비 완료" : "폴더 접근이 필요합니다"}</div><div style={{ marginTop: 3, color: t.textMuted, fontSize: 11, lineHeight: 1.5 }}>{folderAccess.status === "ready" ? `${folderAccess.name} · ${folderAccess.summary || "전체 트리 확인 완료"}` : folderAccess.status === "denied" ? folderAccess.error || "macOS 설정에서 RepoLume의 파일 접근을 확인해 주세요." : "하위 폴더와 코드 파일을 실제 분석 프로세스로 확인하고 있습니다."}</div></div>{folderAccess.status === "denied" && <button onClick={() => void openPrivacySettings()} style={{ alignSelf: "center", border: `1px solid ${t.divider}`, borderRadius: 8, background: t.surface, color: t.textSecondary, padding: "6px 9px", fontSize: 10, cursor: "pointer" }}>시스템 설정 열기</button>}</div>}
 
               {cacheCheck?.status === "done" && cacheCheck.exists && <div style={{ marginLeft: 44, padding: 15, border: `1px solid ${cacheCheck.valid ? "rgba(22,163,74,.28)" : "rgba(217,119,6,.28)"}`, borderRadius: 13, background: cacheCheck.valid ? "rgba(22,163,74,.05)" : "rgba(217,119,6,.05)" }}><div style={{ fontSize: 12, fontWeight: 650, marginBottom: 10 }}>{cacheCheck.valid ? `완료된 위키 ${cacheCheck.page_count}페이지를 찾았습니다.` : `미완성 위키 ${cacheCheck.page_count}/${cacheCheck.total_pages}페이지를 찾았습니다.`}</div><div style={{ display: "flex", gap: 7 }}>{cacheCheck.valid ? <><button onClick={handleOpenExistingWiki} style={{ border: 0, borderRadius: 8, padding: "7px 10px", background: "rgba(22,163,74,.14)", color: "#16a34a", fontSize: 11, fontWeight: 650, cursor: "pointer" }}>기존 위키 열기</button><button onClick={handleGenerateNew} style={{ border: `1px solid ${t.divider}`, borderRadius: 8, padding: "7px 10px", background: t.surface, color: t.textSecondary, fontSize: 11, cursor: "pointer" }}>새로 생성</button></> : <><button onClick={handleResumeFromCache} style={{ border: 0, borderRadius: 8, padding: "7px 10px", background: "rgba(217,119,6,.14)", color: "#d97706", fontSize: 11, fontWeight: 650, cursor: "pointer" }}>이어서 생성</button><button onClick={handleGenerateNew} style={{ border: `1px solid ${t.divider}`, borderRadius: 8, padding: "7px 10px", background: t.surface, color: t.textSecondary, fontSize: 11, cursor: "pointer" }}>처음부터</button></>}<button onClick={() => { setCacheCheck(null); setPendingPaths(null); }} style={{ border: 0, background: "transparent", color: t.textMuted, fontSize: 11, cursor: "pointer" }}>취소</button></div></div>}
 
@@ -1064,10 +1054,10 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
           </div>
         </main>
 
-        <aside className="localwiki-home-inspector" style={{ borderLeft: `1px solid ${t.divider}`, padding: 16, overflowY: "auto", display: "flex", flexDirection: "column", gap: 18 }}>
+        <aside className="repolume-home-inspector" style={{ borderLeft: `1px solid ${t.divider}`, padding: 16, overflowY: "auto", display: "flex", flexDirection: "column", gap: 18 }}>
           <section><div style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", marginBottom: 10 }}>준비 상태</div><div style={{ display: "grid", gap: 8 }}>{[[appSettings?.setupComplete, "AI 모델 설정"], [permissionReady, "전체 트리 파일 권한"], [Boolean(projectPath.trim()), "분석 대상 선택"]].map(([ready, label]) => <div key={String(label)} style={{ display: "flex", alignItems: "center", gap: 8, color: ready ? t.text : t.textMuted, fontSize: 11 }}><CheckCircle2 size={14} color={ready ? "#16a34a" : t.textMuted} /><span>{String(label)}</span></div>)}</div></section>
-          <section style={{ borderTop: `1px solid ${t.divider}`, paddingTop: 16 }}><div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", marginBottom: 11 }}><ListTree size={13} /> 생성 계획</div><div style={{ display: "grid", gap: 9 }}>{["코드 및 저장소 구조 분석", "목차 제안 후 사용자 승인", "위키·다이어그램·API 문서 생성", "비즈니스 흐름과 테스트 시나리오 준비"].map((label, index) => <div key={label} style={{ display: "flex", gap: 9, fontSize: 11, lineHeight: 1.45, color: t.textSecondary }}><span style={{ width: 20, height: 20, borderRadius: 7, background: t.surface, color: t.textMuted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>{index + 1}</span>{label}</div>)}</div></section>
-          <section style={{ borderTop: `1px solid ${t.divider}`, paddingTop: 16 }}><div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", marginBottom: 10 }}><Shield size={13} /> macOS 권한</div><p style={{ margin: 0, color: t.textMuted, fontSize: 10, lineHeight: 1.6 }}>LocalWiki는 시스템 권한을 자동 승인하지 않습니다. 표준 폴더 선택창에서 사용자가 선택한 위치만 분석하며 실행 직전 읽기 가능 여부를 다시 확인합니다.</p></section>
+          <section style={{ borderTop: `1px solid ${t.divider}`, paddingTop: 16 }}><div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", marginBottom: 11 }}><ListTree size={13} /> 생성 계획</div><div style={{ display: "grid", gap: 9 }}>{["코드 및 저장소 구조 분석", "목차 제안 후 사용자 승인", "위키·다이어그램·API 문서 생성", "생성 결과 검토 및 내보내기"].map((label, index) => <div key={label} style={{ display: "flex", gap: 9, fontSize: 11, lineHeight: 1.45, color: t.textSecondary }}><span style={{ width: 20, height: 20, borderRadius: 7, background: t.surface, color: t.textMuted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>{index + 1}</span>{label}</div>)}</div></section>
+          <section style={{ borderTop: `1px solid ${t.divider}`, paddingTop: 16 }}><div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: ".6px", textTransform: "uppercase", marginBottom: 10 }}><Shield size={13} /> macOS 권한</div><p style={{ margin: 0, color: t.textMuted, fontSize: 10, lineHeight: 1.6 }}>RepoLume는 시스템 권한을 자동 승인하지 않습니다. 표준 폴더 선택창에서 사용자가 선택한 위치만 분석하며 실행 직전 읽기 가능 여부를 다시 확인합니다.</p></section>
         </aside>
       </div>
     </div>

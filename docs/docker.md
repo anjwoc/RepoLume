@@ -1,6 +1,6 @@
 # Docker
 
-LocalWiki ships with Compose files for standard API-key usage and LiteLLM-based local/provider routing.
+RepoLume ships with Compose files for standard API-key usage and LiteLLM-based local/provider routing.
 
 ## Standard Compose
 
@@ -11,7 +11,7 @@ docker compose up --build
 
 Services:
 
-- `localwiki`: FastAPI backend and Next.js frontend in one container.
+- `repolume`: FastAPI backend and Next.js frontend in one container.
 
 Ports:
 
@@ -34,7 +34,7 @@ Services:
 
 - `db`: Postgres for LiteLLM.
 - `litellm`: OpenAI-compatible model gateway.
-- `localwiki`: LocalWiki configured to use the LiteLLM gateway.
+- `repolume`: RepoLume configured to use the LiteLLM gateway.
 
 The default `docker/litellm-config.yml` points to host Ollama:
 

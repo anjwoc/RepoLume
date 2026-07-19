@@ -173,8 +173,8 @@ async def openrouter_generate(model: str, prompt: str, api_key: str) -> tuple[st
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://localwiki.dev",
-        "X-Title": "LocalWiki Benchmark",
+        "HTTP-Referer": "https://repolume.dev",
+        "X-Title": "RepoLume Benchmark",
     }
     body = {
         "model": model,
@@ -360,7 +360,7 @@ def print_summary(results: list[dict], out_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="LocalWiki benchmark — compare provider quality")
+    parser = argparse.ArgumentParser(description="RepoLume benchmark — compare provider quality")
     parser.add_argument("--repo", default=str(Path.home() / "lab/vscode"), help="Target repo path")
     parser.add_argument("--module", default=None, help="Source file to document (auto-detect if omitted)")
     parser.add_argument("--openrouter-model", default=DEFAULT_OPENROUTER_MODEL,
@@ -374,7 +374,7 @@ def main() -> None:
         print(f"❌ Repo not found: {repo}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"\n🔬 LocalWiki Benchmark")
+    print(f"\n🔬 RepoLume Benchmark")
     print(f"   Repo: {repo}")
 
     # Module selection

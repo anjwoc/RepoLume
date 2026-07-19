@@ -19,9 +19,10 @@ import type { TestGenProgress } from "@/lib/test-scenario-types";
 import type { DiagramEdgeData } from "@/lib/diagram-edge-types";
 import { manifestToViewerScenarios } from "@/lib/scenario-manifest";
 import type { GitRoot } from "@/lib/source-link-resolver";
+import { RepoLumeMark } from "@/components/repolume-mark";
 
 
-const APP_SETTINGS_KEY = "localwiki_app_settings";
+const APP_SETTINGS_KEY = "repolume_app_settings";
 
 interface ProjectData {
   owner: string;
@@ -325,10 +326,10 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [isResyncingLinks, setIsResyncingLinks] = useState(false);
   const [resyncResult, setResyncResult] = useState<{ links_fixed: number } | null>(null);
   // Per-project GitHub URL override (persisted in localStorage, editable by user).
-  const githubUrlStorageKey = projectData ? `localwiki_github_url_${projectData.owner}_${projectData.repo}` : null;
+  const githubUrlStorageKey = projectData ? `repolume_github_url_${projectData.owner}_${projectData.repo}` : null;
   const [customGithubUrl, setCustomGithubUrl] = useState<string>(() => {
     if (!projectData) return '';
-    try { return localStorage.getItem(`localwiki_github_url_${projectData.owner}_${projectData.repo}`) || ''; } catch { return ''; }
+    try { return localStorage.getItem(`repolume_github_url_${projectData.owner}_${projectData.repo}`) || ''; } catch { return ''; }
   });
   // Auto-detected URL (from git remote / cached JSON) — not user-editable, used as fallback
   const [autoDetectedGithubUrl, setAutoDetectedGithubUrl] = useState<string>('');
@@ -1731,7 +1732,7 @@ ${chartCode}
       }}
     >
       {/* ── Top header ── */}
-      <div className="localwiki-window-drag" style={{
+      <div className="repolume-window-drag" style={{
         height: 52,
         display: "flex",
         alignItems: "center",
@@ -1749,12 +1750,8 @@ ${chartCode}
             onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <div style={{ width: 28, height: 28, background: "linear-gradient(145deg, #4096F7, #1A5FD4)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 40 40" fill="none">
-                <path d="M10 13h20M10 20h14M10 27h20" stroke="white" strokeWidth="3.2" strokeLinecap="round" />
-              </svg>
-            </div>
-            LocalWiki
+            <RepoLumeMark size={28} />
+            RepoLume
           </button>
 
           <ChevronRight size={13} color={t.textMuted} />

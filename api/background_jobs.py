@@ -16,7 +16,7 @@ class BackgroundJobRegistry:
             if existing and not existing.done():
                 coroutine.close()
                 raise ValueError(f"Background job already running: {job_id}")
-            task = asyncio.create_task(coroutine, name=f"localwiki-job-{job_id}")
+            task = asyncio.create_task(coroutine, name=f"repolume-job-{job_id}")
             self._tasks[job_id] = task
             task.add_done_callback(
                 lambda completed: asyncio.create_task(self._discard(job_id, completed))

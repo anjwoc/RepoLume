@@ -1,5 +1,5 @@
 """
-Claude (Anthropic) LLM provider adapter for LocalWiki CLI.
+Claude (Anthropic) LLM provider adapter for RepoLume CLI.
 Uses anthropic SDK directly.
 """
 from __future__ import annotations

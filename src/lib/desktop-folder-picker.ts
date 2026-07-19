@@ -22,7 +22,7 @@ type Runtime = 'electron' | 'browser';
 
 function getDesktopApi(): DesktopFolderApi | null {
   if (typeof window === 'undefined') return null;
-  return (window as Window & { localwikiDesktop?: DesktopFolderApi }).localwikiDesktop ?? null;
+  return (window as Window & { repolumeDesktop?: DesktopFolderApi }).repolumeDesktop ?? null;
 }
 
 function getRuntime(): Runtime {
@@ -38,7 +38,7 @@ export async function selectProjectFolder(options: {
   const desktop = options.desktop === undefined ? getDesktopApi() : options.desktop;
   if (desktop) return desktop.selectFolder();
   if ((options.runtime ?? getRuntime()) === 'electron') {
-    throw new Error('데스크톱 폴더 선택 기능을 불러오지 못했습니다. LocalWiki를 완전히 종료한 뒤 다시 실행하거나 최신 버전으로 업데이트해 주세요.');
+    throw new Error('데스크톱 폴더 선택 기능을 불러오지 못했습니다. RepoLume를 완전히 종료한 뒤 다시 실행하거나 최신 버전으로 업데이트해 주세요.');
   }
 
   const response = await (options.fetcher ?? fetch)('/api/fs/select_folder', { cache: 'no-store' });

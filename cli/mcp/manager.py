@@ -1,7 +1,7 @@
 """
 MCP Manager — orchestrates all MCP clients and assembles context for each wiki page.
 
-Reads configuration from ~/.localwiki/mcp-config.yaml (or path override).
+Reads configuration from ~/.repolume/mcp-config.yaml (or path override).
 Runs all enabled MCP clients in parallel for efficiency.
 """
 from __future__ import annotations
@@ -17,12 +17,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_CONFIG = Path.home() / ".localwiki" / "mcp-config.yaml"
+_DEFAULT_CONFIG = Path.home() / ".repolume" / "mcp-config.yaml"
+_LEGACY_CONFIG = Path.home() / ".localwiki" / "mcp-config.yaml"
 
 
 def load_config(config_path: str | Path | None = None) -> dict:
     """Load mcp-config.yaml, returning an empty dict if not found."""
-    path = Path(config_path) if config_path else _DEFAULT_CONFIG
+    path = Path(config_path) if config_path else (
+        _DEFAULT_CONFIG if _DEFAULT_CONFIG.is_file() or not _LEGACY_CONFIG.is_file()
+        else _LEGACY_CONFIG
+    )
     if not path.is_file():
         logger.info(f"MCP config not found at {path} — all MCP sources disabled")
         return {}

@@ -60,8 +60,8 @@ eggs/
 /artifacts/
 /bin/
 /backend/
-/localwiki-agent
-/agent/localwiki-agent
+/repolume-agent
+/agent/repolume-agent
 
 # Runtime data and generated content
 *.db
@@ -71,6 +71,7 @@ eggs/
 /api/logs/
 /wiki-out/
 /.localwiki-cache/
+/.repolume-cache/
 /api/graphify-out/
 /graphify-out/
 /benchmark-out/
@@ -123,6 +124,7 @@ scratch_*.md
 /docs/superpowers/
 /docs/plans/
 /docs/business-flow-prompts/
+/flows/repolume.flows.json
 /flows/local-wiki.flows.json
 /flows/*.steps.json
 /pack-list.txt

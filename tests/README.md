@@ -1,6 +1,6 @@
-# LocalWiki Tests
+# RepoLume Tests
 
-This directory contains all tests for the LocalWiki project, organized by type and scope.
+This directory contains all tests for the RepoLume project, organized by type and scope.
 
 ## Directory Structure
 
@@ -56,7 +56,7 @@ python tests/api/test_api.py
 ### Environment Variables
 - `GOOGLE_API_KEY`: Required for Google AI embedder tests
 - `OPENAI_API_KEY`: Required for some integration tests
-- `LOCALWIKI_EMBEDDER_TYPE`: Set to 'google' for Google embedder tests
+- `REPOLUME_EMBEDDER_TYPE`: Set to 'google' for Google embedder tests
 
 ### Dependencies
 All test dependencies are included in the main project requirements:
@@ -114,7 +114,7 @@ Make sure you have a `.env` file in the project root with the required API keys:
 ```
 GOOGLE_API_KEY=your_google_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
-LOCALWIKI_EMBEDDER_TYPE=google
+REPOLUME_EMBEDDER_TYPE=google
 ```
 
 ### Server Dependencies

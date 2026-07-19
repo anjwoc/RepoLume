@@ -1,5 +1,5 @@
 services:
-  localwiki:
+  repolume:
     build:
       context: .
       dockerfile: Dockerfile

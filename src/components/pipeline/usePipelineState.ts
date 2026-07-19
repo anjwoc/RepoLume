@@ -20,7 +20,7 @@ type ApprovalDecision =
   | { action: 'regenerate'; feedback: string }
   | { action: 'cancel' };
 
-const ADMIN_LOGS_KEY = "localwiki_admin_logs";
+const ADMIN_LOGS_KEY = "repolume_admin_logs";
 
 function maskPrompt(text: string): string {
   const PATTERNS = [
@@ -274,9 +274,9 @@ export function usePipelineState({
         if (!isCancelled) {
           // ── Resume 브릿지: sessionStorage에 resume 데이터가 있으면 Phase 1-2 스킵 ──
           const resumeRaw = typeof window !== 'undefined'
-            ? sessionStorage.getItem('localwiki_resume_pending') : null;
+            ? sessionStorage.getItem('repolume_resume_pending') : null;
           if (resumeRaw) {
-            sessionStorage.removeItem('localwiki_resume_pending');
+            sessionStorage.removeItem('repolume_resume_pending');
             try {
               const rd = JSON.parse(resumeRaw);
               const ws = rd.wikiStructure || {};
@@ -314,7 +314,7 @@ export function usePipelineState({
           let approvedStructure: WikiStructureResult | null = null;
           let prevStructure: WikiStructureResult | null = null;
           let feedbackForNext = '';
-          const approvalStorageKey = `localwiki_pending_structure_${sanitizeRepoName(projectPath)}_${language}`;
+          const approvalStorageKey = `repolume_pending_structure_${sanitizeRepoName(projectPath)}_${language}`;
           let restoredStructure: WikiStructureResult | null = null;
           try {
             const storedStructure = sessionStorage.getItem(approvalStorageKey);
@@ -540,7 +540,7 @@ export function usePipelineState({
       });
       if (res.ok) {
         const data = await res.json();
-        sessionStorage.setItem('localwiki_resume_pending', JSON.stringify({
+        sessionStorage.setItem('repolume_resume_pending', JSON.stringify({
           wikiStructure: data.wiki_structure,
           completedPageIds: data.completed_page_ids,
           generatedPages: data.generated_pages,

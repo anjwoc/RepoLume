@@ -69,11 +69,11 @@ class ConfluencePublisher:
                 logger.error(f"Response: {e.response.text}")
             raise
 
-    def publish_directory(self, root_dir: Path, root_title: str = "LocalWiki Export", root_parent_id: str = None):
+    def publish_directory(self, root_dir: Path, root_title: str = "RepoLume Export", root_parent_id: str = None):
         logger.info(f"Publishing directory {root_dir} to space {self.space_key}")
         
         # Create root index page
-        root_content = f"# {root_title}\n\nAutomated Wiki Export from LocalWiki."
+        root_content = f"# {root_title}\n\nAutomated Wiki Export from RepoLume."
         root_page_id = self.publish_page(root_title, root_content, root_parent_id)
         
         # We need to map relative directory paths to Confluence Page IDs

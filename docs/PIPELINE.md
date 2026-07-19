@@ -1,8 +1,8 @@
-# LocalWiki Analysis Pipeline
+# RepoLume Analysis Pipeline
 
 ## Architecture Overview
 
-LocalWiki uses an EDA (Event-Driven Architecture) pipeline. Every phase emits structured events through `TaskStreamManager`, which simultaneously broadcasts via SSE to the frontend and persists to SQLite. This means real-time progress display and post-run log replay both use the same event store.
+RepoLume uses an EDA (Event-Driven Architecture) pipeline. Every phase emits structured events through `TaskStreamManager`, which simultaneously broadcasts via SSE to the frontend and persists to SQLite. This means real-time progress display and post-run log replay both use the same event store.
 
 ```
 wiki-generator.ts (TypeScript orchestrator)
@@ -51,7 +51,7 @@ The pipeline auto-detects MCP status at startup by reading `/api/settings/mcp_se
 Settings UI
   → PUT /api/settings/mcp_settings
       → SQLite (persists for UI reload)
-      → ~/.localwiki/mcp-config.yaml (sync via pyyaml, non-fatal on error)
+      → ~/.repolume/mcp-config.yaml (sync via pyyaml, non-fatal on error)
           → MCPManager.from_config() (reads YAML at pipeline start)
 ```
 
@@ -153,9 +153,9 @@ interface PipelineEvent {
 
 ## Running Without MCP (Zero Config)
 
-LocalWiki works fully without any MCP configuration. The pipeline runs phases 1, 1.5, 2, 4, 4.5, and 5. Output quality is based on static code analysis only — no real-time schema or issue data.
+RepoLume works fully without any MCP configuration. The pipeline runs phases 1, 1.5, 2, 4, 4.5, and 5. Output quality is based on static code analysis only — no real-time schema or issue data.
 
-To verify MCP is inactive: check `~/.localwiki/mcp-config.yaml` does not exist or has all providers set to `enabled: false`.
+To verify MCP is inactive: check `~/.repolume/mcp-config.yaml` does not exist or has all providers set to `enabled: false`.
 
 ## Supported MCP Providers
 

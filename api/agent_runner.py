@@ -1,5 +1,5 @@
 """
-agent_runner.py — Python-native replacement for the localwiki-agent Go binary.
+agent_runner.py — Python-native replacement for the repolume-agent Go binary.
 
 Runs local CLI tools (gemini, claude, codex, agy) as async subprocesses and
 streams their stdout as JSONL events, matching the Go binary's output contract

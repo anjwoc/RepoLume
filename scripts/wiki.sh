@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LocalWiki — quick launcher wrapper
+# RepoLume — quick launcher wrapper
 # Usage: ./wiki generate /path/to/repo --provider gemini --lang ko
 
 set -euo pipefail

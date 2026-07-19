@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/localwiki/agent/internal/stream"
+	"github.com/repolume/agent/internal/stream"
 )
 
 // CodexRunner runs prompts via the `codex exec` subcommand (0.134.0+).

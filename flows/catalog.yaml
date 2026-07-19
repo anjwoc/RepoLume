@@ -1,6 +1,6 @@
 # Optional business-flow catalog.
 #
-# LocalWiki first looks for <analyzed-project>/flows/catalog.yaml. Keep this
+# RepoLume first looks for <analyzed-project>/flows/catalog.yaml. Keep this
 # repository-level fallback empty so a fresh installation never exposes sample
 # company data or invents flows for an unrelated project.
 flows: []

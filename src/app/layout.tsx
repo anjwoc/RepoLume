@@ -13,25 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'LocalWiki - AI 기반 자동 위키 생성',
-  description: '로컬 프로젝트를 분석하여 자동으로 위키 문서를 생성하는 데스크탑 애플리케이션',
-  generator: 'LocalWiki',
+  title: 'RepoLume - 코드베이스 위키 생성',
+  description: '로컬 코드베이스를 분석해 구조화된 위키 문서를 생성하는 데스크톱 애플리케이션',
+  generator: 'RepoLume',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/repolume-mark.svg',
   },
 }
 

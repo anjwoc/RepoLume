@@ -6,7 +6,7 @@ test.describe('Home Page & Project Loading', () => {
     await page.goto('/');
 
     // Check for the correct title
-    await expect(page).toHaveTitle(/LocalWiki/i);
+    await expect(page).toHaveTitle(/RepoLume/i);
 
     // Wait for the "최근 프로젝트" heading to appear, indicating the home screen loaded
     const heading = page.locator('text=최근 프로젝트');

@@ -1,5 +1,5 @@
 """
-LocalWiki CLI — main entry point.
+RepoLume CLI — main entry point.
 
 Usage examples:
     # Local directory
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _load_dotenv() -> None:
-    """Load .env from cwd or localwiki root if python-dotenv is available."""
+    """Load .env from cwd or repolume root if python-dotenv is available."""
     try:
         from dotenv import load_dotenv
 
@@ -51,8 +51,8 @@ def _load_dotenv() -> None:
 def _print_banner() -> None:
     banner = """
 ╔══════════════════════════════════════════╗
-║        LocalWiki — CLI Wiki Generator    ║
-║   Powered by localwiki (MIT)        ║
+║        RepoLume — CLI Wiki Generator    ║
+║   Powered by repolume (MIT)        ║
 ╚══════════════════════════════════════════╝
 """
     print(banner)
@@ -90,11 +90,11 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     repo_name = args.name or Path(args.repo.rstrip("/")).name
 
-    # ── 2. LocalWiki 정적 분석 ─────────────────────
+    # ── 2. RepoLume 정적 분석 ─────────────────────
     sonar_collection = None
     if not getattr(args, 'no_sonar', False):
         from cli.sonar.sonar_analyzer import SonarAnalyzer
-        print("🔭  LocalWiki 정적 분석 시작......")
+        print("🔭  RepoLume 정적 분석 시작......")
         try:
             sonar = SonarAnalyzer(str(repo.path))
             sonar_collection = sonar.analyze(use_cache=True)
@@ -121,7 +121,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
     from cli.providers import get_provider
 
     # --agent flag selects CLI subscription mode (no API key)
-    # --provider flag selects API-key mode (original localwiki)
+    # --provider flag selects API-key mode (original repolume)
     agent = getattr(args, 'agent', None)
     if agent:
         provider_name = f"{agent}-cli"  # e.g. "gemini-cli"
@@ -169,7 +169,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         if active_sources:
             print(f"🔌  MCP 소스 활성화: {', '.join(active_sources.keys())}")
         else:
-            print("ℹ️   MCP 소스 비활성화 (설정: ~/.localwiki/mcp-config.yaml)")
+            print("ℹ️   MCP 소스 비활성화 (설정: ~/.repolume/mcp-config.yaml)")
 
     # ── 5. Plan wiki structure ─────────────────────────────────────────────
     from cli.pipeline.structure_planner import WikiStructurePlanner
@@ -374,7 +374,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wiki",
-        description="LocalWiki — Generate LocalWiki-style docs locally with Gemini/Claude/OpenAI",
+        description="RepoLume — Generate RepoLume-style docs locally with Gemini/Claude/OpenAI",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -410,7 +410,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--verbose", "-v", action="store_true")
     gen.add_argument("--quiet", "-q", action="store_true")
     gen.add_argument("--no-sonar", action="store_true",
-                     help="LocalWiki 정적 분석 건너뜀")
+                     help="RepoLume 정적 분석 건너뜀")
     gen.add_argument("--no-index", action="store_true",
                      help="Skip graph index (use raw file reading only)")
     gen.add_argument("--auto-index", action="store_true",
@@ -418,7 +418,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument("--no-mcp", action="store_true",
                      help="MCP 소스 비활성화 (빠른 실행 용도)")
     gen.add_argument("--mcp-config", default=None, metavar="PATH",
-                     help="MCP 설정 파일 (default: ~/.localwiki/mcp-config.yaml)")
+                     help="MCP 설정 파일 (default: ~/.repolume/mcp-config.yaml)")
     gen.add_argument(
         "--business", "-B", action="store_true",
         help="비즈니스 분석 레이어 활성화 (데이터 플로우, 워크플로우, 임팩트 분석)"
@@ -448,12 +448,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── publish ──
     pub = sub.add_parser("publish", help="Publish generated wiki to Confluence")
-    pub.add_argument("dir", help="Directory containing generated markdown files (e.g. wiki-out/localwiki)")
+    pub.add_argument("dir", help="Directory containing generated markdown files (e.g. wiki-out/repolume)")
     pub.add_argument("--url", required=True, help="Confluence Base URL (e.g. https://your-domain.atlassian.net/wiki)")
     pub.add_argument("--space", required=True, help="Confluence Space Key")
     pub.add_argument("--token", required=True, help="API Token or PAT")
     pub.add_argument("--username", default=None, help="Email/username (required for Atlassian Cloud)")
-    pub.add_argument("--root-title", default="LocalWiki Export", help="Title of the root index page")
+    pub.add_argument("--root-title", default="RepoLume Export", help="Title of the root index page")
     pub.add_argument("--parent-id", default=None, help="Optional parent page ID to attach the root index to")
     pub.set_defaults(func=cmd_publish)
 

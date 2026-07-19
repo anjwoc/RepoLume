@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LocalWiki v3 — 원터치 MCP 설정 스크립트
+# RepoLume v3 — 원터치 MCP 설정 스크립트
 # 사용법: bash setup-mcp.sh
 
 set -e
@@ -17,7 +17,7 @@ fail() { echo -e "${RED}❌${NC} $*"; }
 
 echo -e "${BOLD}"
 echo "╔══════════════════════════════════════════╗"
-echo "║   LocalWiki v3 — MCP 원터치 설정         ║"
+echo "║   RepoLume v3 — MCP 원터치 설정         ║"
 echo "╚══════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -39,12 +39,12 @@ echo "🔨 Go 에이전트 빌드..."
 if command -v go &>/dev/null; then
     if [ -d "$SCRIPT_DIR/agent" ]; then
         pushd "$SCRIPT_DIR/agent" > /dev/null
-        go build -o ../bin/localwiki-agent ./cmd/localwiki-agent/
+        go build -o ../bin/repolume-agent ./cmd/repolume-agent/
         popd > /dev/null
-        ok "localwiki-agent 빌드 완료 → bin/localwiki-agent"
+        ok "repolume-agent 빌드 완료 → bin/repolume-agent"
         echo ""
         echo "  에이전트 상태:"
-        "$SCRIPT_DIR/bin/localwiki-agent" list | sed 's/^/    /'
+        "$SCRIPT_DIR/bin/repolume-agent" list | sed 's/^/    /'
     else
         warn "agent/ 디렉토리 없음 — 빌드 건너뜀"
     fi
@@ -110,16 +110,16 @@ fi
 
 echo ""
 echo "⚙️  설정 파일 생성..."
-LOCALWIKI_DIR="$HOME/.localwiki"
-mkdir -p "$LOCALWIKI_DIR"
+REPOLUME_DIR="$HOME/.repolume"
+mkdir -p "$REPOLUME_DIR"
 
-if [ ! -f "$LOCALWIKI_DIR/mcp-config.yaml" ]; then
+if [ ! -f "$REPOLUME_DIR/mcp-config.yaml" ]; then
     if [ -f "$SCRIPT_DIR/config/mcp-config.yaml.example" ]; then
-        cp "$SCRIPT_DIR/config/mcp-config.yaml.example" "$LOCALWIKI_DIR/mcp-config.yaml"
-        ok "설정 파일 생성: $LOCALWIKI_DIR/mcp-config.yaml"
+        cp "$SCRIPT_DIR/config/mcp-config.yaml.example" "$REPOLUME_DIR/mcp-config.yaml"
+        ok "설정 파일 생성: $REPOLUME_DIR/mcp-config.yaml"
     fi
 else
-    info "설정 파일 이미 존재: $LOCALWIKI_DIR/mcp-config.yaml"
+    info "설정 파일 이미 존재: $REPOLUME_DIR/mcp-config.yaml"
 fi
 
 # ─── PATH 설정 안내 ──────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ echo    "║          ✅ 설정 완료!                   ║"
 echo    "╠══════════════════════════════════════════╣"
 echo    "║  다음 단계:                              ║"
 echo    "║  1. MCP 활성화:                          ║"
-echo    "║     vi ~/.localwiki/mcp-config.yaml     ║"
+echo    "║     vi ~/.repolume/mcp-config.yaml     ║"
 echo    "║     enabled: true 설정                   ║"
 echo    "║                                          ║"
 echo    "║  2. 위키 생성:                            ║"

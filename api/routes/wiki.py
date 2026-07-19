@@ -446,12 +446,16 @@ async def get_processed_projects():
 
         filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR)
         for filename in filenames:
-            if not (filename.startswith("localwiki_cache_") and filename.endswith(".json")):
+            cache_prefix = next(
+                (prefix for prefix in ("repolume_cache_", "localwiki_cache_") if filename.startswith(prefix)),
+                None,
+            )
+            if not cache_prefix or not filename.endswith(".json"):
                 continue
             file_path = os.path.join(WIKI_CACHE_DIR, filename)
             try:
                 stats = await asyncio.to_thread(os.stat, file_path)
-                parts = filename.replace("localwiki_cache_", "").replace(".json", "").split("_")
+                parts = filename.replace(cache_prefix, "").replace(".json", "").split("_")
                 if len(parts) < 4:
                     continue
                 repo_type = parts[0]
@@ -463,8 +467,8 @@ async def get_processed_projects():
                     repo_obj = data.get("repo", {})
                     repo = repo_obj.get("repo") if isinstance(repo_obj, dict) and "repo" in repo_obj else "_".join(parts[2:-1])
                     # Derive language from filename to avoid stale JSON content mismatch.
-                    # Filename: localwiki_cache_{repo_type}_{owner}_{repo}_{language}[_{model}].json
-                    base = filename.replace("localwiki_cache_", "").replace(".json", "")
+                    # Filename: <product>_cache_{repo_type}_{owner}_{repo}_{language}[_{model}].json
+                    base = filename.replace(cache_prefix, "").replace(".json", "")
                     fn_prefix = f"{repo_type}_{owner}_{repo}_"
                     language = None
                     if base.startswith(fn_prefix):

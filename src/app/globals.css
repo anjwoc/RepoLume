@@ -3,17 +3,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
-.localwiki-window-drag {
+.repolume-window-drag {
   -webkit-app-region: drag;
   user-select: none;
 }
 
-.localwiki-window-drag button,
-.localwiki-window-drag a,
-.localwiki-window-drag input,
-.localwiki-window-drag select,
-.localwiki-window-drag textarea,
-.localwiki-window-drag [role="button"] {
+.repolume-window-drag button,
+.repolume-window-drag a,
+.repolume-window-drag input,
+.repolume-window-drag select,
+.repolume-window-drag textarea,
+.repolume-window-drag [role="button"] {
   -webkit-app-region: no-drag;
 }
 
@@ -178,6 +178,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .pipeline-inspector {
     transition: none;
   }

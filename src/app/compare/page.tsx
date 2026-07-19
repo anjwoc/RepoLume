@@ -4,11 +4,11 @@ import { ArrowRight } from 'lucide-react'
 import { DiagramShowcase } from './DiagramShowcase'
 
 export const metadata: Metadata = {
-  title: 'LocalWiki — VSCode Architecture',
+  title: 'RepoLume — VSCode Architecture',
   description: '30 pages of architectural docs generated from a production codebase. Gemini 3.5 Flash, runs locally.',
 }
 
-const WIKI_HREF = '/wiki/local/vscode?repo_type=local&language=ko&languages=ko&model=agy-gemini-3.5-flash-high&id=localwiki_cache_local_local_vscode_ko_agy-gemini-3.5-flash-high.json'
+const WIKI_HREF = '/wiki/local/vscode?repo_type=local&language=ko&languages=ko&model=agy-gemini-3.5-flash-high&id=repolume_cache_local_local_vscode_ko_agy-gemini-3.5-flash-high.json'
 
 const PAGES = [
   { section: 'Getting Started', items: ['Overview', 'Developer Setup', 'Basic Usage', 'Quick Reference'] },
@@ -24,7 +24,7 @@ export default function ComparePage() {
       {/* Hero */}
       <section className="min-h-[100dvh] flex flex-col justify-center px-6 md:px-16 max-w-5xl mx-auto">
         <p className="text-xs font-mono text-zinc-600 mb-6 tracking-widest uppercase">
-          DeepWiki는 설명한다. LocalWiki는 보여준다.
+          DeepWiki는 설명한다. RepoLume는 보여준다.
         </p>
 
         <h1 className="text-6xl md:text-8xl font-bold tracking-tighter leading-[0.95] text-white mb-8">

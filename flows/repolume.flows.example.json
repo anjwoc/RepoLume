@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy this file to local-wiki.flows.json and adjust tool names and scope to your environment.",
+  "_comment": "Copy this file to repolume.flows.json and adjust tool names and scope to your environment.",
   "mcpInstances": [
     {
       "instanceName": "oracle-orders",

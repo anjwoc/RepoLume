@@ -1,5 +1,5 @@
 """
-OpenAI/Codex LLM provider adapter for LocalWiki CLI.
+OpenAI/Codex LLM provider adapter for RepoLume CLI.
 Uses openai SDK directly.
 """
 from __future__ import annotations

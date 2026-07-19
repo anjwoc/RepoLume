@@ -1,4 +1,4 @@
-const PRIVACY_SETTINGS_CHANNEL = 'localwiki:open-privacy-settings';
+const PRIVACY_SETTINGS_CHANNEL = 'repolume:open-privacy-settings';
 const FILES_AND_FOLDERS_SETTINGS_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders';
 
 function createPrivacySettingsOpener({ platform, shell }) {

@@ -9,7 +9,7 @@ import (
 	"context"
 	"os/exec"
 
-	"github.com/localwiki/agent/internal/stream"
+	"github.com/repolume/agent/internal/stream"
 )
 
 // ClaudeRunner runs prompts via the `claude` CLI.

@@ -46,7 +46,7 @@ executable = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="localwiki-api",
+    name="repolume-api",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -59,5 +59,5 @@ collection = COLLECT(
     analysis.datas,
     strip=False,
     upx=False,
-    name="localwiki-api",
+    name="repolume-api",
 )

@@ -1,7 +1,7 @@
 """
-Wiki-specific prompts for LocalWiki CLI.
+Wiki-specific prompts for RepoLume CLI.
 
-Ported from localwiki's frontend (determineWikiStructure + generatePageContent)
+Ported from repolume's frontend (determineWikiStructure + generatePageContent)
 into pure Python — no browser/React dependency required.
 """
 

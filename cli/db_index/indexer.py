@@ -15,7 +15,7 @@ from cli.db_index.meta_client import DDLTableInfo, parse_ddl_csv_dir
 
 logger = logging.getLogger(__name__)
 
-_INDEX_ROOT = Path.home() / ".localwiki" / "db-index"
+_INDEX_ROOT = Path.home() / ".repolume" / "db-index"
 _MAX_AGE_HOURS = 24
 
 

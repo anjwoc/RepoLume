@@ -5,11 +5,11 @@ AGENT_SRC := $(ROOT)agent
 .PHONY: build-agent clean-agent dev setup-certs
 
 build-agent:
-	cd $(AGENT_SRC) && go build -o $(BIN)/localwiki-agent ./cmd/localwiki-agent/
-	@echo "Built: $(BIN)/localwiki-agent"
+	cd $(AGENT_SRC) && go build -o $(BIN)/repolume-agent ./cmd/repolume-agent/
+	@echo "Built: $(BIN)/repolume-agent"
 
 clean-agent:
-	rm -f $(BIN)/localwiki-agent
+	rm -f $(BIN)/repolume-agent
 
 setup-certs:
 	@echo "Exporting macOS system + login keychain certs for corporate SSL..."

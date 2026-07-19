@@ -1,6 +1,6 @@
-# LocalWiki MCP 설정 파일 (~/.localwiki/mcp-config.yaml)
+# RepoLume MCP 설정 파일 (~/.repolume/mcp-config.yaml)
 # 사용할 소스만 enabled: true 로 변경하세요.
-# 설정 적용: localwiki generate ./repo --agent gemini --lang ko
+# 설정 적용: repolume generate ./repo --agent gemini --lang ko
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 데이터베이스 MCP (DBHub 통합 — PostgreSQL/MySQL/MSSQL/MariaDB)

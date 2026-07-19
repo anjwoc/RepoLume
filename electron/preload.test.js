@@ -30,7 +30,7 @@ test('loads in an Electron sandbox and exposes the folder picker bridge', async 
     },
   });
 
-  assert.equal(exposed.name, 'localwikiDesktop');
+  assert.equal(exposed.name, 'repolumeDesktop');
   await exposed.api.selectFolder();
   await exposed.api.openPrivacySettings();
   assert.deepEqual(calls, [FOLDER_DIALOG_CHANNEL, PRIVACY_SETTINGS_CHANNEL]);

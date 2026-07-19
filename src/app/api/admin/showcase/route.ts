@@ -8,8 +8,9 @@ const SHOWCASE_DIR = path.join(process.cwd(), 'public', 'showcase-data');
 const PROJECTS_JSON = path.join(SHOWCASE_DIR, 'projects.json');
 
 function parseFilename(filename: string) {
-  // localwiki_cache_{repo_type}_{owner}_{repo}_{language}[_{model}].json
-  const base = filename.replace('localwiki_cache_', '').replace(/\.json$/, '');
+  // <product>_cache_{repo_type}_{owner}_{repo}_{language}[_{model}].json
+  const prefix = filename.startsWith('repolume_cache_') ? 'repolume_cache_' : 'localwiki_cache_';
+  const base = filename.replace(prefix, '').replace(/\.json$/, '');
   const parts = base.split('_');
   const repoType = parts[0];
   const owner = parts[1];
@@ -51,7 +52,7 @@ export async function GET() {
 
   const caches = fs
     .readdirSync(WIKICACHE_DIR)
-    .filter(f => f.startsWith('localwiki_cache_') && f.endsWith('.json'))
+    .filter(f => /^(?:repolume|localwiki)_cache_/.test(f) && f.endsWith('.json'))
     .map(parseFilename)
     .filter(Boolean)
     .filter(c => c!.pages > 0)

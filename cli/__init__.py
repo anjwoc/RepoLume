@@ -1,1 +1,1 @@
-"""LocalWiki CLI — LocalWiki-powered local wiki generator."""
+"""RepoLume CLI — RepoLume-powered local wiki generator."""

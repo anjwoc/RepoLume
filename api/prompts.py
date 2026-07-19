@@ -1,4 +1,4 @@
-"""Module containing all prompts used in the LocalWiki project."""
+"""Module containing all prompts used in the RepoLume project."""
 
 # System prompt for RAG
 RAG_SYSTEM_PROMPT = r"""

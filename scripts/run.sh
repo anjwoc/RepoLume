@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # ── Go 에이전트 빌드 ─────────────────────────────────────────────
 echo "🔨 Go 에이전트 빌드 중..."
 if make -C "$ROOT" build-agent; then
-  echo "✅ localwiki-agent 빌드 완료 → bin/localwiki-agent"
+  echo "✅ repolume-agent 빌드 완료 → bin/repolume-agent"
 else
   echo "⚠️  Go 빌드 실패 — CLI 모드 사용 불가 (API 모드는 정상 작동)"
 fi

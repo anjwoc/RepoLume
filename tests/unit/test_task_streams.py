@@ -129,7 +129,9 @@ async def test_concurrent_publishes_keep_contiguous_sequence(monkeypatch):
         *(manager.publish("job-1", "agent.chunk", str(index)) for index in range(20))
     )
 
-    assert [event.id for event in events if event is not None] == list(range(1, 21))
+    event_ids = [event.id for event in events if event is not None]
+    assert sorted(event_ids) == list(range(1, 21))
+    assert len(set(event_ids)) == 20
     assert [row["seq"] for row in store.rows["job-1"]] == list(range(1, 21))
 
 

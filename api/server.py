@@ -63,7 +63,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="LocalWiki API",
+    title="RepoLume API",
     description="API for local wiki generation and streaming",
     lifespan=lifespan,
 )
@@ -94,4 +94,4 @@ async def root():
                 endpoints.setdefault(group, []).append(f"{method} {route.path}")
     for group in endpoints:
         endpoints[group].sort()
-    return {"message": "Welcome to LocalWiki API", "version": "2.0.0", "endpoints": endpoints}
+    return {"message": "Welcome to RepoLume API", "version": "2.0.0", "endpoints": endpoints}

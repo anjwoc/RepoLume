@@ -40,8 +40,8 @@ Supported output languages are configured in `api/config/lang.json`.
 Start with:
 
 ```bash
-mkdir -p ~/.localwiki
-cp config/mcp-config.yaml.example ~/.localwiki/mcp-config.yaml
+mkdir -p ~/.repolume
+cp config/mcp-config.yaml.example ~/.repolume/mcp-config.yaml
 ```
 
 Enable only the MCP sources you want. Keep tokens in environment variables when possible.

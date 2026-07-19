@@ -12,7 +12,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/localwiki/agent/internal/stream"
+	"github.com/repolume/agent/internal/stream"
 )
 
 // GeminiRunner runs prompts via the `gemini` CLI (0.44.1+).

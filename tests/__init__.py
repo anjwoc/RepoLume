@@ -1,1 +1,1 @@
-# Tests for LocalWiki
+# Tests for RepoLume

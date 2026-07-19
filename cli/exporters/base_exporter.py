@@ -43,7 +43,7 @@ class BaseExporter(ABC):
         ...
 
     def _clean_markdown(self, md: str) -> str:
-        """Strip LocalWiki-specific markers from markdown."""
+        """Strip RepoLume-specific markers from markdown."""
         import re
         # Remove <details> source file blocks
         md = re.sub(r"<details>.*?</details>", "", md, flags=re.DOTALL)

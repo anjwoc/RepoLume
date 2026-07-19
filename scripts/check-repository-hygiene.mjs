@@ -60,7 +60,7 @@ const allowedTopLevelFiles = new Set([
 
 const forbiddenPaths = [
   /^(?:build|dist|dist-electron[^/]*)(?:\/|$)/,
-  /^(?:\.antigravitycli|\.codegraph|\.localwiki-cache|\.proofloop|\.vscode)(?:\/|$)/,
+  /^(?:\.antigravitycli|\.codegraph|\.repolume-cache|\.localwiki-cache|\.proofloop|\.vscode)(?:\/|$)/,
   /^(?:api\/data|api\/graphify-out|benchmark-out|test-results|public\/showcase-data)(?:\/|$)/,
   /^docs\/(?:business-flow-prompts|plans|superpowers)(?:\/|$)/,
   /^api\/scratch_.*\.md$/,

@@ -4,10 +4,10 @@ This project should be distributed with `LICENSE` and `NOTICE`.
 
 ## Attribution Policy
 
-User-facing docs should describe LocalWiki features using LocalWiki names:
+User-facing docs should describe RepoLume features using RepoLume names:
 
-- `LocalWiki`
-- `LocalWiki Sonar`
+- `RepoLume`
+- `RepoLume Sonar`
 - `CLI Pipeline`
 - `Graph Indexer`
 - `MCP Manager`
@@ -21,7 +21,7 @@ Third-party project names should be used only when needed for:
 
 ## Included Third-Party Notices
 
-LocalWiki contains small adapted portions of CodeBoarding under the MIT License. These portions are limited to local static analysis, graph, and Mermaid-related code paths. This does not mean the full upstream project is bundled or that LocalWiki is endorsed by that project.
+RepoLume contains small adapted portions of CodeBoarding under the MIT License. These portions are limited to local static analysis, graph, and Mermaid-related code paths. This does not mean the full upstream project is bundled or that RepoLume is endorsed by that project.
 
 See `NOTICE` for the required attribution text.
 

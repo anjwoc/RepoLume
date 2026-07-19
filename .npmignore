@@ -21,6 +21,7 @@ backend/
 # Runtime and generated data
 wiki-out/
 .localwiki-cache/
+.repolume-cache/
 api/data/
 api/logs/
 api/graphify-out/
@@ -78,6 +79,7 @@ public/dbgraph-test.html
 scripts/sanitize_affiliate.py
 scripts/test_provider_comparison.py
 flows/*.steps.json
+flows/repolume.flows.json
 flows/local-wiki.flows.json
 
 # OS metadata

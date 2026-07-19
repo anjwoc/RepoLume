@@ -10,11 +10,13 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generator, Optional
+from api.runtime_env import migrate_product_file, product_env
 
 _DATA_DIR = Path(
-    os.getenv("LOCALWIKI_DATA_DIR", str(Path(__file__).parent.parent / "data"))
+    product_env("DATA_DIR", str(Path(__file__).parent.parent / "data"))
+    or str(Path(__file__).parent.parent / "data")
 )
-_DB_PATH = _DATA_DIR / "localwiki.db"
+_DB_PATH = migrate_product_file(_DATA_DIR, "repolume.db", "localwiki.db")
 _SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 

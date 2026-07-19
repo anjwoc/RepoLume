@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/localwiki/agent/internal/flowanalyzer"
+	"github.com/repolume/agent/internal/flowanalyzer"
 )
 
 func TestBuildPrompt_ContainsFlowName(t *testing.T) {

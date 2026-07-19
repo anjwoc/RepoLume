@@ -5,7 +5,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/localwiki/agent/internal/stream"
+	"github.com/repolume/agent/internal/stream"
 )
 
 // Chunk is a single streaming output chunk from the agent.

@@ -127,8 +127,8 @@ class OpenRouterClient(ModelClient):
             headers = {
                 "Authorization": f"Bearer {self.async_client['api_key']}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/localwiki",  # Optional
-                "X-Title": "LocalWiki"  # Optional
+                "HTTP-Referer": "https://github.com/repolume",  # Optional
+                "X-Title": "RepoLume"  # Optional
             }
 
             # Always use non-streaming mode for OpenRouter
