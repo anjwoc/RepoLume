@@ -2,12 +2,18 @@ import { readFileSync } from 'node:fs';
 import { arch, platform } from 'node:process';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { cleanDesktopOutputs, DESKTOP_OUTPUT_DIRECTORY } from './clean-desktop-output.mjs';
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const packageMetadata = JSON.parse(
   readFileSync(join(projectRoot, 'package.json'), 'utf8'),
 );
-
+const configuredOutput = packageMetadata.build?.directories?.output;
+if (configuredOutput !== DESKTOP_OUTPUT_DIRECTORY) {
+  throw new Error(
+    `Desktop output must be ${DESKTOP_OUTPUT_DIRECTORY}/, received ${configuredOutput ?? 'undefined'}`,
+  );
+}
 function run(command, args) {
   const result = spawnSync(command, args, {
     cwd: projectRoot,
@@ -20,6 +26,8 @@ function run(command, args) {
   }
 }
 
+cleanDesktopOutputs(projectRoot);
+
 if (platform === 'darwin') {
   const targetArch = arch === 'arm64' ? 'arm64' : 'x64';
   const architectureFlag = targetArch === 'arm64' ? '--arm64' : '--x64';
@@ -29,7 +37,7 @@ if (platform === 'darwin') {
     '-volname', packageMetadata.build.productName,
     '-srcfolder', join(
       projectRoot,
-      'dist-electron',
+      DESKTOP_OUTPUT_DIRECTORY,
       `mac-${targetArch}`,
       `${packageMetadata.build.productName}.app`,
     ),
@@ -37,7 +45,7 @@ if (platform === 'darwin') {
     '-format', 'UDZO',
     join(
       projectRoot,
-      'dist-electron',
+      DESKTOP_OUTPUT_DIRECTORY,
       `${packageMetadata.build.productName}-${packageMetadata.version}-${targetArch}.dmg`,
     ),
   ]);

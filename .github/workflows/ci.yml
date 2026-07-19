@@ -25,9 +25,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:repo
+      - run: pnpm check:release
       - run: pnpm lint
       - run: pnpm exec tsc --noEmit
       - run: pnpm test:unit
+      - run: pnpm test:desktop
 
   python:
     name: Python tests

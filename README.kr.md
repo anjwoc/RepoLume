@@ -15,7 +15,15 @@ LocalWiki는 코드 저장소를 분석해 로컬 우선 위키를 생성하는 
 - GitHub, Jira/Confluence, DB용 MCP 컨텍스트 연결
 - 생성 문서별 소스 출처 블록
 
-## Docker Compose 빠른 시작
+## 시작하기
+
+사용 방식에 맞는 경로를 선택합니다.
+
+- **설치형 데스크톱 앱:** GitHub Release에 첨부된 `.dmg` 또는 `.exe`를 설치합니다. Node.js, Python, Poetry, Go는 필요하지 않습니다.
+- **Docker Compose:** 셀프호스팅을 위한 가장 짧고 재현 가능한 경로입니다.
+- **소스 체크아웃:** 기여자와 커스텀 빌드용입니다.
+
+### Docker Compose
 
 ```bash
 cp .env.example .env
@@ -32,6 +40,14 @@ docker compose up --build
 - Web UI: `http://localhost:3000`
 - API: `http://localhost:8001`
 - Health check: `http://localhost:8001/health`
+
+백엔드 준비 상태를 확인합니다.
+
+```bash
+curl http://localhost:8001/health
+```
+
+이후 `http://localhost:3000`을 열고 저장소 폴더를 선택한 다음, 폴더 권한을 허용하고 모델을 선택해 분석을 시작합니다.
 
 ## 로컬 개발
 
@@ -87,6 +103,17 @@ python3 -m cli.wiki publish ./wiki-out/my-repo \
 - 아키텍처: [docs/architecture.md](docs/architecture.md)
 - 생성 흐름: [docs/workflow.md](docs/workflow.md)
 - 오픈소스 고지: [docs/open-source.md](docs/open-source.md)
+- 데스크톱 배포 절차: [docs/release.md](docs/release.md)
+
+## 데스크톱 배포 빌드
+
+아래 단일 명령을 사용합니다.
+
+```bash
+npm run release:desktop
+```
+
+명령을 실행할 때마다 기존 `dist/`와 과거 `dist-electron*` 디렉터리를 제거하고, 현재 버전의 설치 파일만 `dist/`에 새로 생성합니다. 설치 파일은 Git에 커밋하지 않고 GitHub Release에 첨부합니다.
 
 ## 오픈소스 고지
 

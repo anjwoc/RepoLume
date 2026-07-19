@@ -9,6 +9,55 @@ const trackedFiles = execFileSync(
   .split('\0')
   .filter(Boolean);
 
+const allowedTopLevelDirectories = new Set([
+  '.github',
+  'agent',
+  'api',
+  'cli',
+  'config',
+  'docker',
+  'docs',
+  'e2e',
+  'electron',
+  'flows',
+  'public',
+  'scripts',
+  'src',
+  'tests',
+]);
+const allowedTopLevelFiles = new Set([
+  '.dockerignore',
+  '.env.example',
+  '.gitignore',
+  '.npmignore',
+  '.npmrc',
+  '.python-version',
+  '.vercelignore',
+  'CHANGELOG.md',
+  'CODE_OF_CONDUCT.md',
+  'CONTRIBUTING.md',
+  'Dockerfile',
+  'LICENSE',
+  'Makefile',
+  'NOTICE',
+  'README.kr.md',
+  'README.md',
+  'SECURITY.md',
+  'components.json',
+  'docker-compose.yml',
+  'eslint.config.mjs',
+  'next.config.ts',
+  'package.json',
+  'playwright.config.ts',
+  'pnpm-lock.yaml',
+  'postcss.config.mjs',
+  'pytest.ini',
+  'tailwind.config.js',
+  'tsconfig.json',
+  'vercel.json',
+  'vitest.config.ts',
+]);
+
 const forbiddenPaths = [
   /^(?:build|dist|dist-electron[^/]*)(?:\/|$)/,
   /^(?:\.antigravitycli|\.codegraph|\.localwiki-cache|\.proofloop|\.vscode)(?:\/|$)/,
@@ -29,6 +78,15 @@ const absoluteUserPath = /(?:\/Users|\/home)\/[A-Za-z0-9._-]+\//;
 
 const failures = [];
 for (const file of trackedFiles) {
+  const [topLevel] = file.split('/');
+  const allowedAtRoot = file.includes('/')
+    ? allowedTopLevelDirectories.has(topLevel)
+    : allowedTopLevelFiles.has(file);
+  if (!allowedAtRoot) {
+    failures.push(`${file}: path is outside the public repository allowlist`);
+    continue;
+  }
+
   if (forbiddenPaths.some(pattern => pattern.test(file))) {
     failures.push(`${file}: generated or private path is tracked`);
     continue;

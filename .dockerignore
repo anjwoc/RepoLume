@@ -4,6 +4,8 @@ node_modules
 build
 dist
 dist-electron*
+release
+artifacts
 src_backup
 wiki-out
 api/logs
@@ -20,6 +22,11 @@ public/showcase-data
 .vscode
 .idea
 .claude
+.history
+private
+internal
+drafts
+notes
 docs/plans
 docs/superpowers
 secrets
@@ -29,7 +36,13 @@ secrets
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
 *.log
+*.tmp
+*.bak
 __pycache__
 *.pyc
 .venv

@@ -3,6 +3,9 @@ node_modules/
 .next/
 out/
 coverage/
+.turbo/
+.cache/
+storybook-static/
 *.tsbuildinfo
 next-env.d.ts
 
@@ -10,6 +13,8 @@ next-env.d.ts
 build/
 dist/
 dist-electron*/
+release/
+artifacts/
 bin/
 backend/
 
@@ -24,12 +29,18 @@ benchmark-out/
 test-results/
 playwright-report/
 screenshots/
+logs/
+tmp/
+temp/
 public/showcase-data/
 *.db
 *.db-wal
 *.db-shm
 __pycache__/
 *.py[cod]
+*.log
+*.tmp
+*.bak
 
 # Secrets and local configuration
 .env*
@@ -39,6 +50,10 @@ certs/
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
 
 # Local tools and private working files
 .proofloop/
@@ -47,7 +62,12 @@ certs/
 .vscode/
 .idea/
 .claude/
+.history/
 .vercel/
+/private/
+/internal/
+/drafts/
+/notes/
 scratch/
 api/scratch_*.md
 docs/business-flow-prompts/
