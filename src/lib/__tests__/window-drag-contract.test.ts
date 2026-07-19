@@ -8,8 +8,8 @@ describe('Electron window drag contract', () => {
     const viewer = readFileSync(resolve(root, 'src/components/wiki-viewer.tsx'), 'utf8');
     const css = readFileSync(resolve(root, 'src/app/globals.css'), 'utf8');
 
-    expect(viewer).toContain('className="localwiki-window-drag"');
-    expect(css).toMatch(/\.localwiki-window-drag\s*\{[\s\S]*?-webkit-app-region:\s*drag/);
-    expect(css).toMatch(/\.localwiki-window-drag[\s\S]*?button[\s\S]*?\{[\s\S]*?-webkit-app-region:\s*no-drag/);
+    expect(viewer).toContain('className="repolume-window-drag"');
+    expect(css).toMatch(/\.repolume-window-drag\s*\{[\s\S]*?-webkit-app-region:\s*drag/);
+    expect(css).toMatch(/\.repolume-window-drag[\s\S]*?button[\s\S]*?\{[\s\S]*?-webkit-app-region:\s*no-drag/);
   });
 });

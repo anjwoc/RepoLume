@@ -5,7 +5,7 @@ import (
 	"context"
 	"os/exec"
 
-	"github.com/localwiki/agent/internal/stream"
+	"github.com/repolume/agent/internal/stream"
 )
 
 // AntigravityRunner runs prompts via the `agy` CLI.

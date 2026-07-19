@@ -293,7 +293,7 @@ def _run_mcp_init(project_path: str, project_id: str | None = None) -> McpInitRe
 @router.get("/api/mcp/custom-providers")
 async def list_custom_providers() -> list[dict]:
     """
-    Return custom MCP providers from ~/.localwiki/mcp-config.yaml.
+    Return custom MCP providers from ~/.repolume/mcp-config.yaml.
 
     Each item is shaped like an MCPProvider (edition="custom") so the frontend
     can render them alongside community/official providers without extra logic.

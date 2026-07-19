@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { StreamLogViewer } from "@/components/stream-log-viewer";
 import { openPrivacySettings, probeFolderAccess } from "@/lib/desktop-folder-picker";
 
-const DARK_MODE_KEY = "localwiki_is_dark";
+const DARK_MODE_KEY = "repolume_is_dark";
 
 function AnalyzingContent() {
   const router = useRouter();

@@ -106,10 +106,10 @@ def _mcp_settings_to_yaml(settings: dict) -> dict:
 
 
 def _write_mcp_yaml(cfg: dict) -> None:
-    """Write cfg to ~/.localwiki/mcp-config.yaml."""
+    """Write cfg to ~/.repolume/mcp-config.yaml."""
     import yaml
     from pathlib import Path
-    path = Path.home() / ".localwiki" / "mcp-config.yaml"
+    path = Path.home() / ".repolume" / "mcp-config.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True)
@@ -157,7 +157,7 @@ async def get_model_config():
 
 @router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat(), "service": "localwiki-api"}
+    return {"status": "healthy", "timestamp": datetime.now().isoformat(), "service": "repolume-api"}
 
 
 @router.get("/check-connection")

@@ -1,5 +1,5 @@
 """
-E2E scenario test for LocalWiki pipeline.
+E2E scenario test for RepoLume pipeline.
 
 Canonical verification gate — if this passes, the full wiki generation pipeline works:
 
@@ -16,7 +16,7 @@ Run after any refactor to confirm correctness:
 Flags:
   --fast  (default) test with 1 page only — ~2 minutes
   --full  test all pages
-  --repo  target repo path (default: this LocalWiki checkout)
+  --repo  target repo path (default: this RepoLume checkout)
 
 Exit 0 = all checks passed, Exit 1 = failure.
 """
@@ -30,7 +30,7 @@ from pathlib import Path
 import httpx
 
 BACKEND = os.environ.get("BACKEND_URL", "http://localhost:8001")
-DEFAULT_REPO = os.environ.get("LOCALWIKI_E2E_REPO", str(Path(__file__).resolve().parents[1]))
+DEFAULT_REPO = os.environ.get("REPOLUME_E2E_REPO", str(Path(__file__).resolve().parents[1]))
 STREAM_ID = f"e2e-test-{int(time.time())}"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ async def step_verify_cache(client: httpx.AsyncClient, repo: str) -> None:
 
 async def main(repo: str, fast: bool) -> None:
     print(f"{'='*60}")
-    print(f"LocalWiki E2E Test — repo={repo}  fast={fast}")
+    print(f"RepoLume E2E Test — repo={repo}  fast={fast}")
     print(f"Backend: {BACKEND}")
     print(f"{'='*60}")
 
@@ -283,7 +283,7 @@ async def main(repo: str, fast: bool) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="LocalWiki E2E test")
+    parser = argparse.ArgumentParser(description="RepoLume E2E test")
     parser.add_argument("--fast", action="store_true", default=True, help="Fast mode: 1 page only")
     parser.add_argument("--full", action="store_true", help="Full mode: all pages")
     parser.add_argument("--repo", default=DEFAULT_REPO, help="Local repo path")

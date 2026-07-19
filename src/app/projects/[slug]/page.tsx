@@ -5,9 +5,10 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { WikiViewer } from "@/components/wiki-viewer";
 import { AppSettings, DEFAULT_APP_SETTINGS } from "@/components/setup-wizard";
+import { migrateLegacyBrowserStorage } from "@/lib/brand-migration";
 
-const APP_SETTINGS_KEY = "localwiki_app_settings";
-const DARK_MODE_KEY = "localwiki_is_dark";
+const APP_SETTINGS_KEY = "repolume_app_settings";
+const DARK_MODE_KEY = "repolume_is_dark";
 
 interface RunMeta {
   owner: string;
@@ -26,6 +27,7 @@ function ProjectWikiContent() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    migrateLegacyBrowserStorage();
     setIsDark(localStorage.getItem(DARK_MODE_KEY) === "true");
     const raw = localStorage.getItem(APP_SETTINGS_KEY);
     if (raw) {

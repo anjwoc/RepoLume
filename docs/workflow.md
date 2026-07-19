@@ -1,6 +1,6 @@
 # Generation Workflow
 
-This page describes the end-to-end LocalWiki generation flow.
+This page describes the end-to-end RepoLume generation flow.
 
 ## Sequence
 
@@ -55,11 +55,11 @@ sequenceDiagram
 
 1. Repository resolution
 
-   LocalWiki accepts a local path or Git URL. Git URLs are cloned to a temporary or configured directory. Local paths are read directly.
+   RepoLume accepts a local path or Git URL. Git URLs are cloned to a temporary or configured directory. Local paths are read directly.
 
 2. Local analysis
 
-   LocalWiki Sonar scans supported source files to extract symbols, relationships, and diagram context. The graph indexer can add compact call/import context when available.
+   RepoLume Sonar scans supported source files to extract symbols, relationships, and diagram context. The graph indexer can add compact call/import context when available.
 
 3. Optional MCP enrichment
 

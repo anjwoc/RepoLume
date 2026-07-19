@@ -6,7 +6,7 @@ import test from 'node:test';
 import { cleanDesktopOutputs } from './clean-desktop-output.mjs';
 
 test('removes the current dist directory and legacy dist-electron variants only', () => {
-  const root = mkdtempSync(join(tmpdir(), 'localwiki-desktop-clean-'));
+  const root = mkdtempSync(join(tmpdir(), 'repolume-desktop-clean-'));
   try {
     for (const name of ['dist', 'dist-electron', 'dist-electron-permission-v2', 'distillery']) {
       mkdirSync(join(root, name));

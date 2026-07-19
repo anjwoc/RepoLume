@@ -53,7 +53,7 @@ interface AdminLogsScreenProps {
   onBack: () => void;
 }
 
-const ADMIN_LOGS_KEY = "localwiki_admin_logs";
+const ADMIN_LOGS_KEY = "repolume_admin_logs";
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 

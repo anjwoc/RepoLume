@@ -1,11 +1,11 @@
 """
-Sonar Analyzer — main entry point for LocalWiki static analysis.
+Sonar Analyzer — main entry point for RepoLume static analysis.
 
 Orchestrates AST analysis → CallGraph → Mermaid diagram generation.
 Results are cached to avoid re-analysis on repeated runs.
 
 Portions adapted from CodeBoarding (MIT License).
-This module is the LocalWiki Sonar static-analysis entry point.
+This module is the RepoLume Sonar static-analysis entry point.
 """
 from __future__ import annotations
 
@@ -76,17 +76,17 @@ class DiagramCollection:
 
 class SonarAnalyzer:
     """
-    LocalWiki static analyzer (lightweight, no LSP).
+    RepoLume static analyzer (lightweight, no LSP).
 
     Generates:
     - Overview architecture diagram (all top nodes)
     - Per-cluster diagrams (by directory/package)
     - On-demand file-specific diagrams
 
-    Results are cached in .localwiki-cache/ within the repo.
+    Results are cached in .repolume-cache/ within the repo.
     """
 
-    _CACHE_DIR = ".localwiki-cache"
+    _CACHE_DIR = ".repolume-cache"
 
     def __init__(self, repo_path: str, max_files: int = 300):
         self._repo_path = str(Path(repo_path).resolve())
@@ -193,10 +193,10 @@ class SonarAnalyzer:
         content = "\n\n".join(parts)
         source = DataSource(
             type="code",
-            name="Static Analysis (LocalWiki)",
+            name="Static Analysis (RepoLume)",
             url=self._repo_path,
             excerpt=f"AST: {len(file_paths)} files, {len(diagrams)} diagrams",
-            metadata={"source": "localwiki-analyzer", "license": "MIT"},
+            metadata={"source": "repolume-analyzer", "license": "MIT"},
         )
 
         score = 25 if ast_summaries else 0

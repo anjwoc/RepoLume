@@ -252,7 +252,7 @@ export function SettingsScreen({
     let pages = 0, links = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (!key?.startsWith("localwiki_cache_")) continue;
+      if (!key || !/^(?:repolume|localwiki)_cache_/.test(key)) continue;
       try {
         const raw = localStorage.getItem(key);
         if (!raw) continue;
@@ -1159,7 +1159,7 @@ export function SettingsScreen({
                   ))}
                 </div>
                 <p style={{ color: t.textMuted, fontSize: 11, marginTop: 8, marginLeft: 4 }}>
-                  커스텀 MCP는 <code style={{ fontFamily: "monospace" }}>~/.localwiki/mcp-config.yaml</code> 의 <code style={{ fontFamily: "monospace" }}>custom_mcps</code> 섹션에서 관리됩니다.
+                  커스텀 MCP는 <code style={{ fontFamily: "monospace" }}>~/.repolume/mcp-config.yaml</code> 의 <code style={{ fontFamily: "monospace" }}>custom_mcps</code> 섹션에서 관리됩니다.
                 </p>
               </div>
             )}

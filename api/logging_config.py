@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
+from api.runtime_env import product_env
 
 
 class IgnoreLogChangeDetectedFilter(logging.Filter):
@@ -24,7 +25,7 @@ def setup_logging(format: str = None):
     """
     # Determine log directory and default file path
     default_data_dir = Path(__file__).parent / "data"
-    data_dir = Path(os.environ.get("LOCALWIKI_DATA_DIR", str(default_data_dir)))
+    data_dir = Path(product_env("DATA_DIR", str(default_data_dir)) or str(default_data_dir))
     log_dir = data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     default_log_file = log_dir / "application.log"

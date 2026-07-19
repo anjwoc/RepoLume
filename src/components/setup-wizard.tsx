@@ -59,7 +59,7 @@ const MODELS = [
   ]},
 ];
 
-const APP_SETTINGS_KEY = "localwiki_app_settings";
+const APP_SETTINGS_KEY = "repolume_app_settings";
 
 interface SetupWizardProps {
   isDark: boolean;

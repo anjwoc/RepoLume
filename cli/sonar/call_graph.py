@@ -1,11 +1,11 @@
 """
-Call Graph data model for LocalWiki Sonar.
+Call Graph data model for RepoLume Sonar.
 
 Portions adapted from CodeBoarding/static_analyzer/graph.py (MIT License)
 Copyright 2025 CodeBoarding Team
 https://github.com/CodeBoarding/CodeBoarding
 
-This file keeps only the lightweight graph structures needed by LocalWiki.
+This file keeps only the lightweight graph structures needed by RepoLume.
 """
 from __future__ import annotations
 

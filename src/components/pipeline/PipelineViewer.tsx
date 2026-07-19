@@ -10,7 +10,7 @@ import { usePipelineState } from "./usePipelineState";
 import { DebugEventPanel } from "./DebugEventPanel";
 import { addQueuedRequest, moveQueuedRequest, removeQueuedRequest, type QueuedRequest } from "@/lib/request-queue";
 
-const requestQueueKey = (projectPath: string) => `localwiki_request_queue:${projectPath}`;
+const requestQueueKey = (projectPath: string) => `repolume_request_queue:${projectPath}`;
 
 export interface PipelineViewerProps {
   isDark: boolean;

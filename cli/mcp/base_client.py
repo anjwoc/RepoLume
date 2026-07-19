@@ -72,7 +72,7 @@ class MCPStdioClient:
         resp = self._request("initialize", {
             "protocolVersion": _MCP_PROTOCOL_VERSION,
             "capabilities": {},
-            "clientInfo": {"name": "localwiki", "version": "3.0"},
+            "clientInfo": {"name": "repolume", "version": "3.0"},
         })
         logger.debug(f"MCP initialize response: {resp.get('serverInfo', {})}")
 

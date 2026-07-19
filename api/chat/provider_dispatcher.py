@@ -1,4 +1,4 @@
-"""LLM provider dispatch: CLI (localwiki-agent) and direct API (Google/OpenAI/OpenRouter)."""
+"""LLM provider dispatch: CLI (repolume-agent) and direct API (Google/OpenAI/OpenRouter)."""
 import asyncio
 from contextlib import suppress
 import json
@@ -27,6 +27,7 @@ from api.process_supervisor import (
     get_process_fingerprint,
 )
 from api.task_streams import emit_task_event
+from api.runtime_env import product_env
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +35,9 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 _MAX_EMPTY_RETRIES = 2
 _EMPTY_RETRY_DELAYS = [5, 15]  # seconds between retry attempts
-_CLI_IDLE_TIMEOUT_SECONDS = float(os.getenv("LOCALWIKI_CLI_IDLE_TIMEOUT_SECONDS", "300"))
-_CLI_OVERALL_TIMEOUT_SECONDS = float(os.getenv("LOCALWIKI_CLI_OVERALL_TIMEOUT_SECONDS", "1200"))
-_CLI_HEARTBEAT_SECONDS = float(os.getenv("LOCALWIKI_CLI_HEARTBEAT_SECONDS", "15"))
+_CLI_IDLE_TIMEOUT_SECONDS = float(product_env("CLI_IDLE_TIMEOUT_SECONDS", "300") or "300")
+_CLI_OVERALL_TIMEOUT_SECONDS = float(product_env("CLI_OVERALL_TIMEOUT_SECONDS", "1200") or "1200")
+_CLI_HEARTBEAT_SECONDS = float(product_env("CLI_HEARTBEAT_SECONDS", "15") or "15")
 _CLI_PIPE_LIMIT = 100 * 1024 * 1024
 
 # agy (antigravity) silently exits(0) with no output when prompt exceeds this.
@@ -154,7 +155,13 @@ def _build_pass2_prompt(original_prompt: str, first_response: str, overflow: str
 
 # ── AGY account rotation (quota exhaustion recovery) ─────────────────────────
 
-_AGY_ACCOUNTS_DIR = Path.home() / ".localwiki" / "agy-accounts"
+_CURRENT_AGY_ACCOUNTS_DIR = Path.home() / ".repolume" / "agy-accounts"
+_LEGACY_AGY_ACCOUNTS_DIR = Path.home() / ".localwiki" / "agy-accounts"
+_AGY_ACCOUNTS_DIR = (
+    _CURRENT_AGY_ACCOUNTS_DIR
+    if _CURRENT_AGY_ACCOUNTS_DIR.exists() or not _LEGACY_AGY_ACCOUNTS_DIR.exists()
+    else _LEGACY_AGY_ACCOUNTS_DIR
+)
 _AGY_TOKEN_PATH = Path.home() / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
 _agy_account_index = 0
 _agy_rotation_lock: asyncio.Lock | None = None
@@ -202,20 +209,22 @@ async def _rotate_agy_account() -> bool:
 
 
 def _get_agent_bin() -> Path:
-    configured = os.getenv("LOCALWIKI_AGENT_BIN")
+    configured = product_env("AGENT_BIN")
     candidates = [
         Path(configured) if configured else None,
+        _PROJECT_ROOT / "bin" / "repolume-agent",
+        _PROJECT_ROOT / "bin" / "agent" / "repolume-agent",
+        _PROJECT_ROOT / "repolume-agent",
+        Path("/tmp/repolume-agent"),
         _PROJECT_ROOT / "bin" / "localwiki-agent",
-        _PROJECT_ROOT / "bin" / "agent" / "localwiki-agent",
         _PROJECT_ROOT / "localwiki-agent",
-        Path("/tmp/localwiki-agent"),
     ]
     for path in candidates:
         if path is not None and path.exists():
             return path
     raise HTTPException(
         status_code=500,
-        detail="localwiki-agent 바이너리를 찾을 수 없습니다. agent/ 디렉토리에서 빌드하세요.",
+        detail="repolume-agent 바이너리를 찾을 수 없습니다. agent/ 디렉토리에서 빌드하세요.",
     )
 
 
@@ -273,7 +282,7 @@ async def cli_stream(
     generation_task_id: str | None = None,
     raise_on_error: bool = False,
 ) -> AsyncGenerator[str, None]:
-    """Stream JSONL output from the localwiki-agent CLI binary."""
+    """Stream JSONL output from the repolume-agent CLI binary."""
     agent = request.cli_tool or "codex"
     model_override = request.model or ""
 

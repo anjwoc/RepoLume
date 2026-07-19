@@ -1,5 +1,5 @@
 """
-Local repository scanner for LocalWiki CLI.
+Local repository scanner for RepoLume CLI.
 
 Reads files from a local directory and produces the file tree string
 and README content that the wiki structure planner needs.
@@ -157,7 +157,7 @@ def resolve_repo(path_or_url: str, clone_dir: str | None = None) -> Tuple[LocalR
         return LocalRepo(str(p)), None
 
     # Treat as git URL
-    dest = clone_dir or tempfile.mkdtemp(prefix="localwiki_")
+    dest = clone_dir or tempfile.mkdtemp(prefix="repolume_")
     logger.info(f"Cloning {path_or_url} → {dest}")
     subprocess.run(
         ["git", "clone", "--depth=1", "--single-branch", path_or_url, dest],

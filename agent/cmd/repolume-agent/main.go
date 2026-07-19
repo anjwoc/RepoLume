@@ -1,10 +1,10 @@
-// localwiki-agent — CLI launcher for Antigravity, Gemini, Codex, and Claude Code.
+// repolume-agent — CLI launcher for Antigravity, Gemini, Codex, and Claude Code.
 //
 // Usage:
 //
-//	localwiki-agent run --agent gemini --prompt "..." [--cwd /path/to/repo] [--model gemini-2.5-pro]
-//	localwiki-agent run --agent codex  --prompt-file /tmp/prompt.txt [--cwd ...]
-//	localwiki-agent list  # list available agents
+//	repolume-agent run --agent gemini --prompt "..." [--cwd /path/to/repo] [--model gemini-2.5-pro]
+//	repolume-agent run --agent codex  --prompt-file /tmp/prompt.txt [--cwd ...]
+//	repolume-agent list  # list available agents
 //
 // Output is written to stdout as JSON:
 //
@@ -23,8 +23,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/localwiki/agent/internal/flowanalyzer"
-	"github.com/localwiki/agent/internal/runner"
+	"github.com/repolume/agent/internal/flowanalyzer"
+	"github.com/repolume/agent/internal/runner"
 )
 
 // jsonOutput is the structured response sent to Python.
@@ -68,7 +68,7 @@ func main() {
 	}
 }
 
-// cmdRun handles `localwiki-agent run ...`
+// cmdRun handles `repolume-agent run ...`
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	agentName := fs.String("agent", "gemini", "Agent to use: antigravity | agy | gemini | codex | claude")
@@ -213,7 +213,7 @@ func cmdList() int {
 	available := reg.Available()
 	all := []string{"antigravity", "codex", "claude", "gemini"}
 
-	fmt.Println("LocalWiki Agent Status:")
+	fmt.Println("RepoLume Agent Status:")
 	for _, name := range all {
 		r, _ := reg.Get(name)
 		status := "❌ not found"
@@ -252,12 +252,12 @@ func outputError(agent, msg string) {
 }
 
 func fatal(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "localwiki-agent: "+format+"\n", args...)
+	fmt.Fprintf(os.Stderr, "repolume-agent: "+format+"\n", args...)
 	os.Exit(1)
 }
 
 func printUsage() {
-	fmt.Fprintf(os.Stderr, `localwiki-agent — CLI agent launcher
+	fmt.Fprintf(os.Stderr, `repolume-agent — CLI agent launcher
 
 Subcommands:
   run   Execute a prompt via a CLI agent and print JSON result
@@ -265,11 +265,11 @@ Subcommands:
   check Check if an agent CLI is installed
 
 Run usage:
-  localwiki-agent run --agent gemini --prompt "Hello" [--cwd /repo] [--model gemini-2.5-pro]
-  localwiki-agent run --agent agy --prompt "..." [--model agy-gemini-3.5-flash-high]
-  localwiki-agent run --agent codex  --prompt-file /tmp/p.txt [--timeout 120]
-  localwiki-agent run --agent claude --prompt "..." [--model claude-sonnet-4-5]
-  localwiki-agent analyze-flow --flow F18 [--catalog flows/catalog.yaml] [--config flows/local-wiki.flows.json] [--agent claude] [--out .]
+  repolume-agent run --agent gemini --prompt "Hello" [--cwd /repo] [--model gemini-2.5-pro]
+  repolume-agent run --agent agy --prompt "..." [--model agy-gemini-3.5-flash-high]
+  repolume-agent run --agent codex  --prompt-file /tmp/p.txt [--timeout 120]
+  repolume-agent run --agent claude --prompt "..." [--model claude-sonnet-4-5]
+  repolume-agent analyze-flow --flow F18 [--catalog flows/catalog.yaml] [--config flows/repolume.flows.json] [--agent claude] [--out .]
 `)
 }
 
@@ -277,7 +277,7 @@ func cmdAnalyzeFlow(args []string) int {
 	fs := flag.NewFlagSet("analyze-flow", flag.ExitOnError)
 	flowID := fs.String("flow", "", "Flow ID (e.g. F18)")
 	catalogPath := fs.String("catalog", "flows/catalog.yaml", "Path to catalog.yaml")
-	configPath := fs.String("config", "flows/local-wiki.flows.json", "Path to MCP instance config")
+	configPath := fs.String("config", "flows/repolume.flows.json", "Path to MCP instance config")
 	agentName := fs.String("agent", "claude", "AI agent to use (antigravity/agy/claude/gemini/codex)")
 	outDir := fs.String("out", ".", "Output directory")
 	_ = fs.Parse(args)

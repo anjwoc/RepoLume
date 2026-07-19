@@ -11,10 +11,13 @@ if (packageMetadata.build?.directories?.output !== 'dist') {
 if (!scripts['desktop:build']?.includes('release:desktop')) {
   failures.push('desktop:build must remain an alias of release:desktop');
 }
-for (const requiredStep of ['check:release', 'check:repo', 'test:desktop', 'desktop:prepare', 'package-desktop.mjs']) {
+for (const requiredStep of ['check:release', 'check:repo', 'test:desktop', 'desktop:clean', 'desktop:prepare', 'package-desktop.mjs']) {
   if (!scripts['release:desktop']?.includes(requiredStep)) {
     failures.push(`release:desktop is missing required step: ${requiredStep}`);
   }
+}
+if (scripts['release:desktop']?.indexOf('desktop:clean') > scripts['release:desktop']?.indexOf('desktop:prepare')) {
+  failures.push('release:desktop must clean previous output before desktop:prepare');
 }
 
 const trackedOutputs = execFileSync(

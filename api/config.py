@@ -11,6 +11,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.google_embedder_client import GoogleEmbedderClient
 from adalflow import GoogleGenAIClient, OllamaClient
+from api.runtime_env import product_env
 
 # Get API keys from environment variables
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
@@ -26,15 +27,15 @@ if OPENROUTER_API_KEY:
     os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
 
 # Wiki authentication settings
-raw_auth_mode = os.environ.get('LOCALWIKI_AUTH_MODE', 'False')
+raw_auth_mode = product_env('AUTH_MODE', 'False') or 'False'
 WIKI_AUTH_MODE = raw_auth_mode.lower() in ['true', '1', 't']
-WIKI_AUTH_CODE = os.environ.get('LOCALWIKI_AUTH_CODE', '')
+WIKI_AUTH_CODE = product_env('AUTH_CODE', '') or ''
 
 # Embedder settings
-EMBEDDER_TYPE = os.environ.get('LOCALWIKI_EMBEDDER_TYPE', 'openai').lower()
+EMBEDDER_TYPE = (product_env('EMBEDDER_TYPE', 'openai') or 'openai').lower()
 
 # Get configuration directory from environment variable, or use default if not set
-CONFIG_DIR = os.environ.get('LOCALWIKI_CONFIG_DIR', None)
+CONFIG_DIR = product_env('CONFIG_DIR')
 
 # Client class mapping
 CLIENT_CLASSES = {
@@ -137,7 +138,7 @@ def load_embedder_config():
 
 def get_embedder_config():
     """
-    Get the current embedder configuration based on LOCALWIKI_EMBEDDER_TYPE.
+    Get the current embedder configuration based on REPOLUME_EMBEDDER_TYPE.
 
     Returns:
         dict: The embedder configuration with model_client resolved

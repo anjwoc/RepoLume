@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Literal
+from api.runtime_env import migrate_product_file, product_env
 
 
 TaskStatus = Literal["queued", "running", "succeeded", "failed", "timed_out", "cancelled"]
@@ -42,14 +43,14 @@ def _now() -> str:
 
 class GenerationJobStore:
     def __init__(self, db_path: Path | str | None = None) -> None:
-        self.db_path = Path(db_path) if db_path is not None else (
-            Path(
-                os.getenv(
-                    "LOCALWIKI_DATA_DIR",
-                    str(Path(__file__).parent.parent / "data"),
-                )
-            )
-            / "localwiki.db"
+        data_root = Path(
+            product_env("DATA_DIR", str(Path(__file__).parent.parent / "data"))
+            or str(Path(__file__).parent.parent / "data")
+        )
+        self.db_path = Path(db_path) if db_path is not None else migrate_product_file(
+            data_root,
+            "repolume.db",
+            "localwiki.db",
         )
         self._schema_ready = False
         self._schema_lock = threading.Lock()

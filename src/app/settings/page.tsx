@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { SettingsScreen } from "@/components/settings-screen";
 import { AppSettings, DEFAULT_APP_SETTINGS } from "@/components/setup-wizard";
 import { MCPSettings, DEFAULT_MCP_SETTINGS } from "@/lib/mcp-types";
+import { migrateLegacyBrowserStorage } from "@/lib/brand-migration";
 
-const APP_SETTINGS_KEY = "localwiki_app_settings";
-const DARK_MODE_KEY = "localwiki_is_dark";
+const APP_SETTINGS_KEY = "repolume_app_settings";
+const DARK_MODE_KEY = "repolume_is_dark";
 
 function mergeMcpSettings(saved: MCPSettings): MCPSettings {
   const savedIds = new Set(saved.providers.map((p) => p.id));
@@ -23,6 +24,7 @@ export default function SettingsPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    migrateLegacyBrowserStorage();
     const dark = localStorage.getItem(DARK_MODE_KEY) === "true";
     setIsDark(dark);
 

@@ -2,7 +2,7 @@
 
 ## Supported Use
 
-LocalWiki is intended for local or self-hosted code documentation workflows. Treat generated output as sensitive when the source repository is private.
+RepoLume is intended for local or self-hosted code documentation workflows. Treat generated output as sensitive when the source repository is private.
 
 ## Secrets
 

@@ -1,1 +1,1 @@
-"""Diagram extraction and injection modules for LocalWiki."""
+"""Diagram extraction and injection modules for RepoLume."""

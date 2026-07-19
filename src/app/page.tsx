@@ -6,9 +6,10 @@ import { AnimatePresence } from "motion/react";
 import { HomeScreen } from "@/components/home-screen";
 import { SetupWizard, AppSettings, DEFAULT_APP_SETTINGS, PERMISSION_GUIDE_VERSION } from "@/components/setup-wizard";
 import { probeFolderAccess } from "@/lib/desktop-folder-picker";
+import { migrateLegacyBrowserStorage } from "@/lib/brand-migration";
 
-const APP_SETTINGS_KEY = "localwiki_app_settings";
-const DARK_MODE_KEY = "localwiki_is_dark";
+const APP_SETTINGS_KEY = "repolume_app_settings";
+const DARK_MODE_KEY = "repolume_is_dark";
 
 function loadAppSettings(): AppSettings {
   if (typeof window === "undefined") return DEFAULT_APP_SETTINGS;
@@ -38,6 +39,7 @@ export default function Page() {
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
 
   useEffect(() => {
+    migrateLegacyBrowserStorage();
     const saved = loadAppSettings();
     setAppSettings(saved);
     setIsDark(localStorage.getItem(DARK_MODE_KEY) === "true");
@@ -64,7 +66,7 @@ export default function Page() {
     const primaryPath = analysisPaths[0] || path;
     const repo = sanitizeRepoName(primaryPath);
     // Store path for resume (same machine, same user)
-    try { localStorage.setItem(`localwiki_path_${repo}`, primaryPath); } catch {}
+    try { localStorage.setItem(`repolume_path_${repo}`, primaryPath); } catch {}
 
     const p = new URLSearchParams({
       path: primaryPath,
@@ -92,7 +94,7 @@ export default function Page() {
   };
 
   const handleResumeProject = async (owner: string, repo: string, repo_type: string, language: string, parentJobId: string) => {
-    const storedPath = localStorage.getItem(`localwiki_path_${repo}`);
+    const storedPath = localStorage.getItem(`repolume_path_${repo}`);
     if (!storedPath) {
       alert('저장된 프로젝트 경로를 찾을 수 없습니다. 홈 화면에서 경로를 입력해 이어서 생성해 주세요.');
       return;
@@ -110,7 +112,7 @@ export default function Page() {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      sessionStorage.setItem('localwiki_resume_pending', JSON.stringify({
+      sessionStorage.setItem('repolume_resume_pending', JSON.stringify({
         streamId: data.stream_id,
         completedPageIds: data.completed_page_ids ?? [],
         wikiStructure: data.wiki_structure,

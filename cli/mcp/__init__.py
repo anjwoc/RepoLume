@@ -10,7 +10,7 @@ All clients follow the same pattern:
 Usage::
 
     from cli.mcp import get_mcp_manager
-    mgr = get_mcp_manager(config_path="~/.localwiki/mcp-config.yaml")
+    mgr = get_mcp_manager(config_path="~/.repolume/mcp-config.yaml")
     ctx = mgr.collect_context(repo_path, page_topic)
 """
 from __future__ import annotations

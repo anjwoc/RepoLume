@@ -1,1 +1,1 @@
-"""Wiki pipeline modules for LocalWiki CLI."""
+"""Wiki pipeline modules for RepoLume CLI."""

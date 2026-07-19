@@ -1,6 +1,6 @@
 # System Architecture
 
-LocalWiki is split into a web interface, a backend API, and a CLI-first generation pipeline. The CLI pipeline is the core: the web app calls into the same repository analysis and export flow that can be run from a terminal.
+RepoLume is split into a web interface, a backend API, and a CLI-first generation pipeline. The CLI pipeline is the core: the web app calls into the same repository analysis and export flow that can be run from a terminal.
 
 ## Architecture Diagram
 
@@ -13,7 +13,7 @@ graph TD
         API -->|Start generation / chat| CLI[CLI Pipeline]
 
         subgraph Analysis["Data Collection and Analysis"]
-            CLI -->|Load files and symbols| Sonar[LocalWiki Sonar]
+            CLI -->|Load files and symbols| Sonar[RepoLume Sonar]
             CLI -->|Build compact graph context| Indexer[Graph Indexer]
             CLI -->|Collect optional external context| MCP[MCP Manager]
             Sonar --> Context[(Generation Context)]
@@ -68,7 +68,7 @@ Important modules:
 
 - `cli/wiki.py`: CLI entry point.
 - `cli/pipeline/local_repo.py`: local path and Git URL handling.
-- `cli/sonar/`: LocalWiki Sonar static analysis and Mermaid generation.
+- `cli/sonar/`: RepoLume Sonar static analysis and Mermaid generation.
 - `cli/indexer/`: optional compact graph context from external graph tools.
 - `cli/mcp/`: optional DB, GitHub, and Atlassian context collectors.
 - `cli/providers/`: model adapters and CLI-agent adapters.
@@ -78,8 +78,8 @@ Important modules:
 ## Data Flow
 
 1. A user selects a repository from the UI or passes a path/URL to `python3 -m cli.wiki`.
-2. LocalWiki resolves the repository and collects code context.
-3. LocalWiki Sonar extracts symbols, relationships, and diagram-ready structure.
+2. RepoLume resolves the repository and collects code context.
+3. RepoLume Sonar extracts symbols, relationships, and diagram-ready structure.
 4. Optional indexers and MCP sources add graph, issue, PR, schema, or Confluence context.
 5. The structure planner asks an LLM for a page/section plan.
 6. The page generator writes Markdown pages, using provider routing and tracked sources.

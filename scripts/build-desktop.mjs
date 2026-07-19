@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { arch, platform } from 'node:process';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createStandaloneCopyFilter } from './desktop-copy-filter.mjs';
+import { createPublicCopyFilter, createStandaloneCopyFilter } from './desktop-copy-filter.mjs';
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const desktopRoot = join(projectRoot, 'build', 'desktop');
@@ -31,8 +31,8 @@ mkdirSync(join(desktopRoot, 'api'), { recursive: true });
 run('go', [
   'build',
   '-trimpath',
-  '-o', join(desktopRoot, 'bin', `localwiki-agent${executableSuffix}`),
-  './cmd/localwiki-agent',
+  '-o', join(desktopRoot, 'bin', `repolume-agent${executableSuffix}`),
+  './cmd/repolume-agent',
 ], {
   cwd: join(projectRoot, 'agent'),
   env: { GOOS: goos, GOARCH: goarch, CGO_ENABLED: '0' },
@@ -45,7 +45,7 @@ run('poetry', [
   '--clean',
   '--distpath', '../build/desktop/api',
   '--workpath', '../build/pyinstaller',
-  'localwiki-api.spec',
+  'repolume-api.spec',
 ]);
 
 run('pnpm', ['build']);
@@ -65,13 +65,17 @@ renameSync(join(webRoot, 'node_modules'), join(webRoot, 'runtime_modules'));
 cpSync(join(projectRoot, '.next', 'static'), join(webRoot, '.next', 'static'), {
   recursive: true,
 });
-cpSync(join(projectRoot, 'public'), join(webRoot, 'public'), { recursive: true });
+const publicRoot = join(projectRoot, 'public');
+cpSync(publicRoot, join(webRoot, 'public'), {
+  recursive: true,
+  filter: createPublicCopyFilter(publicRoot),
+});
 
 const apiExecutable = join(
   desktopRoot,
   'api',
-  'localwiki-api',
-  `localwiki-api${executableSuffix}`,
+  'repolume-api',
+  `repolume-api${executableSuffix}`,
 );
 if (!existsSync(apiExecutable)) {
   throw new Error(`Bundled API executable is missing: ${apiExecutable}`);

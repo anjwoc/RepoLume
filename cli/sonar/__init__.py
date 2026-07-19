@@ -1,6 +1,6 @@
 # cli/sonar/__init__.py
 """
-LocalWiki 정적 분석기 (Sonar)
+RepoLume 정적 분석기 (Sonar)
 
 MIT License 코드 일부를 이식하여 외부 프로세스 실행 없이
 AST 기반 아키텍처 다이어그램을 생성합니다.

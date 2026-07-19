@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for improving LocalWiki.
+Thanks for improving RepoLume.
 
 ## Development Setup
 
@@ -32,4 +32,4 @@ pnpm dev
 
 ## Documentation Naming
 
-Use LocalWiki product names in user-facing docs. Keep third-party project names only in legal notices, optional integration instructions, source headers, or dependency references.
+Use RepoLume product names in user-facing docs. Keep third-party project names only in legal notices, optional integration instructions, source headers, or dependency references.

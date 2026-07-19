@@ -148,7 +148,7 @@ export function DiagramShowcase() {
             ))}
           </div>
           <span className="text-xs font-mono text-zinc-500">
-            localwiki / vscode / system_analysis / {TABS[active].id}.md
+            repolume / vscode / system_analysis / {TABS[active].id}.md
           </span>
         </div>
 

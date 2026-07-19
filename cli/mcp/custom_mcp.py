@@ -1,7 +1,7 @@
 """Custom / Enterprise MCP Client.
 
 Loads internal MCP servers from the `custom_mcps` section of
-~/.localwiki/mcp-config.yaml.
+~/.repolume/mcp-config.yaml.
 
 Example yaml section::
 

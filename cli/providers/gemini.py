@@ -1,5 +1,5 @@
 """
-Gemini LLM provider adapter for LocalWiki CLI.
+Gemini LLM provider adapter for RepoLume CLI.
 Uses google-generativeai SDK directly (no API server needed).
 """
 from __future__ import annotations

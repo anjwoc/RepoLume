@@ -12,6 +12,7 @@ from api.routes.models import (
     RepoInfo, WikiCacheData, WikiCacheRequest, WikiPage, WikiSection, WikiStructureModel,
 )
 from api.db.store import project_store, wiki_run_store
+from api.runtime_env import product_env
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +43,24 @@ _active_dirs: dict[tuple[str, str], tuple[str, float]] = {}
 _DIR_REUSE_WINDOW_SECS = 4 * 3600  # 4 hours; covers any realistic single run
 
 
-WIKI_CACHE_DIR = os.environ.get(
-    "LOCALWIKI_CACHE_DIR",
+WIKI_CACHE_DIR = product_env(
+    "CACHE_DIR",
     os.path.join(os.path.expanduser("~/.adalflow"), "wikicache"),
-)
+) or os.path.join(os.path.expanduser("~/.adalflow"), "wikicache")
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def get_wiki_cache_path(
+    owner: str, repo: str, repo_type: str, language: str, model: Optional[str] = None
+) -> str:
+    model_str = (f"_{model}".replace("/", "-")) if model else ""
+    filename = f"repolume_cache_{repo_type}_{owner}_{repo}_{language}{model_str}.json"
+    return os.path.join(WIKI_CACHE_DIR, filename)
+
+
+def get_legacy_wiki_cache_path(
     owner: str, repo: str, repo_type: str, language: str, model: Optional[str] = None
 ) -> str:
     model_str = (f"_{model}".replace("/", "-")) if model else ""
@@ -110,16 +119,15 @@ async def read_wiki_cache(
 ) -> Optional[WikiCacheData]:
     cache_path = get_wiki_cache_path(owner, repo, repo_type, language, model)
     if not os.path.exists(cache_path):
-        return None
+        cache_path = get_legacy_wiki_cache_path(owner, repo, repo_type, language, model)
+        if not os.path.exists(cache_path):
+            return None
     try:
         with open(cache_path, "r", encoding="utf-8") as f:
             data = WikiCacheData(**json.load(f))
         # Inject index.md / log.md from the latest wiki-out directory
         wiki_out_repo = f"{repo}_{model}" if model else repo
-        wiki_out_root = os.environ.get(
-            "LOCALWIKI_WIKI_OUT_DIR",
-            os.path.join(_PROJECT_ROOT, "wiki-out"),
-        )
+        wiki_out_root = product_env("WIKI_OUT_DIR", os.path.join(_PROJECT_ROOT, "wiki-out")) or os.path.join(_PROJECT_ROOT, "wiki-out")
         wiki_out_dir = _latest_output_dir(wiki_out_root, wiki_out_repo)
         if wiki_out_dir:
             if not data.artifact_root:
@@ -141,9 +149,18 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
     logger.info(f"Saving wiki cache to: {cache_path}")
     try:
         source_path = data.repo.localPath
-        if not source_path and os.path.exists(cache_path):
+        existing_cache_path = cache_path
+        if not os.path.exists(existing_cache_path):
+            existing_cache_path = get_legacy_wiki_cache_path(
+                data.repo.owner,
+                data.repo.repo,
+                data.repo.type,
+                data.language,
+                data.model,
+            )
+        if not source_path and os.path.exists(existing_cache_path):
             try:
-                with open(cache_path, "r", encoding="utf-8") as existing_file:
+                with open(existing_cache_path, "r", encoding="utf-8") as existing_file:
                     existing_cache = WikiCacheData(**json.load(existing_file))
                 source_path = existing_cache.source_path or (
                     existing_cache.repo.localPath if existing_cache.repo else None
@@ -157,10 +174,7 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
             }
         )
         wiki_out_repo = f"{data.repo.repo}_{data.model}" if data.model else data.repo.repo
-        wiki_out_root = os.environ.get(
-            "LOCALWIKI_WIKI_OUT_DIR",
-            os.path.join(_PROJECT_ROOT, "wiki-out"),
-        )
+        wiki_out_root = product_env("WIKI_OUT_DIR", os.path.join(_PROJECT_ROOT, "wiki-out")) or os.path.join(_PROJECT_ROOT, "wiki-out")
         now = time.time()
         active_dir_key = (wiki_out_root, wiki_out_repo)
         cached_dir = _active_dirs.get(active_dir_key)
@@ -300,10 +314,7 @@ async def read_wiki_out_cache(
     repo: str, model: Optional[str] = None
 ) -> Optional[WikiCacheData]:
     wiki_out_repo = f"{repo}_{model}" if model else repo
-    wiki_out_root = os.environ.get(
-        "LOCALWIKI_WIKI_OUT_DIR",
-        os.path.join(_PROJECT_ROOT, "wiki-out"),
-    )
+    wiki_out_root = product_env("WIKI_OUT_DIR", os.path.join(_PROJECT_ROOT, "wiki-out")) or os.path.join(_PROJECT_ROOT, "wiki-out")
     wiki_out_dir = _latest_output_dir(wiki_out_root, wiki_out_repo)
     if not wiki_out_dir:
         return None

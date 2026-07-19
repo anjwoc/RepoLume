@@ -7,6 +7,7 @@ const { FOLDER_DIALOG_CHANNEL, createFolderSelector } = require('./folder-dialog
 const { PRIVACY_SETTINGS_CHANNEL, createPrivacySettingsOpener } = require('./privacy-settings');
 const { ServiceSupervisor } = require('./service-supervisor');
 const { preferredPort } = require('./runtime-config');
+const { prepareUserDataDirectory } = require('./brand-migration');
 
 let mainWindow = null;
 let webService = null;
@@ -18,6 +19,15 @@ const folderSelector = createFolderSelector({
   getParentWindow: () => BrowserWindow.getFocusedWindow() || mainWindow,
 });
 const openPrivacySettings = createPrivacySettingsOpener({ platform: process.platform, shell });
+
+const userDataMigration = prepareUserDataDirectory(app.getPath('appData'));
+app.setPath('userData', userDataMigration.current);
+
+function productEnv(name, fallback) {
+  return process.env[`REPOLUME_${name}`]
+    ?? process.env[`LOCALWIKI_${name}`]
+    ?? fallback;
+}
 
 function findAvailablePort(preferredPort) {
   return new Promise((resolve, reject) => {
@@ -101,8 +111,8 @@ function stopServers() {
 
 function showCrashLoop({ name, reason, restarts }) {
   const detail = `${name} service stopped after ${restarts} restart attempts. ${JSON.stringify(reason)}`;
-  console.error('LocalWiki service crash loop', detail);
-  dialog.showErrorBox('LocalWiki service stopped', detail);
+  console.error('RepoLume service crash loop', detail);
+  dialog.showErrorBox('RepoLume service stopped', detail);
 }
 
 function createWindow() {
@@ -130,15 +140,15 @@ async function startServers() {
   const packaged = app.isPackaged;
   const resourcesRoot = packaged ? process.resourcesPath : projectRoot;
   const executableSuffix = process.platform === 'win32' ? '.exe' : '';
-  const preferredApiPort = preferredPort(process.env.LOCALWIKI_API_PORT, 8001);
+  const preferredApiPort = preferredPort(productEnv('API_PORT'), 8001);
   const apiPort = await findAvailablePort(preferredApiPort);
   if (apiPort !== preferredApiPort) {
-    throw new Error(`LocalWiki API port ${preferredApiPort} is already in use`);
+    throw new Error(`RepoLume API port ${preferredApiPort} is already in use`);
   }
-  webPort = await findAvailablePort(preferredPort(process.env.LOCALWIKI_WEB_PORT, 3000));
+  webPort = await findAvailablePort(preferredPort(productEnv('WEB_PORT'), 3000));
   const dataRoot = path.join(app.getPath('userData'), 'data');
   const cacheRoot = path.join(app.getPath('userData'), 'cache');
-  const wikiOutRoot = process.env.LOCALWIKI_WIKI_OUT_DIR
+  const wikiOutRoot = productEnv('WIKI_OUT_DIR')
     || path.join(app.getPath('userData'), 'artifacts');
   mkdirSync(dataRoot, { recursive: true });
   mkdirSync(cacheRoot, { recursive: true });
@@ -158,9 +168,9 @@ async function startServers() {
     PATH: pathEntries.join(path.delimiter),
     NODE_ENV: 'production',
     SERVER_BASE_URL: `http://127.0.0.1:${apiPort}`,
-    LOCALWIKI_DATA_DIR: dataRoot,
-    LOCALWIKI_CACHE_DIR: cacheRoot,
-    LOCALWIKI_WIKI_OUT_DIR: wikiOutRoot,
+    REPOLUME_DATA_DIR: dataRoot,
+    REPOLUME_CACHE_DIR: cacheRoot,
+    REPOLUME_WIKI_OUT_DIR: wikiOutRoot,
     PORT: String(apiPort),
     PYTHONUNBUFFERED: '1',
   };
@@ -169,14 +179,14 @@ async function startServers() {
     const agentExecutable = path.join(
       resourcesRoot,
       'bin',
-      `localwiki-agent${executableSuffix}`,
+      `repolume-agent${executableSuffix}`,
     );
-    env.LOCALWIKI_AGENT_BIN = agentExecutable;
+    env.REPOLUME_AGENT_BIN = agentExecutable;
     const apiExecutable = path.join(
       resourcesRoot,
       'api',
-      'localwiki-api',
-      `localwiki-api${executableSuffix}`,
+      'repolume-api',
+      `repolume-api${executableSuffix}`,
     );
     const webRoot = path.join(resourcesRoot, 'web');
     apiService = new ServiceSupervisor({
@@ -244,7 +254,7 @@ async function startServers() {
     waitForUrl(`http://127.0.0.1:${webPort}`),
   ]);
   if (process.argv.includes('--smoke-test')) {
-    console.log('LOCALWIKI_DESKTOP_SMOKE_READY');
+    console.log('REPOLUME_DESKTOP_SMOKE_READY');
     setImmediate(() => app.quit());
   } else {
     createWindow();
@@ -256,7 +266,7 @@ app.whenReady().then(() => {
   ipcMain.handle(PRIVACY_SETTINGS_CHANNEL, () => openPrivacySettings());
   return startServers();
 }).catch((error) => {
-  console.error('LocalWiki startup failed', error);
+  console.error('RepoLume startup failed', error);
   stopServers();
   app.quit();
 });

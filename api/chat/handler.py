@@ -17,11 +17,12 @@ from api.db.generation_jobs import TaskDefinition, generation_job_store
 from api.db.store import job_store
 from api.events import EventType
 from api.task_streams import emit_task_event
+from api.runtime_env import product_env
 
 logger = logging.getLogger(__name__)
 
-_STREAM_HEARTBEAT_SECONDS = float(os.getenv("LOCALWIKI_STREAM_HEARTBEAT_SECONDS", "15"))
-_STREAM_IDLE_TIMEOUT_SECONDS = float(os.getenv("LOCALWIKI_STREAM_IDLE_TIMEOUT_SECONDS", "330"))
+_STREAM_HEARTBEAT_SECONDS = float(product_env("STREAM_HEARTBEAT_SECONDS", "15") or "15")
+_STREAM_IDLE_TIMEOUT_SECONDS = float(product_env("STREAM_IDLE_TIMEOUT_SECONDS", "330") or "330")
 
 
 class StreamIdleTimeout(RuntimeError):

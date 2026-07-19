@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
 
+const e2ePort = Number(process.env.E2E_PORT ?? 3000);
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -29,7 +31,7 @@ export default defineConfig({
     /* Maximum time each action such as `click()` can take. Defaults to 0 (no limit). */
     actionTimeout: 0,
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${e2ePort}`,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -45,8 +47,8 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'pnpm dev',
-    port: 3000,
+    command: `pnpm dev --port ${e2ePort}`,
+    port: e2ePort,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
   },

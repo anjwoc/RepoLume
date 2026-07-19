@@ -1,6 +1,6 @@
-# LocalWiki
+# RepoLume
 
-LocalWiki generates private, local-first documentation for codebases. It analyzes a repository, plans a wiki structure, writes Markdown pages, renders Mermaid diagrams, and provides a web UI for browsing and asking questions over the generated knowledge base.
+RepoLume turns a source repository into a structured, local-first wiki. It analyzes repository structure, proposes a table of contents for approval, writes Markdown pages, renders Mermaid diagrams, and provides a web UI for reviewing the generated documentation.
 
 It is designed for teams that want high-quality code onboarding material without sending every repository through a hosted indexing service.
 
@@ -8,7 +8,7 @@ It is designed for teams that want high-quality code onboarding material without
 
 - Local-first repository analysis for local paths and Git URLs.
 - Interactive Next.js wiki viewer with Mermaid rendering.
-- FastAPI backend for generation, cache, streaming logs, and RAG Q&A.
+- FastAPI backend for wiki generation, cache management, and streaming progress logs.
 - CLI pipeline for headless wiki generation and Confluence publishing.
 - Multi-provider model support: Gemini, OpenAI, Claude, OpenRouter, Bedrock, Azure OpenAI, Ollama, and LiteLLM-compatible routing.
 - Static analysis and graph context for architecture summaries and diagrams.
@@ -17,7 +17,7 @@ It is designed for teams that want high-quality code onboarding material without
 
 ## Getting Started
 
-Choose the path that matches how you plan to use LocalWiki:
+Choose the path that matches how you plan to use RepoLume:
 
 - **Installed desktop app:** download the `.dmg` or `.exe` attached to a GitHub Release. No Node.js, Python, Poetry, or Go installation is required.
 - **Docker Compose:** the shortest reproducible path for self-hosting.
@@ -31,7 +31,7 @@ Create an environment file:
 cp .env.example .env
 ```
 
-Edit `.env` and provide at least one generation provider key. For RAG embeddings, `OPENAI_API_KEY` or `GOOGLE_API_KEY` is recommended depending on your embedder configuration.
+Edit `.env` and provide the API key for the model provider used to generate the wiki.
 
 Start the app:
 
@@ -56,7 +56,7 @@ Confirm the backend is ready:
 curl http://localhost:8001/health
 ```
 
-Then open `http://localhost:3000`, select a repository folder, approve the requested folder permission, choose a model, and start analysis. LocalWiki writes runtime databases, logs, and generated content outside the tracked source files.
+Then open `http://localhost:3000`, select a repository folder, approve the requested folder permission, choose a model, and start analysis. RepoLume writes runtime databases, logs, and generated content outside the tracked source files.
 
 ### Local Development
 
@@ -74,7 +74,7 @@ Run the frontend, backend API, and local Go agent concurrently:
 pnpm run dev:all
 ```
 
-> **Note:** The Go agent binary is compiled automatically during `dev:all` and is saved to `bin/localwiki-agent`.
+> **Note:** The Go agent binary is compiled automatically during `dev:all` and is saved to `bin/repolume-agent`.
 
 Open `http://localhost:3000`.
 
@@ -167,7 +167,7 @@ Model and embedding defaults live in:
 
 ## Docker Variants
 
-- `docker-compose.yml`: standard LocalWiki stack, using external model APIs or host services configured through `.env`.
+- `docker-compose.yml`: standard RepoLume stack, using external model APIs or host services configured through `.env`.
 - `docker/docker-compose-litellm.yml`: adds LiteLLM and Postgres, useful when routing local Ollama or multiple providers through a single OpenAI-compatible endpoint.
 - `docker/Dockerfile-ollama-local`: bundles Ollama and pulls default local models during image build. This image is large and build-time model pulls can be slow.
 
@@ -175,17 +175,17 @@ See [docs/docker.md](docs/docker.md) for more operational notes.
 
 ## Architecture
 
-LocalWiki has three major layers:
+RepoLume has three major layers:
 
 - Frontend: Next.js UI for setup, project selection, streaming logs, wiki browsing, and settings.
-- Backend API: FastAPI service for repository processing, wiki cache, RAG chat, and stream events.
+- Backend API: FastAPI service for repository processing, wiki cache, and generation stream events.
 - CLI pipeline: repository resolution, static analysis, graph context, MCP context collection, structure planning, page generation, and export.
 
 See [docs/architecture.md](docs/architecture.md) and [docs/workflow.md](docs/workflow.md).
 
 ## Open Source Notices
 
-This repository includes original LocalWiki code and portions adapted from MIT-licensed third-party projects. Keep `LICENSE` and `NOTICE` with source and binary distributions. User-facing product documentation refers to the static analysis layer as LocalWiki Sonar; detailed third-party attribution lives in `NOTICE` and source file headers.
+This repository includes original RepoLume code and portions adapted from MIT-licensed third-party projects. Keep `LICENSE` and `NOTICE` with source and binary distributions. User-facing product documentation refers to the static analysis layer as RepoLume Sonar; detailed third-party attribution lives in `NOTICE` and source file headers.
 
 See [NOTICE](NOTICE) and [docs/open-source.md](docs/open-source.md).
 

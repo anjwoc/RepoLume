@@ -1,4 +1,4 @@
-const FOLDER_DIALOG_CHANNEL = 'localwiki:select-folder';
+const FOLDER_DIALOG_CHANNEL = 'repolume:select-folder';
 
 function createFolderSelector({ dialog, getParentWindow }) {
   let inFlight = null;

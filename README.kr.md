@@ -1,6 +1,6 @@
-# LocalWiki
+# RepoLume
 
-LocalWiki는 코드 저장소를 분석해 로컬 우선 위키를 생성하는 도구입니다. 저장소 구조를 읽고, 위키 목차를 기획하고, Markdown 문서를 생성하며, Mermaid 다이어그램과 RAG 기반 질의응답을 제공합니다.
+RepoLume는 코드 저장소를 분석해 로컬 우선 위키를 생성하는 도구입니다. 저장소 구조를 읽고, 승인할 위키 목차를 제안한 뒤 Markdown 문서와 Mermaid 다이어그램을 생성합니다.
 
 핵심 포지션은 "사내 코드가 외부 인덱싱 서비스로 나가지 않는 로컬/셀프호스트 코드 위키"입니다.
 
@@ -8,7 +8,7 @@ LocalWiki는 코드 저장소를 분석해 로컬 우선 위키를 생성하는 
 
 - 로컬 경로와 Git URL 기반 저장소 분석
 - Next.js 기반 대화형 위키 뷰어
-- FastAPI 기반 생성/캐시/스트리밍/RAG API
+- FastAPI 기반 위키 생성·캐시·진행 로그 스트리밍
 - CLI 기반 헤드리스 위키 생성 및 Confluence 게시
 - Gemini, OpenAI, Claude, OpenRouter, Bedrock, Azure OpenAI, Ollama, LiteLLM 지원
 - 정적 분석과 그래프 컨텍스트를 이용한 아키텍처 요약 및 Mermaid 다이어그램
@@ -29,7 +29,7 @@ LocalWiki는 코드 저장소를 분석해 로컬 우선 위키를 생성하는 
 cp .env.example .env
 ```
 
-`.env`에 사용할 모델 provider의 API 키를 넣습니다. RAG/임베딩까지 안정적으로 쓰려면 `OPENAI_API_KEY` 또는 `GOOGLE_API_KEY` 설정을 권장합니다.
+`.env`에 위키 생성에 사용할 모델 provider의 API 키를 넣습니다.
 
 ```bash
 docker compose up --build
@@ -63,7 +63,7 @@ pnpm run setup
 pnpm run dev:all
 ```
 
-> **참고:** Go 에이전트는 `dev:all` 실행 시 자동으로 컴파일되어 `bin/localwiki-agent` 위치에 생성됩니다.
+> **참고:** Go 에이전트는 `dev:all` 실행 시 자동으로 컴파일되어 `bin/repolume-agent` 위치에 생성됩니다.
 
 ## CLI 사용
 
@@ -117,7 +117,7 @@ npm run release:desktop
 
 ## 오픈소스 고지
 
-LocalWiki Sonar 정적 분석 레이어에는 MIT 라이선스 프로젝트에서 일부 아이디어와 코드가 이식된 부분이 있습니다. 공개 제품 문서에서는 내부 분석 레이어 이름을 사용하고, 법적/출처 표기는 `NOTICE`와 각 소스 파일 헤더에만 둡니다.
+RepoLume Sonar 정적 분석 레이어에는 MIT 라이선스 프로젝트에서 일부 아이디어와 코드가 이식된 부분이 있습니다. 공개 제품 문서에서는 내부 분석 레이어 이름을 사용하고, 법적/출처 표기는 `NOTICE`와 각 소스 파일 헤더에만 둡니다.
 
 배포 시 `LICENSE`와 `NOTICE`를 함께 포함하세요.
 

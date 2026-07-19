@@ -1,8 +1,8 @@
 {
-  "name": "localwiki",
+  "name": "repolume",
   "version": "0.1.3",
-  "description": "A local-first AI workspace that turns source repositories into navigable wikis and test guides.",
-  "author": "LocalWiki contributors",
+  "description": "A local-first desktop app that turns source repositories into structured wikis.",
+  "author": "RepoLume contributors",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -48,11 +48,11 @@
     "desktop:prepare": "node scripts/build-desktop.mjs",
     "desktop:dir": "pnpm desktop:prepare && pnpm desktop:clean && electron-builder --dir",
     "desktop:build": "pnpm release:desktop",
-    "release:desktop": "pnpm check:release && pnpm check:repo && pnpm test:desktop && pnpm desktop:prepare && node scripts/package-desktop.mjs"
+    "release:desktop": "pnpm check:release && pnpm check:repo && pnpm test:desktop && pnpm desktop:clean && pnpm desktop:prepare && node scripts/package-desktop.mjs"
   },
   "build": {
-    "appId": "com.localwiki.desktop",
-    "productName": "LocalWiki",
+    "appId": "com.repolume.desktop",
+    "productName": "RepoLume",
     "directories": {
       "output": "dist"
     },
@@ -63,8 +63,8 @@
     ],
     "extraResources": [
       {
-        "from": "build/desktop/api/localwiki-api",
-        "to": "api/localwiki-api"
+        "from": "build/desktop/api/repolume-api",
+        "to": "api/repolume-api"
       },
       {
         "from": "build/desktop/bin",
@@ -76,10 +76,11 @@
       }
     ],
     "mac": {
+      "icon": "electron/assets/repolume-icon.png",
       "extendInfo": {
-        "NSDocumentsFolderUsageDescription": "LocalWiki는 사용자가 선택한 프로젝트를 분석하고 위키 산출물을 내보낼 때만 Documents 폴더에 접근합니다.",
-        "NSDesktopFolderUsageDescription": "LocalWiki는 사용자가 Desktop의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다.",
-        "NSDownloadsFolderUsageDescription": "LocalWiki는 사용자가 Downloads의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다."
+        "NSDocumentsFolderUsageDescription": "RepoLume는 사용자가 선택한 프로젝트를 분석하고 위키 산출물을 내보낼 때만 Documents 폴더에 접근합니다.",
+        "NSDesktopFolderUsageDescription": "RepoLume는 사용자가 Desktop의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다.",
+        "NSDownloadsFolderUsageDescription": "RepoLume는 사용자가 Downloads의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다."
       },
       "target": [
         "dmg",
@@ -87,6 +88,7 @@
       ]
     },
     "win": {
+      "icon": "electron/assets/repolume-icon.png",
       "target": [
         "nsis",
         "portable"

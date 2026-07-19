@@ -4,7 +4,7 @@
 // backend blanks its own system prompt and we fully control grounding from the client.
 // No backend changes required.
 
-const APP_SETTINGS_KEY = "localwiki_app_settings";
+const APP_SETTINGS_KEY = "repolume_app_settings";
 
 export interface AskTurn {
   role: "user" | "assistant";

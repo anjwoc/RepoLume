@@ -3,7 +3,7 @@ const test = require('node:test');
 
 const { createFolderSelector } = require('./folder-dialog');
 
-test('opens a directory picker attached to the active LocalWiki window', async () => {
+test('opens a directory picker attached to the active RepoLume window', async () => {
   const parentWindow = { id: 7 };
   const calls = [];
   const selector = createFolderSelector({

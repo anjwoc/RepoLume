@@ -5,7 +5,7 @@ Portions adapted from CodeBoarding/output_generators/markdown.py (MIT License)
 Copyright 2025 CodeBoarding Team
 https://github.com/CodeBoarding/CodeBoarding
 
-This file generates Mermaid diagrams for the LocalWiki CallGraph model.
+This file generates Mermaid diagrams for the RepoLume CallGraph model.
 """
 from __future__ import annotations
 

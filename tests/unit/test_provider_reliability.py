@@ -36,7 +36,7 @@ async def test_required_cli_providers_use_supervised_attempts(
     monkeypatch,
     agent,
 ):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     _write_fake_agent(
         fake_agent,
         (
@@ -76,7 +76,7 @@ async def test_required_cli_providers_fail_empty_output_after_retry_budget(
     monkeypatch,
     agent,
 ):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     count_file = tmp_path / "count"
     _write_fake_agent(
         fake_agent,
@@ -120,7 +120,7 @@ async def test_required_cli_providers_fail_nonzero_exit_without_retry(
     monkeypatch,
     agent,
 ):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     count_file = tmp_path / "count"
     _write_fake_agent(
         fake_agent,
@@ -176,7 +176,7 @@ def test_agy_quota_detection_ignores_log_entries_from_previous_attempts(
 
 @pytest.mark.asyncio
 async def test_cli_idle_timeout_is_terminal_and_not_reported_as_success(tmp_path, monkeypatch):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     _write_fake_agent(fake_agent, "import time\ntime.sleep(30)\n")
     ledger = GenerationJobStore(tmp_path / "ledger.db")
     ledger.register_tasks("job-1", [TaskDefinition("page-1", "cli")])
@@ -206,7 +206,7 @@ async def test_cli_idle_timeout_is_terminal_and_not_reported_as_success(tmp_path
 
 @pytest.mark.asyncio
 async def test_partial_cli_timeout_is_not_retried_or_duplicated(tmp_path, monkeypatch):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     _write_fake_agent(fake_agent, "")
     ledger = GenerationJobStore(tmp_path / "ledger.db")
     ledger.register_tasks("job-1", [TaskDefinition("page-1", "cli")])
@@ -293,7 +293,7 @@ async def test_agy_account_rotation_is_serialized_and_atomic(tmp_path, monkeypat
 
 @pytest.mark.asyncio
 async def test_agy_quota_rotates_once_then_succeeds_with_a_new_attempt(tmp_path, monkeypatch):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     count_file = tmp_path / "count"
     _write_fake_agent(
         fake_agent,
@@ -347,7 +347,7 @@ async def test_agy_quota_rotates_once_then_succeeds_with_a_new_attempt(tmp_path,
 
 @pytest.mark.asyncio
 async def test_agy_quota_without_configured_accounts_fails_without_retry(tmp_path, monkeypatch):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     count_file = tmp_path / "count"
     _write_fake_agent(
         fake_agent,
@@ -391,7 +391,7 @@ async def test_agy_quota_without_configured_accounts_fails_without_retry(tmp_pat
 
 @pytest.mark.asyncio
 async def test_cli_attempt_emits_persisted_heartbeat_while_waiting(tmp_path, monkeypatch):
-    fake_agent = tmp_path / "localwiki-agent"
+    fake_agent = tmp_path / "repolume-agent"
     _write_fake_agent(
         fake_agent,
         (

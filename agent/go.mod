@@ -1,4 +1,4 @@
-module github.com/localwiki/agent
+module github.com/repolume/agent
 
 go 1.24.4
 

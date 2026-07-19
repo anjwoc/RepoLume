@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">RepoLume</title>
+  <defs>
+    <linearGradient id="top" x1="12" y1="12" x2="52" y2="43" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1687ff"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="middle" x1="14" y1="24" x2="50" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2467e8"/>
+      <stop offset="1" stop-color="#6846d9"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 42 32 29l24 13-24 14L8 42Z" fill="#17233b"/>
+  <path d="M8 32 32 19l24 13-24 14L8 32Z" fill="url(#middle)" stroke="#7897ff" stroke-opacity=".45"/>
+  <path d="M8 22 32 8l24 14-24 14L8 22Z" fill="url(#top)" stroke="#83b9ff" stroke-width="1.2"/>
+  <path d="m13 22 19 11 19-11" fill="none" stroke="#fff" stroke-opacity=".28"/>
+</svg>

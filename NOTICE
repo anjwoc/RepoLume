@@ -1,4 +1,4 @@
-LocalWiki Notices
+RepoLume Notices
 =================
 
 This repository is licensed under the MIT License. See LICENSE.
@@ -6,13 +6,13 @@ This repository is licensed under the MIT License. See LICENSE.
 Portions of this repository are derived from or adapted from MIT-licensed
 projects and must retain their copyright notices.
 
-LocalWiki contributors
+RepoLume contributors
 ----------------------
 
-Copyright (c) 2026 LocalWiki contributors
+Copyright (c) 2026 RepoLume contributors
 
-Original LocalWiki / Open LocalWiki components
-----------------------------------------------
+Original upstream components
+----------------------------
 
 Copyright (c) 2024 Sheing Ng
 
@@ -22,7 +22,7 @@ preserved in LICENSE.
 CodeBoarding-derived portions
 -----------------------------
 
-Small portions of the LocalWiki Sonar static-analysis layer are adapted from
+Small portions of the RepoLume Sonar static-analysis layer are adapted from
 CodeBoarding:
 
   https://github.com/CodeBoarding/CodeBoarding
@@ -32,6 +32,6 @@ Copyright (c) 2025 CodeBoarding
 Licensed under the MIT License.
 
 The adapted portions are limited to local static-analysis, graph, and
-Mermaid-related code paths. LocalWiki does not bundle the full upstream
+Mermaid-related code paths. RepoLume does not bundle the full upstream
 CodeBoarding project unless a separate optional integration is installed by the
 user.
