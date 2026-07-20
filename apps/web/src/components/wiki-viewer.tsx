@@ -225,14 +225,14 @@ const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, is
                   ? `inset 2px 0 0 ${isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)"}`
                   : "none",
               }}
-              onMouseEnter={(e) => {
+              onMouseEnter={(e: any) => {
                 if (!isActive) {
                   const el = e.currentTarget as HTMLElement;
                   el.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)";
                   el.style.color = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)";
                 }
               }}
-              onMouseLeave={(e) => {
+              onMouseLeave={(e: any) => {
                 if (!isActive) {
                   const el = e.currentTarget as HTMLElement;
                   el.style.background = "none";
@@ -1670,8 +1670,8 @@ ${chartCode}
             transition: "background 0.15s, color 0.15s",
             fontFamily: "inherit",
           }}
-          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = t.surfaceHover; }}
-          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+          onMouseEnter={(e: any) => { if (!isSelected) e.currentTarget.style.background = t.surfaceHover; }}
+          onMouseLeave={(e: any) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
         >
           {isFolder ? (
             isExpanded ? <FolderOpen size={14} color={isSelected ? t.primary : t.textMuted} /> : <Folder size={14} color={isSelected ? t.primary : t.textMuted} />
@@ -1700,8 +1700,8 @@ ${chartCode}
               cursor: regeneratingSectionId ? "default" : "pointer",
               fontSize: 10,
             }}
-            onMouseEnter={(e) => { if (!regeneratingSectionId) e.currentTarget.style.color = t.primary; }}
-            onMouseLeave={(e) => { if (!isRegenSection) e.currentTarget.style.color = t.textMuted; }}
+            onMouseEnter={(e: any) => { if (!regeneratingSectionId) e.currentTarget.style.color = t.primary; }}
+            onMouseLeave={(e: any) => { if (!isRegenSection) e.currentTarget.style.color = t.textMuted; }}
           >
             <RefreshCw size={11} className={isRegenSection ? "animate-spin" : ""} />
             {isRegenSection && <span>{sectionRegenProgress.current}/{sectionRegenProgress.total}</span>}
@@ -1761,8 +1761,8 @@ ${chartCode}
           <button
             onClick={onGoHome}
             style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 10, color: t.text, fontFamily: "inherit", fontSize: 14, fontWeight: 600, transition: "background 0.15s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: any) => (e.currentTarget.style.background = "transparent")}
           >
             <RepoLumeMark size={28} />
             RepoLume
@@ -1789,8 +1789,8 @@ ${chartCode}
                 disabled={isBulkRegening}
                 title={`실패한 ${failedCount}개 페이지를 한번에 재생성`}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: isBulkRegening ? t.surface : "#fef2f2", border: "1px solid #fecaca", cursor: isBulkRegening ? "default" : "pointer", color: "#dc2626", fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}
-                onMouseEnter={(e) => { if (!isBulkRegening) e.currentTarget.style.transform = "translateY(-1px)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+                onMouseEnter={(e: any) => { if (!isBulkRegening) e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={(e: any) => { e.currentTarget.style.transform = "none"; }}
               >
                 <RefreshCw size={14} className={isBulkRegening ? "animate-spin" : ""} />
                 <span>{isBulkRegening ? `${bulkRegenProgress.current}/${bulkRegenProgress.total} 재생성 중…` : `실패 ${failedCount}개 재생성`}</span>
@@ -1803,8 +1803,8 @@ ${chartCode}
               onClick={() => setShowAsk((v) => !v)}
               title="위키 문서에 질문하기"
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: showAsk ? t.ai : t.aiLight, border: "none", cursor: "pointer", color: showAsk ? "#fff" : t.ai, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+              onMouseEnter={(e: any) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e: any) => { e.currentTarget.style.transform = "none"; }}
             >
               <Sparkles size={14} />
               <span>질문</span>
@@ -1815,8 +1815,8 @@ ${chartCode}
             <button
               onClick={() => setShowExportModal(true)}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.primaryLight, border: "none", cursor: "pointer", color: t.primary, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; }}
+              onMouseEnter={(e: any) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e: any) => { e.currentTarget.style.transform = "none"; }}
             >
               <Share size={14} />
               <span>내보내기</span>
@@ -1826,8 +1826,8 @@ ${chartCode}
           <button
             onClick={() => { setShowSearch(true); setTimeout(() => searchRef.current?.focus(), 40); }}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", color: t.textMuted, fontSize: 12, fontFamily: "inherit", transition: "background 0.15s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = t.surface)}
+            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: any) => (e.currentTarget.style.background = t.surface)}
           >
             <Search size={13} />
             <span>검색</span>
@@ -1847,8 +1847,8 @@ ${chartCode}
               fontSize: 12, fontFamily: "inherit", transition: "all 0.15s",
               fontWeight: readingMode ? 600 : 400,
             }}
-            onMouseEnter={(e) => { if (!readingMode) e.currentTarget.style.background = t.surfaceHover; }}
-            onMouseLeave={(e) => { if (!readingMode) e.currentTarget.style.background = t.surface; }}
+            onMouseEnter={(e: any) => { if (!readingMode) e.currentTarget.style.background = t.surfaceHover; }}
+            onMouseLeave={(e: any) => { if (!readingMode) e.currentTarget.style.background = t.surface; }}
           >
             {readingMode ? <AlignCenter size={14} /> : <AlignJustify size={14} />}
             <span>{readingMode ? "읽기" : "전체"}</span>
@@ -1860,8 +1860,8 @@ ${chartCode}
               disabled={isResyncingLinks}
               title={resyncResult ? `링크 재동기화 완료 (${resyncResult.links_fixed}개 수정)` : "저장된 file:// 링크를 GitHub URL로 변환"}
               style={{ height: 36, padding: "0 10px", borderRadius: 10, background: resyncResult ? t.surfaceHover : t.surface, border: "none", cursor: isResyncingLinks ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, color: resyncResult?.links_fixed === -1 ? "#ef4444" : t.textSecondary, fontSize: 12, transition: "background 0.15s", opacity: isResyncingLinks ? 0.6 : 1 }}
-              onMouseEnter={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
-              onMouseLeave={(e) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
+              onMouseEnter={(e: any) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
+              onMouseLeave={(e: any) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
             >
               <Link size={14} style={{ flexShrink: 0, animation: isResyncingLinks ? "spin 1s linear infinite" : "none" }} />
               <span>{isResyncingLinks ? "동기화 중..." : resyncResult ? `${resyncResult.links_fixed}개 수정됨` : "링크 재동기화"}</span>
@@ -1874,8 +1874,8 @@ ${chartCode}
               onClick={() => { setGithubUrlDraft(customGithubUrl || (gitRoots?.[0]?.webUrl ?? '')); setShowGithubUrlEdit(v => !v); }}
               title={customGithubUrl ? `GitHub: ${customGithubUrl}` : "프로젝트 GitHub 저장소 URL 설정"}
               style={{ height: 36, padding: "0 10px", borderRadius: 10, background: customGithubUrl ? t.primaryLight : t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: customGithubUrl ? t.primary : t.textSecondary, fontSize: 12, transition: "background 0.15s" }}
-              onMouseEnter={(e) => { if (!customGithubUrl) e.currentTarget.style.background = t.surfaceHover; }}
-              onMouseLeave={(e) => { if (!customGithubUrl) e.currentTarget.style.background = t.surface; }}
+              onMouseEnter={(e: any) => { if (!customGithubUrl) e.currentTarget.style.background = t.surfaceHover; }}
+              onMouseLeave={(e: any) => { if (!customGithubUrl) e.currentTarget.style.background = t.surface; }}
             >
               <FaGithub size={14} />
               <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1914,9 +1914,9 @@ ${chartCode}
                   autoFocus
                   type="text"
                   value={githubUrlDraft}
-                  onChange={(e) => setGithubUrlDraft(e.target.value)}
+                  onChange={(e: any) => setGithubUrlDraft(e.target.value)}
                   placeholder={autoDetectedGithubUrl || "https://github.com/owner/repo"}
-                  onKeyDown={(e) => {
+                  onKeyDown={(e: any) => {
                     if (e.key === 'Enter') {
                       const url = githubUrlDraft.trim().replace(/\.git$/, '').replace(/\/$/, '');
                       setCustomGithubUrl(url);
@@ -1986,8 +1986,8 @@ ${chartCode}
             onClick={() => setShowTestScenarios((v) => !v)}
             title="테스트 시나리오 생성"
             style={{ height: 36, padding: "0 12px", borderRadius: 10, background: showTestScenarios ? '#f59e0b' : t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: showTestScenarios ? '#fff' : t.textSecondary, fontSize: 12, fontWeight: 600, transition: "background 0.15s", fontFamily: "inherit" }}
-            onMouseEnter={(e) => { if (!showTestScenarios) e.currentTarget.style.background = t.surfaceHover; }}
-            onMouseLeave={(e) => { if (!showTestScenarios) e.currentTarget.style.background = t.surface; }}
+            onMouseEnter={(e: any) => { if (!showTestScenarios) e.currentTarget.style.background = t.surfaceHover; }}
+            onMouseLeave={(e: any) => { if (!showTestScenarios) e.currentTarget.style.background = t.surface; }}
           >
             <FlaskConical size={15} />
             테스트 시나리오
@@ -1997,8 +1997,8 @@ ${chartCode}
             onClick={onGoHome}
             title="홈으로"
             style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.textSecondary, transition: "background 0.15s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = t.surface)}
+            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: any) => (e.currentTarget.style.background = t.surface)}
           >
             <Home size={16} />
           </button>
@@ -2007,8 +2007,8 @@ ${chartCode}
             onClick={onToggleTheme}
             title="테마"
             style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.textSecondary, transition: "background 0.15s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = t.surface)}
+            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: any) => (e.currentTarget.style.background = t.surface)}
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -2042,7 +2042,7 @@ ${chartCode}
         {/* Content */}
         <div
           ref={contentRef}
-          onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
+          onScroll={(e: any) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
           style={{ flex: 1, overflowY: "auto", padding: "32px 0", position: "relative" }}
         >
           <AnimatePresence mode="wait">
@@ -2088,8 +2088,8 @@ ${chartCode}
                         disabled={isGeneratingBusiness}
                         title="비즈니스 분석(개요·데이터플로우·워크플로우·영향분석)을 생성하여 위키에 추가합니다"
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: isGeneratingBusiness ? "default" : "pointer", transition: "all 0.15s" }}
-                        onMouseEnter={(e) => { if (!isGeneratingBusiness) { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; } }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
+                        onMouseEnter={(e: any) => { if (!isGeneratingBusiness) { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; } }}
+                        onMouseLeave={(e: any) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
                       >
                         <Sparkles size={13} className={isGeneratingBusiness ? "animate-pulse" : ""} />
                         {isGeneratingBusiness ? "비즈니스 분석 중..." : "비즈니스 분석 생성"}
@@ -2097,8 +2097,8 @@ ${chartCode}
                       <button
                         onClick={() => setShowRegenModal(true)}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
+                        onMouseEnter={(e: any) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={(e: any) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
                       >
                         <RefreshCw size={13} />
                         페이지 재생성 (Review)
@@ -2225,7 +2225,7 @@ ${chartCode}
                 <input
                   ref={searchRef}
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e: any) => setQuery(e.target.value)}
                   placeholder="문서 검색..."
                   style={{ flex: 1, background: "none", border: "none", outline: "none", color: t.text, fontSize: 15.5, fontFamily: "inherit", caretColor: t.primary }}
                 />
@@ -2246,8 +2246,8 @@ ${chartCode}
                         key={item.id}
                         onClick={() => navigate(item.id)}
                         style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: "none", border: "none", cursor: "pointer", color: t.text, fontSize: 14, fontFamily: "inherit", textAlign: "left", transition: "background 0.1s" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = t.surfaceHover)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                        onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
+                        onMouseLeave={(e: any) => (e.currentTarget.style.background = "none")}
                       >
                         <FileText size={15} color={t.textSecondary} />
                         {item.title}
@@ -2266,8 +2266,8 @@ ${chartCode}
                         key={item.id}
                         onClick={() => navigate(item.id)}
                         style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 10px", background: "none", border: "none", cursor: "pointer", color: t.textSecondary, fontSize: 13.5, fontFamily: "inherit", textAlign: "left", borderRadius: 8, transition: "background 0.1s" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = t.textSecondary; }}
+                        onMouseEnter={(e: any) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={(e: any) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = t.textSecondary; }}
                       >
                         <FileText size={14} color={t.textMuted} />
                         {item.title}
@@ -2457,10 +2457,10 @@ ${chartCode}
               zIndex: 100,
               transition: "transform 0.2s, background 0.2s",
             }}
-            onMouseEnter={(e) => {
+            onMouseEnter={(e: any) => {
               e.currentTarget.style.transform = "translateY(-4px)";
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(e: any) => {
               e.currentTarget.style.transform = "translateY(0)";
             }}
             title="맨 위로 이동"
