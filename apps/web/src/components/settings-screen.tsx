@@ -1497,7 +1497,7 @@ function ProviderCard({
                         </label>
                         <input
                           type="text"
-                          value={provider.config.options?.confluence_url || ""}
+                          value={String(provider.config.options?.confluence_url || "")}
                           onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), confluence_url: e.target.value } })}
                           placeholder="https://confluence.your-domain.com"
                           style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
@@ -1674,7 +1674,7 @@ function ProviderCard({
                     </label>
                     <input
                       type="text"
-                      value={provider.config.options?.connection_string || ""}
+                      value={String(provider.config.options?.connection_string || "")}
                       onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), connection_string: e.target.value } })}
                       placeholder={`${provider.type}://user:password@localhost:${provider.type === "postgresql" ? "5432" : provider.type === "mysql" ? "3306" : "27017"}/mydb`}
                       style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
