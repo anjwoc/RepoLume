@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { OTPInput, OTPInputContext } from 'input-otp'
+import { OTPInput, OTPInputContext, type SlotProps } from 'input-otp'
 import { MinusIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -43,8 +43,8 @@ function InputOTPSlot({
 }: React.ComponentProps<'div'> & {
   index: number
 }) {
-  const inputOTPContext = React.useContext(OTPInputContext)
-  const slot = (inputOTPContext && 'slots' in inputOTPContext ? inputOTPContext.slots : undefined)?.[index]
+  const inputOTPContext = React.useContext(OTPInputContext) as { slots?: SlotProps[] } | null
+  const slot = inputOTPContext?.slots?.[index]
   const { char, hasFakeCaret, isActive } = slot ?? {}
 
   return (
