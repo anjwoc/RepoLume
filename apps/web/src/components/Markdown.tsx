@@ -429,7 +429,9 @@ const Markdown: React.FC<MarkdownProps> = ({
               style={{ textDecoration: 'none', verticalAlign: 'middle', border: '1px solid rgba(128,128,128,0.2)' }}
               title={`View ${filePath} on GitHub`}
             >
-              <FaGithub size={12} className="opacity-80" />
+              <span className="opacity-80" aria-hidden="true">
+                <FaGithub size={12} />
+              </span>
               {filePath}
             </span>
           );
