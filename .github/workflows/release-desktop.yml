@@ -150,7 +150,7 @@ jobs:
 
       - name: Create checksums
         shell: bash
-        run: shasum -a 256 apps/desktop/dist/*.exe > apps/desktop/dist/SHA256SUMS-win.txt
+        run: sha256sum apps/desktop/dist/*.exe > apps/desktop/dist/SHA256SUMS-win.txt
 
       - name: Retain build artifacts
         uses: actions/upload-artifact@v4
