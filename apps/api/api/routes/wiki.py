@@ -25,7 +25,7 @@ from api.db.store import job_store, page_checkpoint_store, project_store, wiki_r
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 
 # ── SQLite cache helpers ───────────────────────────────────────────────────────

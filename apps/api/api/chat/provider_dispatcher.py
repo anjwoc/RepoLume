@@ -31,7 +31,7 @@ from api.runtime_env import product_env
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 _MAX_EMPTY_RETRIES = 2
 _EMPTY_RETRY_DELAYS = [5, 15]  # seconds between retry attempts

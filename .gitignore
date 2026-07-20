@@ -1,5 +1,5 @@
 # Dependencies
-/node_modules/
+node_modules/
 /.pnp
 .pnp.*
 .pnpm-store/
@@ -10,8 +10,8 @@
 !.yarn/versions
 
 # JavaScript / Next.js
-/.next/
-/out/
+.next/
+out/
 /coverage/
 /.turbo/
 /.cache/
@@ -160,3 +160,4 @@ playwright-report
 .github
 .localwiki-cache
 .vscode
+.proofloop

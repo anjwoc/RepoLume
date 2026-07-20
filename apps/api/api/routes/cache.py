@@ -49,7 +49,7 @@ WIKI_CACHE_DIR = product_env(
 ) or os.path.join(os.path.expanduser("~/.adalflow"), "wikicache")
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 
 def get_wiki_cache_path(
