@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>DBGraph Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #e2e8f0; padding: 32px; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 24px; color: #fff; }
+    h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .card { background: #1e2130; border: 1px solid #2d3252; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    .status-row { display: flex; gap: 24px; flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; gap: 2px; }
+    .stat-label { font-size: 11px; color: #64748b; }
+    .stat-value { font-size: 18px; font-weight: 700; color: #60a5fa; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(16,185,129,0.15); color: #10b981; }
+    .badge-yellow { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .badge-red { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .search-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    input[type="text"] { flex: 1; background: #0f1117; border: 1px solid #2d3252; border-radius: 8px; padding: 8px 14px; color: #e2e8f0; font-size: 14px; outline: none; }
+    input[type="text"]:focus { border-color: #60a5fa; }
+    button { background: #3b82f6; color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #2563eb; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .table-list { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; }
+    .table-item { background: #0f1117; border: 1px solid #1e2130; border-radius: 8px; padding: 12px 16px; }
+    .table-fqn { font-size: 13px; font-weight: 600; color: #60a5fa; margin-bottom: 6px; font-family: monospace; }
+    .col-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .col-chip { font-size: 11px; background: #1e2130; border: 1px solid #2d3252; border-radius: 4px; padding: 2px 7px; color: #94a3b8; }
+    .col-chip.pk { border-color: #f59e0b; color: #f59e0b; }
+    .col-chip.fk { border-color: #8b5cf6; color: #8b5cf6; }
+    .empty { color: #475569; font-size: 13px; text-align: center; padding: 24px 0; }
+    select { background: #0f1117; border: 1px solid #2d3252; border-radius: 8px; padding: 8px 14px; color: #e2e8f0; font-size: 14px; outline: none; }
+    .config-grid { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; }
+    .config-key { color: #64748b; }
+    .config-val { color: #e2e8f0; font-family: monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>🗄️ DBGraph Test Page</h1>
+
+  <!-- Config -->
+  <div class="card">
+    <h2>설정 (db_index_config)</h2>
+    <div id="config-area" class="config-grid">loading...</div>
+  </div>
+
+  <!-- Status -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h2 style="margin:0">인덱스 상태</h2>
+      <select id="project-select" onchange="loadStatus()">
+        <option value="affiliate">affiliate (구 형식)</option>
+        <option value="gmarket:affiliate:java">gmarket:affiliate:java (신 형식)</option>
+        <option value="default">default</option>
+      </select>
+    </div>
+    <div id="status-area" class="status-row">loading...</div>
+  </div>
+
+  <!-- Query -->
+  <div class="card">
+    <h2>테이블 검색</h2>
+    <div class="search-row">
+      <input type="text" id="search-input" placeholder="settle, order, user ..." value="settle" onkeydown="if(event.key==='Enter')search()">
+      <button onclick="search()" id="search-btn">검색</button>
+    </div>
+    <div id="results-area"><p class="empty">검색어를 입력하세요.</p></div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8001';
+
+    async function loadConfig() {
+      const res = await fetch(`${API}/api/settings/db_index_config`);
+      const data = await res.json();
+      const el = document.getElementById('config-area');
+      if (!data.value) { el.innerHTML = '<span style="color:#64748b;font-size:13px">미설정 — 설정 페이지에서 구성하세요.</span>'; return; }
+      const cfg = data.value;
+      el.innerHTML = [
+        ['source_dir', cfg.source_dir || '(미설정)'],
+        ['project_id', cfg.project_id || '(미설정)'],
+        ['entity_pattern', cfg.entity_pattern || '(미설정)'],
+        ['csv_dir', cfg.csv_dir || '(없음)'],
+      ].map(([k, v]) => `<span class="config-key">${k}</span><span class="config-val">${v}</span>`).join('');
+
+      // auto-select configured project
+      if (cfg.project_id) {
+        const sel = document.getElementById('project-select');
+        const opt = sel.querySelector(`option[value="${cfg.project_id}"]`);
+        if (!opt) {
+          const newOpt = document.createElement('option');
+          newOpt.value = cfg.project_id; newOpt.textContent = cfg.project_id + ' (설정됨)';
+          sel.prepend(newOpt);
+        }
+        sel.value = cfg.project_id;
+      }
+    }
+
+    async function loadStatus() {
+      const project = document.getElementById('project-select').value;
+      const el = document.getElementById('status-area');
+      el.innerHTML = 'loading...';
+      const res = await fetch(`${API}/api/db-index/status?project=${encodeURIComponent(project)}`);
+      const s = await res.json();
+      if (!s.exists) {
+        el.innerHTML = `<span class="badge badge-red">인덱스 없음</span><span style="color:#64748b;font-size:13px;margin-left:12px">이 project_id로 동기화된 인덱스가 없습니다.</span>`;
+        return;
+      }
+      const freshBadge = s.fresh
+        ? `<span class="badge badge-green">최신</span>`
+        : `<span class="badge badge-yellow">오래됨 (24h+)</span>`;
+      el.innerHTML = `
+        <div class="stat"><span class="stat-label">테이블</span><span class="stat-value">${s.total_in_db ?? 0}</span></div>
+        <div class="stat"><span class="stat-label">DDL 보강</span><span class="stat-value">${s.enriched ?? 0}</span></div>
+        <div class="stat"><span class="stat-label">JPA 스캔</span><span class="stat-value">${s.jpa_tables ?? 0}</span></div>
+        <div class="stat"><span class="stat-label">상태</span><span style="margin-top:4px">${freshBadge}</span></div>
+        ${s.indexed_at ? `<div class="stat"><span class="stat-label">인덱싱 시각</span><span style="font-size:13px;color:#94a3b8;margin-top:4px">${new Date(s.indexed_at).toLocaleString('ko-KR')}</span></div>` : ''}
+      `;
+    }
+
+    async function search() {
+      const q = document.getElementById('search-input').value.trim();
+      const project = document.getElementById('project-select').value;
+      const btn = document.getElementById('search-btn');
+      const el = document.getElementById('results-area');
+      if (!q) return;
+      btn.disabled = true; el.innerHTML = 'searching...';
+      try {
+        const res = await fetch(`${API}/api/db-index/query?q=${encodeURIComponent(q)}&project=${encodeURIComponent(project)}&limit=20`);
+        const data = await res.json();
+        if (!data.results || data.results.length === 0) {
+          el.innerHTML = `<p class="empty">결과 없음 — "${q}" 검색 결과가 없습니다.</p>`; return;
+        }
+        el.innerHTML = `<p style="font-size:12px;color:#64748b;margin-bottom:10px">${data.count}개 결과</p><div class="table-list">` +
+          data.results.map(t => `
+            <div class="table-item">
+              <div class="table-fqn">${t.fqn}</div>
+              <div class="col-list">
+                ${(t.columns || []).slice(0, 20).map(c =>
+                  `<span class="col-chip ${c.is_pk ? 'pk' : c.is_fk ? 'fk' : ''}">${c.name}${c.type ? ': ' + c.type : ''}${c.is_pk ? ' 🔑' : ''}</span>`
+                ).join('')}
+                ${t.columns && t.columns.length > 20 ? `<span class="col-chip">+${t.columns.length - 20}개 더</span>` : ''}
+              </div>
+            </div>
+          `).join('') + '</div>';
+      } catch(e) {
+        el.innerHTML = `<p class="empty">오류: ${e.message}</p>`;
+      } finally { btn.disabled = false; }
+    }
+
+    // init
+    loadConfig().then(loadStatus);
+    setTimeout(search, 500); // auto-search "settle"
+  </script>
+</body>
+</html>

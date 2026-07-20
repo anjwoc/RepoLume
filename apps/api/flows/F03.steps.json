@@ -1,0 +1,76 @@
+{
+  "diagramId": "F03-click-inflow",
+  "edges": {
+    "Client→affiliate-gateway:POST /s/{code}": {
+      "protocol": "http",
+      "method": "POST",
+      "path": "/s/{code}",
+      "sideEffect": "safe",
+      "request": {
+        "headers": { "User-Agent": "Mozilla/5.0", "Referer": "https://gmarket.co.kr" },
+        "body": null
+      },
+      "response": {
+        "status": 302,
+        "latencyMs": 8,
+        "body": null
+      }
+    },
+    "affiliate-gateway→affiliate-backend:GET /inflow/resolve": {
+      "protocol": "http",
+      "method": "GET",
+      "path": "/inflow/resolve?code={code}",
+      "sideEffect": "safe",
+      "request": {
+        "headers": { "X-Internal": "gateway" },
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "latencyMs": 12,
+        "body": {
+          "shortCode": "abc123",
+          "targetUrl": "https://item.gmarket.co.kr/Item?goodscode=1234567",
+          "membId": "M0001",
+          "campaignId": "C202506"
+        }
+      },
+      "extract": {
+        "targetUrl": "response.targetUrl",
+        "membId": "response.membId"
+      }
+    },
+    "affiliate-backend→MongoDB:INSERT affiliate_inflow_log": {
+      "protocol": "sql",
+      "query": "db.affiliate_inflow_log.insertOne({ shortCode, membId, campaignId, clickedAt, userAgent, referer })",
+      "sideEffect": "mutating",
+      "request": {
+        "body": {
+          "shortCode": "abc123",
+          "membId": "M0001",
+          "campaignId": "C202506",
+          "clickedAt": "2026-06-28T03:00:00Z",
+          "userAgent": "Mozilla/5.0",
+          "referer": "https://gmarket.co.kr"
+        }
+      },
+      "response": {
+        "status": "ok",
+        "latencyMs": 6,
+        "body": { "insertedId": "ObjectId(66be...)" }
+      }
+    },
+    "affiliate-backend→affiliate-gateway:302 Redirect": {
+      "protocol": "http",
+      "method": "GET",
+      "path": "{{targetUrl}}",
+      "sideEffect": "safe",
+      "request": { "body": null },
+      "response": {
+        "status": 302,
+        "latencyMs": 2,
+        "body": null
+      }
+    }
+  }
+}

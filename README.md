@@ -137,7 +137,7 @@ The current desktop product intentionally generates Korean documentation. The in
 
 > **Note:** For air-gapped or locked-down machines, Docker Compose is the simpler install path.
 
-See [docs/release.md](docs/release.md) for the release contract, publishing checklist, and rollback policy.
+
 
 ## Configuration
 
@@ -171,7 +171,7 @@ Model and embedding defaults live in:
 - `docker/docker-compose-litellm.yml`: adds LiteLLM and Postgres, useful when routing local Ollama or multiple providers through a single OpenAI-compatible endpoint.
 - `docker/Dockerfile-ollama-local`: bundles Ollama and pulls default local models during image build. This image is large and build-time model pulls can be slow.
 
-See [docs/docker.md](docs/docker.md) for more operational notes.
+
 
 ## Architecture
 
@@ -181,13 +181,13 @@ RepoLume has three major layers:
 - Backend API: FastAPI service for repository processing, wiki cache, and generation stream events.
 - CLI pipeline: repository resolution, static analysis, graph context, MCP context collection, structure planning, page generation, and export.
 
-See [docs/architecture.md](docs/architecture.md) and [docs/workflow.md](docs/workflow.md).
+
 
 ## Open Source Notices
 
 This repository includes original RepoLume code and portions adapted from MIT-licensed third-party projects. Keep `LICENSE` and `NOTICE` with source and binary distributions. User-facing product documentation refers to the static analysis layer as RepoLume Sonar; detailed third-party attribution lives in `NOTICE` and source file headers.
 
-See [NOTICE](NOTICE) and [docs/open-source.md](docs/open-source.md).
+See [NOTICE](NOTICE).
 
 ## Repository Hygiene
 

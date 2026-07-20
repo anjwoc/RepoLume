@@ -96,14 +96,6 @@ python3 -m cli.wiki publish ./wiki-out/my-repo \
   --root-title "My Repo Wiki"
 ```
 
-## 문서
-
-- Docker 운영: [docs/docker.md](docs/docker.md)
-- 환경 설정: [docs/configuration.md](docs/configuration.md)
-- 아키텍처: [docs/architecture.md](docs/architecture.md)
-- 생성 흐름: [docs/workflow.md](docs/workflow.md)
-- 오픈소스 고지: [docs/open-source.md](docs/open-source.md)
-- 데스크톱 배포 절차: [docs/release.md](docs/release.md)
 
 ## 데스크톱 배포 빌드
 

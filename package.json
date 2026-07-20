@@ -1,184 +1,21 @@
 {
-  "name": "repolume",
+  "name": "repolume-monorepo",
   "version": "0.1.3",
-  "description": "A local-first desktop app that turns source repositories into structured wikis.",
-  "author": "RepoLume contributors",
   "private": true,
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/anjwoc/RepoLume.git"
-  },
-  "bugs": {
-    "url": "https://github.com/anjwoc/RepoLume/issues"
-  },
-  "homepage": "https://github.com/anjwoc/RepoLume#readme",
   "engines": {
     "node": ">=20",
     "pnpm": ">=10"
   },
-  "main": "electron/main.js",
   "packageManager": "pnpm@10.15.1",
   "scripts": {
-    "setup": "pnpm install && pnpm run setup:api",
-    "setup:api": "cd api && poetry install",
-    "dev": "pnpm run dev:all",
-    "dev:web": "next dev --port 3000",
-    "dev:showcase": "NEXT_PUBLIC_SHOWCASE_MODE=true next dev --port 3001",
-    "dev:api": "poetry -C api run python main.py",
-    "dev:all": "make build-agent && echo '✅ agent built' || echo '⚠️  agent build failed (API mode only)'; concurrently --names 'web,api' --prefix-colors 'cyan,yellow' \"pnpm dev:web\" \"pnpm dev:api\"",
-    "build": "next build",
-    "build:agent": "make build-agent",
-    "start": "next start",
-    "lint": "eslint .",
-    "benchmark": "poetry -C api run python ../scripts/benchmark.py",
-    "benchmark:auto": "poetry -C api run python ../scripts/benchmark.py --auto",
-    "test": "pnpm test:e2e",
-    "test:unit": "vitest run",
-    "test:desktop": "node --test electron/*.test.js scripts/*.test.mjs",
-    "check:repo": "node scripts/check-repository-hygiene.mjs",
-    "check:package": "node scripts/check-package-contents.mjs",
-    "check:release": "node scripts/check-desktop-release.mjs",
-    "test:e2e": "bash scripts/test-e2e.sh --fast",
-    "test:e2e:full": "bash scripts/test-e2e.sh --full",
-    "test:landing": "E2E_LANDING_MODE=true E2E_PORT=3011 playwright test e2e/landing.spec.ts",
-    "export-showcase": "node scripts/export-showcase.js",
-    "dev:landing": "NEXT_PUBLIC_LANDING_MODE=true next dev --port 3001",
-    "build:landing": "NEXT_PUBLIC_LANDING_MODE=true next build",
-    "deploy:vercel": "pnpm run build:landing",
-    "desktop": "NODE_ENV=development electron .",
-    "desktop:clean": "node scripts/clean-desktop-output.mjs",
-    "desktop:prepare": "node scripts/build-desktop.mjs",
-    "desktop:dir": "pnpm desktop:prepare && pnpm desktop:clean && electron-builder --dir",
-    "desktop:build": "pnpm release:desktop",
-    "release:desktop": "pnpm check:release && pnpm check:repo && pnpm test:desktop && pnpm desktop:clean && pnpm desktop:prepare && node scripts/package-desktop.mjs"
-  },
-  "build": {
-    "appId": "com.repolume.desktop",
-    "productName": "RepoLume",
-    "directories": {
-      "output": "dist"
-    },
-    "asar": true,
-    "files": [
-      "electron/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "build/desktop/api/repolume-api",
-        "to": "api/repolume-api"
-      },
-      {
-        "from": "build/desktop/bin",
-        "to": "bin"
-      },
-      {
-        "from": "build/desktop/web",
-        "to": "web"
-      }
-    ],
-    "mac": {
-      "icon": "electron/assets/repolume-icon.png",
-      "extendInfo": {
-        "NSDocumentsFolderUsageDescription": "RepoLume는 사용자가 선택한 프로젝트를 분석하고 위키 산출물을 내보낼 때만 Documents 폴더에 접근합니다.",
-        "NSDesktopFolderUsageDescription": "RepoLume는 사용자가 Desktop의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다.",
-        "NSDownloadsFolderUsageDescription": "RepoLume는 사용자가 Downloads의 프로젝트 폴더를 직접 선택한 경우에만 해당 폴더를 분석합니다."
-      },
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "win": {
-      "icon": "electron/assets/repolume-icon.png",
-      "target": [
-        "nsis",
-        "portable"
-      ]
-    }
-  },
-  "dependencies": {
-    "@hookform/resolvers": "^5.4.0",
-    "@radix-ui/react-accordion": "^1.2.12",
-    "@radix-ui/react-alert-dialog": "^1.1.15",
-    "@radix-ui/react-aspect-ratio": "^1.1.8",
-    "@radix-ui/react-avatar": "^1.1.11",
-    "@radix-ui/react-checkbox": "^1.3.3",
-    "@radix-ui/react-collapsible": "^1.1.12",
-    "@radix-ui/react-context-menu": "^2.2.16",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@radix-ui/react-hover-card": "^1.1.15",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-menubar": "^1.1.16",
-    "@radix-ui/react-navigation-menu": "^1.2.14",
-    "@radix-ui/react-popover": "^1.1.15",
-    "@radix-ui/react-progress": "^1.1.8",
-    "@radix-ui/react-radio-group": "^1.3.8",
-    "@radix-ui/react-scroll-area": "^1.2.10",
-    "@radix-ui/react-select": "^2.2.6",
-    "@radix-ui/react-separator": "^1.1.8",
-    "@radix-ui/react-slider": "^1.3.6",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@radix-ui/react-switch": "^1.2.6",
-    "@radix-ui/react-tabs": "^1.1.13",
-    "@radix-ui/react-toast": "^1.2.15",
-    "@radix-ui/react-toggle": "^1.1.10",
-    "@radix-ui/react-toggle-group": "^1.1.11",
-    "@radix-ui/react-tooltip": "^1.2.8",
-    "@vercel/analytics": "^2.0.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "date-fns": "^4.4.0",
-    "embla-carousel-react": "^8.6.0",
-    "input-otp": "^1.4.2",
-    "js-yaml": "^5.1.0",
-    "katex": "^0.17.0",
-    "lucide-react": "^1.17.0",
-    "mermaid": "^11.4.1",
-    "motion": "^12.40.0",
-    "next": "16.2.6",
-    "next-intl": "^4.1.0",
-    "next-themes": "^0.4.6",
-    "react": "^19.0.0",
-    "react-day-picker": "^10.0.1",
-    "react-dom": "^19.0.0",
-    "react-hook-form": "^7.76.1",
-    "react-icons": "^5.5.0",
-    "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^4.11.2",
-    "react-syntax-highlighter": "^15.6.1",
-    "recharts": "^3.8.1",
-    "rehype-katex": "^7.0.1",
-    "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0",
-    "sonner": "^2.0.7",
-    "svg-pan-zoom": "^3.6.2",
-    "tailwind-merge": "^3.6.0",
-    "tw-animate-css": "^1.4.0",
-    "vaul": "^1.1.2",
-    "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "setup": "pnpm install && pnpm --filter @repolume/api setup",
+    "dev": "concurrently --names 'web,api' --prefix-colors 'cyan,yellow' \"pnpm --filter @repolume/web dev\" \"pnpm --filter @repolume/api dev\"",
+    "build": "pnpm --filter @repolume/web build",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@playwright/test": "^1.60.0",
-    "@tailwindcss/postcss": "^4",
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@types/react-syntax-highlighter": "^15.5.13",
     "concurrently": "^10.0.1",
-    "electron": "^42.3.2",
-    "electron-builder": "^26.8.1",
-    "eslint": "^9",
-    "eslint-config-next": "15.3.1",
-    "tailwindcss": "^4",
-    "typescript": "^5",
     "vitest": "^4.1.9",
     "wait-on": "^9.0.10"
   }

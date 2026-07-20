@@ -1,0 +1,32 @@
+{
+  "_comment": "Copy this file to local-wiki.flows.json and adjust tool names and scope to your environment.",
+  "mcpInstances": [
+    {
+      "instanceName": "oracle-gaffiliate",
+      "tool": "oracle",
+      "roles": ["db-schema", "db-stored-proc", "db-query"],
+      "scope": {
+        "databases": ["O_GAFFILIATE"],
+        "description": "Oracle affiliate schema"
+      }
+    },
+    {
+      "instanceName": "devdb-nautomaildb",
+      "tool": "devdb",
+      "roles": ["db-schema"],
+      "scope": {
+        "databases": ["nautomaildb", "neption"],
+        "description": "MSSQL email dispatch DB"
+      }
+    },
+    {
+      "instanceName": "github-enterprise",
+      "tool": "github",
+      "roles": ["code-reader"],
+      "scope": {
+        "host": "github.gmarket.com",
+        "description": "In-house GitHub Enterprise"
+      }
+    }
+  ]
+}

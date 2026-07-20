@@ -1,0 +1,11 @@
+{
+  "name": "@repolume/api",
+  "version": "0.1.3",
+  "private": true,
+  "scripts": {
+    "setup": "poetry -C api install",
+    "dev": "poetry -C api run python api/main.py",
+    "benchmark": "poetry -C api run python ../../scripts/benchmark.py",
+    "benchmark:auto": "poetry -C api run python ../../scripts/benchmark.py --auto"
+  }
+}
