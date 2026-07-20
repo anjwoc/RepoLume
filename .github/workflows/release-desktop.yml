@@ -77,7 +77,6 @@ jobs:
           path: |
             apps/desktop/dist/RepoLume-*.dmg
             apps/desktop/dist/RepoLume-*-mac.zip
-            apps/desktop/dist/latest-mac.yml
             apps/desktop/dist/SHA256SUMS.txt
           if-no-files-found: error
 
@@ -86,7 +85,6 @@ jobs:
           assets=(
             apps/desktop/dist/RepoLume-*.dmg
             apps/desktop/dist/RepoLume-*-mac.zip
-            apps/desktop/dist/latest-mac.yml
             apps/desktop/dist/SHA256SUMS.txt
           )
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
