@@ -2209,7 +2209,7 @@ ${chartCode}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "14vh", zIndex: 100 }}
-            onClick={(e) => { if (e.target === e.currentTarget) { setShowSearch(false); setQuery(""); } }}
+            onClick={(e: any) => { if (e.target === e.currentTarget) { setShowSearch(false); setQuery(""); } }}
           >
             <motion.div
               initial={{ opacity: 0, y: -18, scale: 0.96 }}
