@@ -1688,7 +1688,7 @@ ${chartCode}
 
         {isFolder && !isShowcase && (
           <button
-            onClick={(e) => { e.stopPropagation(); handleRegenerateSection(item.id, item.title); }}
+            onClick={(e: any) => { e.stopPropagation(); handleRegenerateSection(item.id, item.title); }}
             disabled={!!regeneratingSectionId}
             title={`"${item.title}" 섹션(디렉토리) 전체 재생성`}
             style={{
@@ -2217,7 +2217,7 @@ ${chartCode}
               exit={{ opacity: 0, y: -10, scale: 0.97 }}
               transition={{ duration: 0.2 }}
               style={{ width: 560, maxWidth: "calc(100vw - 40px)", background: t.bg, borderRadius: 20, boxShadow: t.floatingShadow, overflow: "hidden" }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: any) => e.stopPropagation()}
             >
               {/* Search input */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", borderBottom: `1px solid ${t.divider}` }}>
@@ -2289,7 +2289,7 @@ ${chartCode}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-            onClick={(e) => { if (e.target === e.currentTarget) setShowRegenModal(false); }}
+            onClick={(e: any) => { if (e.target === e.currentTarget) setShowRegenModal(false); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -2334,7 +2334,7 @@ ${chartCode}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-            onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
+            onClick={(e: any) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
