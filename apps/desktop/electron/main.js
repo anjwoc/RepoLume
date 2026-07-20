@@ -121,7 +121,15 @@ function stopServers() {
 function showCrashLoop({ name, reason, restarts }) {
   const detail = `${name} service stopped after ${restarts} restart attempts. ${JSON.stringify(reason)}`;
   console.error('RepoLume service crash loop', detail);
-  dialog.showErrorBox('RepoLume service stopped', detail);
+  if (process.argv.includes('--smoke-test')) {
+    try {
+      const logFile = path.join(app.getPath('userData'), `${name}.log`);
+      console.error(`--- ${name}.log ---\n` + require('fs').readFileSync(logFile, 'utf8'));
+    } catch {}
+    app.exit(1);
+  } else {
+    dialog.showErrorBox('RepoLume service stopped', detail);
+  }
 }
 
 function createWindow() {
@@ -276,6 +284,12 @@ app.whenReady().then(() => {
   return startServers();
 }).catch((error) => {
   console.error('RepoLume startup failed', error);
+  if (process.argv.includes('--smoke-test')) {
+    ['api', 'web'].forEach(name => {
+      try { console.error(`--- ${name}.log ---\n` + require('fs').readFileSync(path.join(app.getPath('userData'), `${name}.log`), 'utf8')); } catch {}
+    });
+    app.exit(1);
+  }
   stopServers();
   app.quit();
 });

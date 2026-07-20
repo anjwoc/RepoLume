@@ -652,7 +652,7 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
                 {folderAccess.status === 'ready' && `${folderAccess.name} 폴더 접근이 준비되었습니다. ${folderAccess.summary || ''}`}
                 {folderAccess.status === 'denied' && `폴더를 읽을 수 없습니다: ${folderAccess.error || '권한을 확인해 주세요.'}`}
               </span>
-              {folderAccess.status === 'denied' && <button onClick={() => void openPrivacySettings()} style={{ marginLeft: 'auto', border: `1px solid ${t.divider}`, borderRadius: 8, background: t.surface, color: t.textSecondary, padding: '5px 8px', fontSize: 11, cursor: 'pointer' }}>시스템 설정 열기</button>}
+              {folderAccess.status === 'denied' && <button onClick={handleBrowseFolder} style={{ marginLeft: 'auto', border: `1px solid ${t.divider}`, borderRadius: 8, background: t.surface, color: t.textSecondary, padding: '5px 8px', fontSize: 11, cursor: 'pointer' }}>폴더 찾아보기 (권한 획득)</button>}
             </div>
           )}
         </div>
