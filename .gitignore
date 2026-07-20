@@ -157,7 +157,7 @@ graphify-out
 playwright-out
 playwright-report
 .antigravitycli
-.github
 .localwiki-cache
 .vscode
-.proofloopapps/desktop/dist/
+.proofloop
+apps/desktop/dist/

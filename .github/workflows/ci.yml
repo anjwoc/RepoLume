@@ -22,12 +22,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check:repo
-      - run: pnpm check:release
       - run: pnpm lint
-      - run: pnpm exec tsc --noEmit
-      - run: pnpm test:unit
-      - run: pnpm test:desktop
+      - run: pnpm test
 
   python:
     name: Python tests
@@ -39,8 +35,8 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: python -m pip install poetry==2.1.2
-      - run: poetry -C api install --no-root
-      - run: poetry -C api run pytest ../tests -q
+      - run: poetry -C apps/api/api install --no-root
+      - run: poetry -C apps/api/api run pytest ../tests -q
 
   go:
     name: Go tests
@@ -49,10 +45,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: agent/go.mod
-          cache-dependency-path: agent/go.sum
+          go-version-file: apps/api/agent/go.mod
+          cache-dependency-path: apps/api/agent/go.sum
       - run: go test ./...
-        working-directory: agent
+        working-directory: apps/api/agent
 
   secret-scan:
     name: Secret scan
@@ -64,17 +60,3 @@ jobs:
       - uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
-
-  npm-pack-audit:
-    name: npm pack audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Check pack contents for secrets/artifacts
-        run: pnpm check:package

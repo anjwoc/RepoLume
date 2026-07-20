@@ -7,25 +7,30 @@ FROM node:20-alpine3.22 AS node_base
 
 FROM node_base AS node_deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+# We need the workspace root files and the web app files for pnpm
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/desktop/package.json ./apps/desktop/package.json
+COPY apps/web-e2e/package.json ./apps/web-e2e/package.json
 RUN corepack enable && pnpm install --frozen-lockfile
 
 FROM node_base AS node_builder
 WORKDIR /app
 COPY --from=node_deps /app/node_modules ./node_modules
-# Copy only necessary files for Next.js build
-COPY package.json pnpm-lock.yaml next.config.ts tsconfig.json tailwind.config.js postcss.config.mjs ./
-COPY src/ ./src/
-COPY public/ ./public/
+COPY --from=node_deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/web ./apps/web
+
 # Increase Node.js memory limit for build and disable telemetry
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN corepack enable && NODE_ENV=production pnpm build
+RUN corepack enable && pnpm --filter @repolume/web build
 
 FROM python:3.11-slim AS py_deps
 WORKDIR /api
-COPY api/pyproject.toml .
-COPY api/poetry.lock .
+COPY apps/api/api/pyproject.toml .
+COPY apps/api/api/poetry.lock .
 RUN python -m pip install poetry==2.0.1 --no-cache-dir && \
     poetry config virtualenvs.create true --local && \
     poetry config virtualenvs.in-project true --local && \
@@ -69,13 +74,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy Python dependencies
 COPY --from=py_deps /api/.venv /opt/venv
-COPY cli/ ./cli/
-COPY api/ ./api/
+COPY apps/api/cli/ ./cli/
+COPY apps/api/api/ ./api/
 
 # Copy Node app
-COPY --from=node_builder /app/public ./public
-COPY --from=node_builder /app/.next/standalone ./
-COPY --from=node_builder /app/.next/static ./.next/static
+COPY --from=node_builder /app/apps/web/public ./public
+COPY --from=node_builder /app/apps/web/.next/standalone/apps/web ./
+COPY --from=node_builder /app/apps/web/.next/standalone/node_modules ./node_modules
+COPY --from=node_builder /app/apps/web/.next/static ./.next/static
 
 # Expose the port the app runs on
 EXPOSE ${PORT:-8001} 3000

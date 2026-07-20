@@ -44,8 +44,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: agent/go.mod
-          cache-dependency-path: agent/go.sum
+          go-version-file: apps/api/agent/go.mod
+          cache-dependency-path: apps/api/agent/go.sum
 
       - name: Verify release tag
         run: |
@@ -62,32 +62,32 @@ jobs:
         run: |
           python -m pip install poetry==2.1.2
           pnpm install --frozen-lockfile
-          poetry -C api install --no-root
+          poetry -C apps/api/api install --no-root
 
       - name: Build verified desktop packages
-        run: pnpm release:desktop
+        run: pnpm --filter @repolume/desktop release
 
       - name: Create checksums
-        run: shasum -a 256 dist/RepoLume-*.dmg dist/RepoLume-*-mac.zip > dist/SHA256SUMS.txt
+        run: shasum -a 256 apps/desktop/dist/RepoLume-*.dmg apps/desktop/dist/RepoLume-*-mac.zip > apps/desktop/dist/SHA256SUMS.txt
 
       - name: Retain build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: repolume-${{ env.RELEASE_TAG }}-macos
           path: |
-            dist/RepoLume-*.dmg
-            dist/RepoLume-*-mac.zip
-            dist/latest-mac.yml
-            dist/SHA256SUMS.txt
+            apps/desktop/dist/RepoLume-*.dmg
+            apps/desktop/dist/RepoLume-*-mac.zip
+            apps/desktop/dist/latest-mac.yml
+            apps/desktop/dist/SHA256SUMS.txt
           if-no-files-found: error
 
       - name: Publish GitHub Release
         run: |
           assets=(
-            dist/RepoLume-*.dmg
-            dist/RepoLume-*-mac.zip
-            dist/latest-mac.yml
-            dist/SHA256SUMS.txt
+            apps/desktop/dist/RepoLume-*.dmg
+            apps/desktop/dist/RepoLume-*-mac.zip
+            apps/desktop/dist/latest-mac.yml
+            apps/desktop/dist/SHA256SUMS.txt
           )
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
