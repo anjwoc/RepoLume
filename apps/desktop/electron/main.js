@@ -1,6 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const { spawn, spawnSync } = require('child_process');
-const { mkdirSync } = require('fs');
+const { mkdirSync, appendFileSync } = require('fs');
 const net = require('net');
 const path = require('path');
 const { FOLDER_DIALOG_CHANNEL, createFolderSelector } = require('./folder-dialog');
@@ -65,11 +65,20 @@ async function waitForUrl(url, timeoutMs = 90000) {
 }
 
 function logChild(name, child) {
-  child.stdout?.on('data', (chunk) => console.log(`[${name}] ${chunk.toString().trimEnd()}`));
-  child.stderr?.on('data', (chunk) => console.error(`[${name}] ${chunk.toString().trimEnd()}`));
+  const logFile = path.join(app.getPath('userData'), `${name}.log`);
+  const log = (chunk, isErr) => {
+    const msg = `[${name}] ${chunk.toString().trimEnd()}`;
+    if (isErr) console.error(msg);
+    else console.log(msg);
+    try { appendFileSync(logFile, msg + '\n'); } catch {}
+  };
+  child.stdout?.on('data', (chunk) => log(chunk, false));
+  child.stderr?.on('data', (chunk) => log(chunk, true));
   child.on('exit', (code, signal) => {
     if (!quitting && code !== 0) {
-      console.error(`${name} exited unexpectedly`, { code, signal });
+      const msg = `${name} exited unexpectedly { code: ${code}, signal: ${signal} }`;
+      console.error(msg);
+      try { appendFileSync(logFile, msg + '\n'); } catch {}
     }
   });
 }
@@ -207,7 +216,7 @@ async function startServers() {
         env: {
         ...env,
         ELECTRON_RUN_AS_NODE: '1',
-        NODE_PATH: path.join(webRoot, 'runtime_modules'),
+        NODE_PATH: `${path.join(webRoot, 'runtime_modules')}${path.delimiter}${path.join(webRoot, 'runtime_modules', '.pnpm', 'node_modules')}`,
         PORT: String(webPort),
           HOSTNAME: '127.0.0.1',
         },
