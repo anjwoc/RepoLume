@@ -1477,6 +1477,34 @@ function ProviderCard({
                       }}
                     />
                   </div>
+                  {(!provider.config.options?.mode || provider.config.options?.mode === "datacenter") && (
+                    <>
+                      <div>
+                        <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                          Jira URL
+                        </label>
+                        <input
+                          type="text"
+                          value={provider.config.apiUrl || ""}
+                          onChange={(e) => onUpdateConfig({ apiUrl: e.target.value })}
+                          placeholder="https://jira.your-domain.com"
+                          style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                          Confluence URL (선택)
+                        </label>
+                        <input
+                          type="text"
+                          value={provider.config.options?.confluence_url || ""}
+                          onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), confluence_url: e.target.value } })}
+                          placeholder="https://confluence.your-domain.com"
+                          style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
@@ -1640,6 +1668,18 @@ function ProviderCard({
 
               {(provider.type === "postgresql" || provider.type === "mysql" || provider.type === "mongodb") && (
                 <>
+                  <div>
+                    <label style={{ display: "block", color: t.textSecondary, fontSize: 12, fontWeight: 500, marginBottom: 6 }}>
+                      Connection String (단일 입력 시 Host/Port 대신 사용)
+                    </label>
+                    <input
+                      type="text"
+                      value={provider.config.options?.connection_string || ""}
+                      onChange={(e) => onUpdateConfig({ options: { ...(provider.config.options as Record<string, string>), connection_string: e.target.value } })}
+                      placeholder={`${provider.type}://user:password@localhost:${provider.type === "postgresql" ? "5432" : provider.type === "mysql" ? "3306" : "27017"}/mydb`}
+                      style={{ width: "100%", padding: "10px 12px", background: t.bg, border: `1px solid ${t.divider}`, borderRadius: 10, color: t.text, fontSize: 13, outline: "none", marginBottom: 12 }}
+                    />
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 12 }}>
                     <div>
                       <label

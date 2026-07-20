@@ -485,6 +485,19 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const [exportVault, setExportVault] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
+  // Scroll to top on page change
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [selectedPage]);
+
+  const handleScroll = () => {
+    if (contentRef.current) {
+      setShowScrollTop(contentRef.current.scrollTop > 300);
+    }
+  };
+
   useEffect(() => {
     async function loadWiki() {
       if (!projectData) return;
@@ -1722,6 +1735,7 @@ ${chartCode}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
       style={{
+        position: "relative",
         width: "100%",
         height: "100vh",
         background: t.bg,
@@ -2414,6 +2428,45 @@ ${chartCode}
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Scroll To Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={() => contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            style={{
+              position: "absolute",
+              bottom: 40,
+              right: 40,
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              background: t.primary,
+              color: "#fff",
+              border: "none",
+              boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              zIndex: 100,
+              transition: "transform 0.2s, background 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-4px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            title="맨 위로 이동"
+          >
+            <ArrowUp size={24} />
+          </motion.button>
         )}
       </AnimatePresence>
     </motion.div>
