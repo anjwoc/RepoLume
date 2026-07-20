@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type DragEvent } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { FolderOpen, ChevronRight, Clock, Folder, Moon, Sun, Settings, ClipboardList, Trash2, FlaskConical, Loader2, ShieldCheck, CircleAlert, Bot, Plus, Send, Activity, BookOpen, ListTree, Shield, CheckCircle2 } from "lucide-react";
 import { getTheme } from "@/lib/theme";
@@ -532,9 +532,9 @@ export function HomeScreen({ isDark, onToggleTheme, onSelectProject, onOpenWiki,
         transition={prefersReducedMotion
           ? { duration: 0 }
           : { delay: 0.16, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragOver={(e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
+        onDrop={(e: DragEvent<HTMLDivElement>) => {
           e.preventDefault();
           setIsDragging(false);
           const droppedPath = (e.dataTransfer.files[0] as (File & { path?: string }) | undefined)?.path;
