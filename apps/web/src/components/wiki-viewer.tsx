@@ -1081,7 +1081,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         body: JSON.stringify({
           sourcePath: repoPath,
           artifactRoot,
-          flowIds: flowId ? [flowId] : [],
+          flowIds: flowId && flowId !== 'all' ? [flowId] : [],
           streamId,
           provider,
           model,
