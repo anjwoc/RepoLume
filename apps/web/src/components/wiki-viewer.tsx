@@ -19,6 +19,7 @@ import type { TestGenProgress } from "@/lib/test-scenario-types";
 import type { DiagramEdgeData } from "@/lib/diagram-edge-types";
 import { manifestToViewerScenarios } from "@/lib/scenario-manifest";
 import type { GitRoot } from "@/lib/source-link-resolver";
+import type { PipelineEvent } from "@/lib/taskStreamClient";
 import { RepoLumeMark } from "@/components/repolume-mark";
 
 
@@ -88,6 +89,8 @@ interface WikiPage {
   title: string;
   content: string;
   filePaths: string[];
+  importance?: string;
+  relatedPages?: string[];
 }
 
 interface WikiStructure {
@@ -225,14 +228,14 @@ const TocPanel = memo(function TocPanel({ headings, contentRef, selectedPage, is
                   ? `inset 2px 0 0 ${isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)"}`
                   : "none",
               }}
-              onMouseEnter={(e: any) => {
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
                 if (!isActive) {
                   const el = e.currentTarget as HTMLElement;
                   el.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)";
                   el.style.color = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)";
                 }
               }}
-              onMouseLeave={(e: any) => {
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
                 if (!isActive) {
                   const el = e.currentTarget as HTMLElement;
                   el.style.background = "none";
@@ -665,8 +668,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         } else {
           console.error("No valid wiki structure or pages found in the cached response.");
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setIsLoading(false);
       }
@@ -764,8 +767,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         })
       });
 
-    } catch (err: any) {
-      alert(`재생성 실패: ${err.message}`);
+    } catch (err) {
+      alert(`재생성 실패: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLocalLoadingPages(prev => ({ ...prev, [pageIdToFix]: false }));
       if (regenPromptRef.current) regenPromptRef.current.value = "";
@@ -790,7 +793,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
   // Collect all page ids belonging to a section, recursing into subsections.
   const collectSectionPageIds = (sectionId: string): string[] => {
-    const sec = (wikiStructure?.sections || []).find((s: any) => s.id === sectionId);
+    const sec = (wikiStructure?.sections || []).find((s: WikiSection) => s.id === sectionId);
     if (!sec) return [];
     let ids: string[] = [...(sec.pages || [])];
     for (const subId of (sec.subsections || [])) {
@@ -854,8 +857,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         })
       });
       alert(`"${sectionTitle}" 섹션 ${pageIds.length}개 페이지 재생성을 완료했습니다.`);
-    } catch (err: any) {
-      alert(`섹션 재생성 실패: ${err.message}`);
+    } catch (err) {
+      alert(`섹션 재생성 실패: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setRegeneratingSectionId(null);
       setSectionRegenProgress({ current: 0, total: 0 });
@@ -866,7 +869,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
   const getFailedPageIds = (): string[] => {
     if (!wikiStructure) return [];
     return (wikiStructure.pages || [])
-      .map((p: any) => p.id)
+      .map((p: WikiPage) => p.id)
       .filter((id: string) => {
         if (id.startsWith("__business")) return false;
         const page = generatedPages[id];
@@ -902,7 +905,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         while (true) {
           const pid = queue.shift();
           if (!pid) break;
-          const pageData = working[pid] ?? (wikiStructure.pages || []).find((p: any) => p.id === pid);
+          const pageData = working[pid] ?? (wikiStructure.pages || []).find((p: WikiPage) => p.id === pid);
           if (!pageData) { completed++; setBulkRegenProgress({ current: completed, total: failedIds.length }); continue; }
           try {
             const newContent = await regenerateWikiPage({
@@ -939,7 +942,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
           provider, model: projectData.model,
         })
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error("bulk regen 실패:", err);
     } finally {
       setIsBulkRegening(false);
@@ -979,8 +982,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
       ];
 
       // Merge the business section into a fresh copy of the structure + pages.
-      const structure: any = JSON.parse(JSON.stringify(wikiStructure));
-      structure.sections = (structure.sections || []).filter((s: any) => s.id !== "__section_business__");
+      const structure: WikiStructure = JSON.parse(JSON.stringify(wikiStructure));
+      structure.sections = (structure.sections || []).filter((s: WikiSection) => s.id !== "__section_business__");
       structure.sections.push({
         id: "__section_business__",
         title: isMultiRepo ? "Cross-Repository Business Analysis" : (currentLang !== "ko" ? "Business Analysis" : "비즈니스 분석"),
@@ -990,7 +993,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         ...(structure.rootSections || []).filter((id: string) => id !== "__section_business__"),
         "__section_business__",
       ];
-      structure.pages = (structure.pages || []).filter((p: any) => !businessPageIds.includes(p.id)).concat(bizPages);
+      structure.pages = (structure.pages || []).filter((p: WikiPage) => !businessPageIds.includes(p.id)).concat(bizPages);
 
       const newGeneratedPages = { ...generatedPages };
       for (const p of bizPages) newGeneratedPages[p.id] = p;
@@ -1009,8 +1012,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
       // Reload so the sidebar tree rebuilds with the new business section.
       setRefreshKey((k) => k + 1);
       alert("비즈니스 분석을 생성하여 위키에 추가했습니다.");
-    } catch (err: any) {
-      alert(`비즈니스 분석 생성 실패: ${err.message}`);
+    } catch (err) {
+      alert(`비즈니스 분석 생성 실패: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsGeneratingBusiness(false);
     }
@@ -1042,7 +1045,7 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
 
       const { createTaskStream } = await import('@/lib/taskStreamClient');
       const es = createTaskStream(streamId, {
-        onEvent: (ev: any) => {
+        onEvent: (ev: PipelineEvent) => {
           const PHASE_MAP: Record<string, import('@/lib/test-scenario-types').TestGenPhase> = {
             parsing: 'parsing', 'analyzing-cross-flow': 'analyzing-cross-flow',
             'building-prompt': 'building-prompt', generating: 'generating', 'writing-output': 'writing-output',
@@ -1050,8 +1053,10 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
           if (ev.type === 'agent_log' || ev.type === 'phase_start') {
             setTestGenProgress((prev) => {
               const entry: import('@/lib/test-scenario-types').LogEntry = { level: 'info', message: ev.message, timestamp: ev.ts ?? new Date().toISOString() };
-              const phase = PHASE_MAP[ev.phase] ?? prev?.phase ?? 'parsing';
-              return { flowId: flowId ?? 'all', phase, phaseLabel: ev.phase ?? phase, progress: ev.data?.percent ?? prev?.progress ?? 0, message: ev.message, timestamp: ev.ts ?? new Date().toISOString(), logEntries: [...(prev?.logEntries ?? []), entry] };
+              const phaseKey = ev.phase ?? '';
+              const phase = PHASE_MAP[phaseKey] ?? prev?.phase ?? 'parsing';
+              const progressVal = typeof ev.data?.percent === 'number' ? ev.data.percent : (prev?.progress ?? 0);
+              return { flowId: flowId ?? 'all', phase, phaseLabel: ev.phase ?? phase, progress: progressVal, message: ev.message, timestamp: ev.ts ?? new Date().toISOString(), logEntries: [...(prev?.logEntries ?? []), entry] };
             });
           }
           if (ev.type === 'complete') {
@@ -1092,8 +1097,9 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         const failure = await startResponse.json().catch(() => ({ error: startResponse.statusText }));
         throw new Error(failure.error ?? `HTTP ${startResponse.status}`);
       }
-    } catch (err: any) {
-      setTestGenProgress((prev) => prev ? { ...prev, message: `오류: ${err.message}`, timestamp: new Date().toISOString() } : null);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setTestGenProgress((prev) => prev ? { ...prev, message: `오류: ${errorMsg}`, timestamp: new Date().toISOString() } : null);
       setIsGeneratingTests(false);
     }
   };
@@ -1192,8 +1198,8 @@ export function WikiViewer({ isDark, onToggleTheme, projectName, projectData, on
         };
       });
 
-    } catch (e: any) {
-      alert(`다이어그램 수정 요청 실패: ${e.message}`);
+    } catch (e) {
+      alert(`다이어그램 수정 요청 실패: ${e instanceof Error ? e.message : String(e)}`);
       throw e;
     }
   };
@@ -1342,8 +1348,8 @@ ${blockContent}`;
           })
         });
       }
-    } catch (e: any) {
-      alert(`블록 수정 실패: ${e.message}`);
+    } catch (e) {
+      alert(`블록 수정 실패: ${e instanceof Error ? e.message : String(e)}`);
     }
   }, [selectedPage, projectData, wikiStructure, generatedPages, currentLang]);
 
@@ -1477,8 +1483,8 @@ ${chartCode}
           ? `성공적으로 ${fixedCount}개의 다이어그램 오류를 복구했습니다.`
           : `${fixedCount}개를 복구했습니다. ${remaining.length}개는 자동 복구에 실패하여 수동 수정이 필요합니다.`
       );
-    } catch (e: any) {
-      alert(`다이어그램 일괄 복구 실패: ${e.message}`);
+    } catch (e) {
+      alert(`다이어그램 일괄 복구 실패: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setIsBatchFixing(false);
     }
@@ -1533,9 +1539,9 @@ ${chartCode}
               id,
               title: p.title || id,
               content: p.content || "",
-              filePaths: (p as any).filePaths || [],
-              importance: (p as any).importance || "medium",
-              relatedPages: (p as any).relatedPages || [],
+              filePaths: p.filePaths || [],
+              importance: p.importance || "medium",
+              relatedPages: p.relatedPages || [],
             };
           }),
         };
@@ -1558,8 +1564,8 @@ ${chartCode}
         document.body.removeChild(a);
       }
       setShowExportModal(false);
-    } catch (e: any) {
-      alert(`내보내기 실패: ${e.message}`);
+    } catch (e) {
+      alert(`내보내기 실패: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setIsExporting(false);
     }
@@ -1670,8 +1676,8 @@ ${chartCode}
             transition: "background 0.15s, color 0.15s",
             fontFamily: "inherit",
           }}
-          onMouseEnter={(e: any) => { if (!isSelected) e.currentTarget.style.background = t.surfaceHover; }}
-          onMouseLeave={(e: any) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isSelected) e.currentTarget.style.background = t.surfaceHover; }}
+          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
         >
           {isFolder ? (
             isExpanded ? <FolderOpen size={14} color={isSelected ? t.primary : t.textMuted} /> : <Folder size={14} color={isSelected ? t.primary : t.textMuted} />
@@ -1688,7 +1694,7 @@ ${chartCode}
 
         {isFolder && !isShowcase && (
           <button
-            onClick={(e: any) => { e.stopPropagation(); handleRegenerateSection(item.id, item.title); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleRegenerateSection(item.id, item.title); }}
             disabled={!!regeneratingSectionId}
             title={`"${item.title}" 섹션(디렉토리) 전체 재생성`}
             style={{
@@ -1700,8 +1706,8 @@ ${chartCode}
               cursor: regeneratingSectionId ? "default" : "pointer",
               fontSize: 10,
             }}
-            onMouseEnter={(e: any) => { if (!regeneratingSectionId) e.currentTarget.style.color = t.primary; }}
-            onMouseLeave={(e: any) => { if (!isRegenSection) e.currentTarget.style.color = t.textMuted; }}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!regeneratingSectionId) e.currentTarget.style.color = t.primary; }}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isRegenSection) e.currentTarget.style.color = t.textMuted; }}
           >
             <RefreshCw size={11} className={isRegenSection ? "animate-spin" : ""} />
             {isRegenSection && <span>{sectionRegenProgress.current}/{sectionRegenProgress.total}</span>}
@@ -1761,8 +1767,8 @@ ${chartCode}
           <button
             onClick={onGoHome}
             style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 10, color: t.text, fontFamily: "inherit", fontSize: 14, fontWeight: 600, transition: "background 0.15s" }}
-            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e: any) => (e.currentTarget.style.background = "transparent")}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = "transparent")}
           >
             <RepoLumeMark size={28} />
             RepoLume
@@ -1789,8 +1795,8 @@ ${chartCode}
                 disabled={isBulkRegening}
                 title={`실패한 ${failedCount}개 페이지를 한번에 재생성`}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: isBulkRegening ? t.surface : "#fef2f2", border: "1px solid #fecaca", cursor: isBulkRegening ? "default" : "pointer", color: "#dc2626", fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}
-                onMouseEnter={(e: any) => { if (!isBulkRegening) e.currentTarget.style.transform = "translateY(-1px)"; }}
-                onMouseLeave={(e: any) => { e.currentTarget.style.transform = "none"; }}
+                onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isBulkRegening) e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = "none"; }}
               >
                 <RefreshCw size={14} className={isBulkRegening ? "animate-spin" : ""} />
                 <span>{isBulkRegening ? `${bulkRegenProgress.current}/${bulkRegenProgress.total} 재생성 중…` : `실패 ${failedCount}개 재생성`}</span>
@@ -1803,8 +1809,8 @@ ${chartCode}
               onClick={() => setShowAsk((v) => !v)}
               title="위키 문서에 질문하기"
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: showAsk ? t.ai : t.aiLight, border: "none", cursor: "pointer", color: showAsk ? "#fff" : t.ai, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={(e: any) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={(e: any) => { e.currentTarget.style.transform = "none"; }}
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = "none"; }}
             >
               <Sparkles size={14} />
               <span>질문</span>
@@ -1815,8 +1821,8 @@ ${chartCode}
             <button
               onClick={() => setShowExportModal(true)}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.primaryLight, border: "none", cursor: "pointer", color: t.primary, fontSize: 13, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={(e: any) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={(e: any) => { e.currentTarget.style.transform = "none"; }}
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = "none"; }}
             >
               <Share size={14} />
               <span>내보내기</span>
@@ -1826,8 +1832,8 @@ ${chartCode}
           <button
             onClick={() => { setShowSearch(true); setTimeout(() => searchRef.current?.focus(), 40); }}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", color: t.textMuted, fontSize: 12, fontFamily: "inherit", transition: "background 0.15s" }}
-            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e: any) => (e.currentTarget.style.background = t.surface)}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surface)}
           >
             <Search size={13} />
             <span>검색</span>
@@ -1847,8 +1853,8 @@ ${chartCode}
               fontSize: 12, fontFamily: "inherit", transition: "all 0.15s",
               fontWeight: readingMode ? 600 : 400,
             }}
-            onMouseEnter={(e: any) => { if (!readingMode) e.currentTarget.style.background = t.surfaceHover; }}
-            onMouseLeave={(e: any) => { if (!readingMode) e.currentTarget.style.background = t.surface; }}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!readingMode) e.currentTarget.style.background = t.surfaceHover; }}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (!readingMode) e.currentTarget.style.background = t.surface; }}
           >
             {readingMode ? <AlignCenter size={14} /> : <AlignJustify size={14} />}
             <span>{readingMode ? "읽기" : "전체"}</span>
@@ -1860,8 +1866,8 @@ ${chartCode}
               disabled={isResyncingLinks}
               title={resyncResult ? `링크 재동기화 완료 (${resyncResult.links_fixed}개 수정)` : "저장된 file:// 링크를 GitHub URL로 변환"}
               style={{ height: 36, padding: "0 10px", borderRadius: 10, background: resyncResult ? t.surfaceHover : t.surface, border: "none", cursor: isResyncingLinks ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, color: resyncResult?.links_fixed === -1 ? "#ef4444" : t.textSecondary, fontSize: 12, transition: "background 0.15s", opacity: isResyncingLinks ? 0.6 : 1 }}
-              onMouseEnter={(e: any) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
-              onMouseLeave={(e: any) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isResyncingLinks) e.currentTarget.style.background = t.surfaceHover; }}
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isResyncingLinks) e.currentTarget.style.background = resyncResult ? t.surfaceHover : t.surface; }}
             >
               <Link size={14} style={{ flexShrink: 0, animation: isResyncingLinks ? "spin 1s linear infinite" : "none" }} />
               <span>{isResyncingLinks ? "동기화 중..." : resyncResult ? `${resyncResult.links_fixed}개 수정됨` : "링크 재동기화"}</span>
@@ -1874,8 +1880,8 @@ ${chartCode}
               onClick={() => { setGithubUrlDraft(customGithubUrl || (gitRoots?.[0]?.webUrl ?? '')); setShowGithubUrlEdit(v => !v); }}
               title={customGithubUrl ? `GitHub: ${customGithubUrl}` : "프로젝트 GitHub 저장소 URL 설정"}
               style={{ height: 36, padding: "0 10px", borderRadius: 10, background: customGithubUrl ? t.primaryLight : t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: customGithubUrl ? t.primary : t.textSecondary, fontSize: 12, transition: "background 0.15s" }}
-              onMouseEnter={(e: any) => { if (!customGithubUrl) e.currentTarget.style.background = t.surfaceHover; }}
-              onMouseLeave={(e: any) => { if (!customGithubUrl) e.currentTarget.style.background = t.surface; }}
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!customGithubUrl) e.currentTarget.style.background = t.surfaceHover; }}
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (!customGithubUrl) e.currentTarget.style.background = t.surface; }}
             >
               <FaGithub size={14} />
               <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1914,9 +1920,9 @@ ${chartCode}
                   autoFocus
                   type="text"
                   value={githubUrlDraft}
-                  onChange={(e: any) => setGithubUrlDraft(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGithubUrlDraft(e.target.value)}
                   placeholder={autoDetectedGithubUrl || "https://github.com/owner/repo"}
-                  onKeyDown={(e: any) => {
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                     if (e.key === 'Enter') {
                       const url = githubUrlDraft.trim().replace(/\.git$/, '').replace(/\/$/, '');
                       setCustomGithubUrl(url);
@@ -1986,8 +1992,8 @@ ${chartCode}
             onClick={() => setShowTestScenarios((v) => !v)}
             title="테스트 시나리오 생성"
             style={{ height: 36, padding: "0 12px", borderRadius: 10, background: showTestScenarios ? '#f59e0b' : t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: showTestScenarios ? '#fff' : t.textSecondary, fontSize: 12, fontWeight: 600, transition: "background 0.15s", fontFamily: "inherit" }}
-            onMouseEnter={(e: any) => { if (!showTestScenarios) e.currentTarget.style.background = t.surfaceHover; }}
-            onMouseLeave={(e: any) => { if (!showTestScenarios) e.currentTarget.style.background = t.surface; }}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!showTestScenarios) e.currentTarget.style.background = t.surfaceHover; }}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (!showTestScenarios) e.currentTarget.style.background = t.surface; }}
           >
             <FlaskConical size={15} />
             테스트 시나리오
@@ -1997,8 +2003,8 @@ ${chartCode}
             onClick={onGoHome}
             title="홈으로"
             style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.textSecondary, transition: "background 0.15s" }}
-            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e: any) => (e.currentTarget.style.background = t.surface)}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surface)}
           >
             <Home size={16} />
           </button>
@@ -2007,8 +2013,8 @@ ${chartCode}
             onClick={onToggleTheme}
             title="테마"
             style={{ width: 36, height: 36, borderRadius: 10, background: t.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.textSecondary, transition: "background 0.15s" }}
-            onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
-            onMouseLeave={(e: any) => (e.currentTarget.style.background = t.surface)}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surfaceHover)}
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surface)}
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -2042,7 +2048,7 @@ ${chartCode}
         {/* Content */}
         <div
           ref={contentRef}
-          onScroll={(e: any) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
+          onScroll={(e: React.UIEvent<HTMLDivElement>) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
           style={{ flex: 1, overflowY: "auto", padding: "32px 0", position: "relative" }}
         >
           <AnimatePresence mode="wait">
@@ -2088,8 +2094,8 @@ ${chartCode}
                         disabled={isGeneratingBusiness}
                         title="비즈니스 분석(개요·데이터플로우·워크플로우·영향분석)을 생성하여 위키에 추가합니다"
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: isGeneratingBusiness ? "default" : "pointer", transition: "all 0.15s" }}
-                        onMouseEnter={(e: any) => { if (!isGeneratingBusiness) { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; } }}
-                        onMouseLeave={(e: any) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
+                        onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (!isGeneratingBusiness) { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; } }}
+                        onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
                       >
                         <Sparkles size={13} className={isGeneratingBusiness ? "animate-pulse" : ""} />
                         {isGeneratingBusiness ? "비즈니스 분석 중..." : "비즈니스 분석 생성"}
@@ -2097,8 +2103,8 @@ ${chartCode}
                       <button
                         onClick={() => setShowRegenModal(true)}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: t.surface, border: `1px solid ${t.divider}`, borderRadius: 8, color: t.textSecondary, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}
-                        onMouseEnter={(e: any) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
-                        onMouseLeave={(e: any) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
+                        onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = t.surface; e.currentTarget.style.color = t.textSecondary; }}
                       >
                         <RefreshCw size={13} />
                         페이지 재생성 (Review)
@@ -2209,7 +2215,7 @@ ${chartCode}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "14vh", zIndex: 100 }}
-            onClick={(e: any) => { if (e.target === e.currentTarget) { setShowSearch(false); setQuery(""); } }}
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => { if (e.target === e.currentTarget) { setShowSearch(false); setQuery(""); } }}
           >
             <motion.div
               initial={{ opacity: 0, y: -18, scale: 0.96 }}
@@ -2217,7 +2223,7 @@ ${chartCode}
               exit={{ opacity: 0, y: -10, scale: 0.97 }}
               transition={{ duration: 0.2 }}
               style={{ width: 560, maxWidth: "calc(100vw - 40px)", background: t.bg, borderRadius: 20, boxShadow: t.floatingShadow, overflow: "hidden" }}
-              onClick={(e: any) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
             >
               {/* Search input */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", borderBottom: `1px solid ${t.divider}` }}>
@@ -2225,7 +2231,7 @@ ${chartCode}
                 <input
                   ref={searchRef}
                   value={query}
-                  onChange={(e: any) => setQuery(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                   placeholder="문서 검색..."
                   style={{ flex: 1, background: "none", border: "none", outline: "none", color: t.text, fontSize: 15.5, fontFamily: "inherit", caretColor: t.primary }}
                 />
@@ -2246,8 +2252,8 @@ ${chartCode}
                         key={item.id}
                         onClick={() => navigate(item.id)}
                         style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: "none", border: "none", cursor: "pointer", color: t.text, fontSize: 14, fontFamily: "inherit", textAlign: "left", transition: "background 0.1s" }}
-                        onMouseEnter={(e: any) => (e.currentTarget.style.background = t.surfaceHover)}
-                        onMouseLeave={(e: any) => (e.currentTarget.style.background = "none")}
+                        onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = t.surfaceHover)}
+                        onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.background = "none")}
                       >
                         <FileText size={15} color={t.textSecondary} />
                         {item.title}
@@ -2266,8 +2272,8 @@ ${chartCode}
                         key={item.id}
                         onClick={() => navigate(item.id)}
                         style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 10px", background: "none", border: "none", cursor: "pointer", color: t.textSecondary, fontSize: 13.5, fontFamily: "inherit", textAlign: "left", borderRadius: 8, transition: "background 0.1s" }}
-                        onMouseEnter={(e: any) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
-                        onMouseLeave={(e: any) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = t.textSecondary; }}
+                        onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = t.surfaceHover; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = t.textSecondary; }}
                       >
                         <FileText size={14} color={t.textMuted} />
                         {item.title}
@@ -2289,7 +2295,7 @@ ${chartCode}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-            onClick={(e: any) => { if (e.target === e.currentTarget) setShowRegenModal(false); }}
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => { if (e.target === e.currentTarget) setShowRegenModal(false); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -2334,7 +2340,7 @@ ${chartCode}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{ position: "fixed", inset: 0, background: t.overlay, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-            onClick={(e: any) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => { if (e.target === e.currentTarget) setShowExportModal(false); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -2347,10 +2353,10 @@ ${chartCode}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: "block", fontSize: 13, color: t.textSecondary, marginBottom: 8 }}>대상 플랫폼</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {["notion", "obsidian", "markdown"].map((tType) => (
+                  {(["notion", "obsidian", "markdown"] as const).map((tType) => (
                     <button
                       key={tType}
-                      onClick={() => setExportTarget(tType as any)}
+                      onClick={() => setExportTarget(tType)}
                       style={{
                         flex: 1, padding: "10px", borderRadius: 8, cursor: "pointer",
                         background: exportTarget === tType ? t.primaryLight : "transparent",
@@ -2457,10 +2463,10 @@ ${chartCode}
               zIndex: 100,
               transition: "transform 0.2s, background 0.2s",
             }}
-            onMouseEnter={(e: any) => {
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
               e.currentTarget.style.transform = "translateY(-4px)";
             }}
-            onMouseLeave={(e: any) => {
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
               e.currentTarget.style.transform = "translateY(0)";
             }}
             title="맨 위로 이동"
