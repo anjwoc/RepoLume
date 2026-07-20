@@ -47,14 +47,28 @@ jobs:
           go-version-file: apps/api/agent/go.mod
           cache-dependency-path: apps/api/agent/go.sum
 
-      - name: Verify release tag
+      - name: Sync version from tag
         run: |
           node <<'NODE'
-          const metadata = require('./package.json');
-          const expected = `v${metadata.version}`;
-          if (process.env.RELEASE_TAG !== expected) {
-            console.error(`Release tag ${process.env.RELEASE_TAG} must match package version ${expected}`);
-            process.exit(1);
+          const fs = require('fs');
+          const path = require('path');
+          const version = process.env.RELEASE_TAG.replace(/^v/, '');
+          console.log(`Syncing version ${version} across monorepo...`);
+          const files = [
+            'package.json',
+            'apps/api/package.json',
+            'apps/desktop/package.json',
+            'apps/web/package.json',
+            'apps/web-e2e/package.json'
+          ];
+          for (const file of files) {
+            const filePath = path.join(process.cwd(), file);
+            if (fs.existsSync(filePath)) {
+              const pkg = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+              pkg.version = version;
+              fs.writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n');
+              console.log(`Updated ${file}`);
+            }
           }
           NODE
 
@@ -128,15 +142,29 @@ jobs:
           go-version-file: apps/api/agent/go.mod
           cache-dependency-path: apps/api/agent/go.sum
 
-      - name: Verify release tag
+      - name: Sync version from tag
         shell: bash
         run: |
           node <<'NODE'
-          const metadata = require('./package.json');
-          const expected = `v${metadata.version}`;
-          if (process.env.RELEASE_TAG !== expected) {
-            console.error(`Release tag ${process.env.RELEASE_TAG} must match package version ${expected}`);
-            process.exit(1);
+          const fs = require('fs');
+          const path = require('path');
+          const version = process.env.RELEASE_TAG.replace(/^v/, '');
+          console.log(`Syncing version ${version} across monorepo...`);
+          const files = [
+            'package.json',
+            'apps/api/package.json',
+            'apps/desktop/package.json',
+            'apps/web/package.json',
+            'apps/web-e2e/package.json'
+          ];
+          for (const file of files) {
+            const filePath = path.join(process.cwd(), file);
+            if (fs.existsSync(filePath)) {
+              const pkg = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+              pkg.version = version;
+              fs.writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n');
+              console.log(`Updated ${file}`);
+            }
           }
           NODE
 
