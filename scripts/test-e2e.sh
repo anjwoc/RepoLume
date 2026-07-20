@@ -12,7 +12,7 @@ if curl -s --max-time 2 http://localhost:8001/health > /dev/null 2>&1; then
 fi
 
 echo "🚀 백엔드 시작 중..."
-cd "$ROOT/apps/api" && poetry -C "api" run python -m api.main &
+poetry -C "$ROOT/apps/api/api" run python main.py &
 API_PID=$!
 
 cleanup() {
