@@ -1,6 +1,6 @@
 {
   "name": "@repolume/web-e2e",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "scripts": {
     "test": "bash ../../scripts/test-e2e.sh --fast",
