@@ -151,3 +151,12 @@ scratch_*.md
 Thumbs.db
 Desktop.ini
 .vercel
+
+wiki_out
+graphify-out
+playwright-out
+playwright-report
+.antigravitycli
+.github
+.localwiki-cache
+.vscode
