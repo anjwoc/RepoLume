@@ -171,6 +171,13 @@ app.include_router(task_stream_router)
 from api.mcp_api import router as mcp_api_router
 app.include_router(mcp_api_router)
 
+# Include refactored modular routes
+from api.routes.admin import router as admin_router
+from api.routes.code import router as code_router
+from api.routes.mcp import router as mcp_router
+app.include_router(admin_router)
+app.include_router(code_router)
+app.include_router(mcp_router)
 # --- Agent Endpoints (replaces localwiki-agent Go binary) ---
 
 @app.get("/agent/list")
