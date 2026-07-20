@@ -1,4 +1,3 @@
-import Image from "next/image";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { RepoLumeMark } from "@/components/repolume-mark";
+import { WikiThemeComparison } from "./wiki-theme-comparison";
 import styles from "./landing-page.module.css";
 
 const RELEASE_URL = "https://github.com/anjwoc/RepoLume/releases/latest";
@@ -123,21 +123,7 @@ export function LandingPage() {
             <span />
             <span />
           </div>
-          <figure className={styles.appCapture}>
-            <div className={styles.captureLabel}>
-              <span><Check size={13} aria-hidden="true" /></span>
-              실제 RepoLume 생성 화면
-            </div>
-            <Image
-              src="/repolume-wiki-view.png"
-              alt="RepoLume가 실제 코드베이스에서 생성한 데이터 흐름 위키 페이지"
-              width={1710}
-              height={1095}
-              sizes="(max-width: 1050px) calc(100vw - 40px), 650px"
-              priority
-            />
-            <figcaption>코드 근거, 데이터 흐름, SQL 예시를 한 페이지에서 검토할 수 있습니다.</figcaption>
-          </figure>
+          <WikiThemeComparison />
         </div>
       </section>
 

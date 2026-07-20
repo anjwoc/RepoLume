@@ -76,9 +76,11 @@ eggs/
 /graphify-out/
 /benchmark-out/
 /test-results/
+/apps/web-e2e/test-results/
 /playwright-report/
 /screenshots/
 /public/showcase-data/
+/apps/web/public/showcase-data/
 /logs/
 /tmp/
 /temp/

@@ -9,7 +9,8 @@ test.describe("RepoLume landing", () => {
       "href",
       "https://github.com/anjwoc/RepoLume/releases/latest",
     );
-    await expect(page.getByAltText("RepoLume가 실제 코드베이스에서 생성한 데이터 흐름 위키 페이지")).toBeVisible();
+    await expect(page.getByAltText("grok-build를 분석해 생성한 RepoLume 위키의 다크 테마 화면")).toBeVisible();
+    await expect(page.getByText("grok-build를 분석해 생성한 위키 문서")).toBeVisible();
     await expect(page.getByRole("heading", { name: /코드 밖의 맥락도/ })).toBeVisible();
     await expect(page.getByText("MCP 연결은 선택 사항입니다.")).toBeVisible();
     await expect(page.getByText("저장소 선택", { exact: true })).toBeVisible();
@@ -18,6 +19,31 @@ test.describe("RepoLume landing", () => {
 
     const content = await page.locator("main").innerText();
     expect(content).not.toMatch(/RAG|semantic search|LLM 질의|코드 검색/);
+  });
+
+  test("compares the same grok-build wiki in light and dark themes", async ({ page }) => {
+    await page.goto("/");
+
+    const comparison = page.getByRole("slider", { name: "라이트 테마와 다크 테마 화면 비교" });
+    await expect(comparison).toHaveValue("48");
+
+    const bounds = await comparison.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (bounds) {
+      await page.mouse.move(bounds.x + bounds.width * 0.48, bounds.y + bounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(bounds.x + bounds.width * 0.75, bounds.y + bounds.height / 2);
+      await page.mouse.up();
+      expect(Number(await comparison.inputValue())).toBeGreaterThanOrEqual(73);
+    }
+
+    await comparison.focus();
+    await page.keyboard.press("End");
+    await expect(comparison).toHaveValue("100");
+    await expect(comparison).toHaveAttribute("aria-valuetext", "라이트 테마 100%, 다크 테마 0%");
+    await page.keyboard.press("Home");
+    await expect(comparison).toHaveValue("0");
+    await expect(comparison).toHaveAttribute("aria-valuetext", "라이트 테마 0%, 다크 테마 100%");
   });
 
   test("fits a mobile viewport without horizontal page overflow", async ({ page }) => {

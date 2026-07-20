@@ -49,8 +49,8 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: landingMode
-      ? `NEXT_PUBLIC_LANDING_MODE=true pnpm exec next dev --port ${e2ePort}`
-      : `pnpm dev --port ${e2ePort}`,
+      ? `NEXT_PUBLIC_LANDING_MODE=true pnpm --dir ../web exec next dev --port ${e2ePort}`
+      : `pnpm --dir ../web exec next dev --port ${e2ePort}`,
     port: e2ePort,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,

@@ -9,6 +9,7 @@ import { SettingsScreen } from "@/components/settings-screen";
 import { SetupWizard, AppSettings, DEFAULT_APP_SETTINGS } from "@/components/setup-wizard";
 import { MCPSettings, DEFAULT_MCP_SETTINGS } from "@/lib/mcp-types";
 import { AdminLogsScreen } from "@/components/admin-logs";
+import { LandingPage } from "@/components/landing/landing-page";
 
 type Screen = "setup" | "home" | "analyzing" | "wiki" | "settings" | "admin";
 
@@ -38,7 +39,7 @@ function loadAppSettings(): AppSettings {
   return settings;
 }
 
-export default function Page() {
+function ProductAppPage() {
   const [screen, setScreen] = useState<Screen>("home");
   const [isDark, setIsDark] = useState(false);
   const [projectPath, setProjectPath] = useState("");
@@ -245,4 +246,12 @@ export default function Page() {
       </AnimatePresence>
     </div>
   );
+}
+
+export default function Page() {
+  if (process.env.NEXT_PUBLIC_LANDING_MODE === "true") {
+    return <LandingPage />;
+  }
+
+  return <ProductAppPage />;
 }
