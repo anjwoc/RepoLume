@@ -57,5 +57,5 @@ const isDirectExecution = process.argv[1]
   && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isDirectExecution) {
-  cleanDesktopOutputs(resolve(import.meta.dirname, '..'));
+  cleanDesktopOutputs(resolve(import.meta.dirname, '../apps/desktop'));
 }

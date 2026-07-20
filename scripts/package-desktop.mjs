@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { cleanDesktopOutputs, DESKTOP_OUTPUT_DIRECTORY } from './clean-desktop-output.mjs';
 
-const projectRoot = resolve(import.meta.dirname, '..');
+const projectRoot = resolve(import.meta.dirname, '../apps/desktop');
 const packageMetadata = JSON.parse(
   readFileSync(join(projectRoot, 'package.json'), 'utf8'),
 );
