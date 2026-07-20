@@ -1,9 +1,12 @@
 import asyncio
 import os
-import pty
 import re
 import time
 import logging
+try:
+    import pty
+except ImportError:
+    pty = None
 from typing import Optional, Tuple, Dict
 
 logger = logging.getLogger(__name__)
@@ -35,6 +38,8 @@ global_auth_session = AgyAuthSession()
 
 async def check_auth_status() -> bool:
     """Check if agy is already authenticated by running a dummy prompt."""
+    if pty is None:
+        return True
     try:
         proc = await asyncio.create_subprocess_exec(
             "agy", "--dangerously-skip-permissions", "--print", "ping",
@@ -63,6 +68,8 @@ async def check_auth_status() -> bool:
 
 async def start_auth_session() -> Dict[str, str]:
     """Starts agy in a PTY and captures the Google OAuth URL."""
+    if pty is None:
+        return {"success": False, "error": "PTY is not supported on this OS."}
     global global_auth_session
     global_auth_session.clear()
 
